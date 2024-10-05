@@ -66,17 +66,9 @@
         addExtraLinks();
 
         // Also observe DOM changes to ensure the script works for dynamically loaded content
-        const observer = new MutationObserver(mutations => {
-            let addedNodes = false;
-            mutations.forEach(mutation => {
-                if (mutation.addedNodes.length > 0) {
-                    addedNodes = true;
-                }
-            });
-            if (addedNodes) {
-                console.log('DOM mutation detected, running addExtraLinks');
-                addExtraLinks();
-            }
+        const observer = new MutationObserver(() => {
+            console.log('DOM mutation detected, running addExtraLinks');
+            addExtraLinks();
         });
         observer.observe(document.body, { childList: true, subtree: true });
         console.log('MutationObserver set up to watch for DOM changes');
