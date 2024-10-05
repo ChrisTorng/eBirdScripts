@@ -21,7 +21,6 @@
         console.log(`Found ${hotspotLinks.length} hotspot links.`);
 
         hotspotLinks.forEach(link => {
-            console.log('Processing link:', link.href);
             const li = link.parentElement;
             if (li && !li.dataset.extraLinksAdded) { // Prevent adding links multiple times
                 // Ensure the <li> is the second <li> within its parent
@@ -30,34 +29,25 @@
                 const index = Array.from(lis).indexOf(li);
 
                 if (index !== 1) { // Only process the second <li>
-                    console.log('Skipping link, not the second <li>:', link.href);
                     return;
                 }
 
                 console.log('Adding extra links for:', link.href);
-                // Extract the original URL and remove the "rank" parameter
-                const originalUrl = new URL(link.href, window.location.origin);
-                originalUrl.searchParams.delete('rank');
-                console.log('Original URL after removing rank parameter:', originalUrl.href);
-
-                const basePath = originalUrl.pathname;
-                const params = originalUrl.search;
+                const basePath = link.pathname;
 
                 // Create "最近鳥種" link
                 const birdListLi = document.createElement('li');
                 const birdListLink = document.createElement('a');
-                birdListLink.href = `${basePath}/bird-list${params}`;
+                birdListLink.href = `${basePath}/bird-list`;
                 birdListLink.textContent = '最近鳥種';
                 birdListLi.appendChild(birdListLink);
-                console.log('Created link for 最近鳥種:', birdListLink.href);
 
                 // Create "最近紀錄" link
                 const recentRecordsLi = document.createElement('li');
                 const recentRecordsLink = document.createElement('a');
-                recentRecordsLink.href = `${basePath}${params}`;
+                recentRecordsLink.href = `${basePath}/recent-checklists`;
                 recentRecordsLink.textContent = '最近紀錄';
                 recentRecordsLi.appendChild(recentRecordsLink);
-                console.log('Created link for 最近紀錄:', recentRecordsLink.href);
 
                 // Insert the new <li> elements after the original <li>
                 li.insertAdjacentElement('afterend', birdListLi);
@@ -66,9 +56,6 @@
 
                 // Mark this <li> as processed
                 li.dataset.extraLinksAdded = 'true';
-                console.log('Marked li as processed:', li);
-            } else {
-                console.log('Skipping link, already processed or invalid li:', link.href);
             }
         });
     }
