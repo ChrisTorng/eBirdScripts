@@ -24,6 +24,16 @@
             console.log('Processing link:', link.href);
             const li = link.parentElement;
             if (li && !li.dataset.extraLinksAdded) { // Prevent adding links multiple times
+                // Ensure the <li> is the second <li> within its parent
+                const parentUl = li.parentElement;
+                const lis = parentUl.querySelectorAll('li');
+                const index = Array.from(lis).indexOf(li);
+
+                if (index !== 1) { // Only process the second <li>
+                    console.log('Skipping link, not the second <li>:', link.href);
+                    return;
+                }
+
                 console.log('Adding extra links for:', link.href);
                 // Extract the original URL and remove the "rank" parameter
                 const originalUrl = new URL(link.href, window.location.origin);
