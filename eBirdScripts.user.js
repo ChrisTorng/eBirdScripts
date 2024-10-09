@@ -60,9 +60,27 @@
         });
     }
 
+    function updateHotspotsUrl() {
+        if (window.location.pathname === '/hotspots' && !window.location.search) {
+            console.log('Updating URL with user location coordinates');
+            navigator.geolocation.getCurrentPosition(position => {
+                const { latitude, longitude } = position.coords;
+                const minX = longitude - 0.05;
+                const maxX = longitude + 0.05;
+                const minY = latitude;
+                const maxY = latitude;
+                const newSearchParams = `?env.minX=${minX}&env.minY=${minY}&env.maxX=${maxX}&env.maxY=${maxY}&yr=cur`;
+                window.location.replace(window.location.origin + window.location.pathname + newSearchParams);
+            }, error => {
+                console.error('Error getting user location:', error);
+            });
+        }
+    }
+
     // Run the script when the page is loaded
     window.addEventListener('load', () => {
-        console.log('Page loaded, running addExtraLinks');
+        console.log('Page loaded, running addExtraLinks and updateHotspotsUrl');
+        updateHotspotsUrl();
         addExtraLinks();
 
         // Also observe DOM changes to ensure the script works for dynamically loaded content
