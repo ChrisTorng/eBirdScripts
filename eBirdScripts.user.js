@@ -69,7 +69,9 @@
                 const maxX = longitude + 0.05;
                 const minY = latitude;
                 const maxY = latitude;
-                const newSearchParams = `?env.minX=${minX}&env.minY=${minY}&env.maxX=${maxX}&env.maxY=${maxY}&yr=cur`;
+                const month = ""; // "" means all month, 1-12 means specific month
+                const year = "cur"; // "all"
+                const newSearchParams = `?env.minX=${minX}&env.minY=${minY}&env.maxX=${maxX}&env.maxY=${maxY}&m=${month}&yr=${year}`;
                 window.location.replace(window.location.origin + window.location.pathname + newSearchParams);
             }, error => {
                 console.error('Error getting user location:', error);
