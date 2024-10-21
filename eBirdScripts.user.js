@@ -2,7 +2,7 @@
 // @name         eBird Scripts
 // @version      2024-10-21_0.2
 // @description  Enchance eBird pages.
-// @match        https://ebird.org/hotspots*
+// @match        https://ebird.org/*
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
 // @downloadURL  https://github.com/ChrisTorng/eBirdScripts/raw/main/eBirdScripts.user.js
@@ -39,15 +39,17 @@
     GM_registerMenuCommand('設定經緯度增量範圍', setUserSetting);
 
     function addExtraLinks() {
+        if (!window.location.pathname.startsWith('/hotspots')) {
+            return; // 只有 /hotspots 頁面會啟用這個功能
+        }
+
         console.log('addExtraLinks called');
-        // Find all <li> elements that contain the hotspot link
         const hotspotLinks = document.querySelectorAll('li > a[href^="/hotspot/L"]');
         console.log(`Found ${hotspotLinks.length} hotspot links.`);
 
         hotspotLinks.forEach(link => {
             const li = link.parentElement;
             if (li && !li.dataset.extraLinksAdded) { // Prevent adding links multiple times
-                // Ensure the <li> is the second <li> within its parent
                 const parentUl = li.parentElement;
                 const lis = parentUl.querySelectorAll('li');
                 const index = Array.from(lis).indexOf(li);
@@ -104,16 +106,21 @@
         }
     }
 
-    // Run the script when the page is loaded
     window.addEventListener('load', () => {
         console.log('Page loaded, running addExtraLinks and updateHotspotsUrl');
-        updateHotspotsUrl();
-        addExtraLinks();
 
-        // Also observe DOM changes to ensure the script works for dynamically loaded content
-        const observer = new MutationObserver(() => {
-            console.log('DOM mutation detected, running addExtraLinks');
+        // 只在 /hotspots 頁面啟用這些功能
+        if (window.location.pathname.startsWith('/hotspots')) {
+            updateHotspotsUrl();
             addExtraLinks();
+        }
+
+        // Set up a MutationObserver to watch for DOM changes
+        const observer = new MutationObserver(() => {
+            if (window.location.pathname.startsWith('/hotspots')) {
+                console.log('DOM mutation detected, running addExtraLinks');
+                addExtraLinks();
+            }
         });
         observer.observe(document.body, { childList: true, subtree: true });
         console.log('MutationObserver set up to watch for DOM changes');
