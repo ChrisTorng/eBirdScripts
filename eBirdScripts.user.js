@@ -16,6 +16,47 @@
 (function() {
     'use strict';
 
+    const monthMap = {
+        '一月': '01',
+        '二月': '02',
+        '三月': '03',
+        '四月': '04',
+        '五月': '05',
+        '六月': '06',
+        '七月': '07',
+        '八月': '08',
+        '九月': '09',
+        '十月': '10',
+        '十一月': '11',
+        '十二月': '12'
+    };
+
+    function replaceDates() {
+        // 搜尋整個網頁中的文字節點
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        
+        let node;
+        while (node = walker.nextNode()) {
+            let text = node.nodeValue;
+
+            // 格式 1: 2 十月 2024 -> 2024/10/2
+            text = text.replace(/(\d{1,2})\s(一月|二月|三月|四月|五月|六月|七月|八月|九月|十月|十一月|十二月)\s(\d{4})/g, (match, day, month, year) => {
+                const monthNumber = monthMap[month];
+                return `${year}/${monthNumber}/${day.padStart(2, '0')}`;
+            });
+
+            // 格式 2: 2日 10月 2024年 -> 2024/10/2
+            text = text.replace(/(\d{1,2})日\s(\d{1,2})月\s(\d{4})年/g, (match, day, month, year) => {
+                return `${year}/${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
+            });
+
+            // 如果文字有變化，則更新節點內容
+            if (node.nodeValue !== text) {
+                node.nodeValue = text;
+            }
+        }
+    }
+
     const defaultOffset = 0.05;
 
     function getUserSetting() {
@@ -108,6 +149,7 @@
 
     window.addEventListener('load', () => {
         console.log('Page loaded, running addExtraLinks and updateHotspotsUrl');
+        replaceDates();
 
         // 只在 /hotspots 頁面啟用這些功能
         if (window.location.pathname.startsWith('/hotspots')) {
@@ -117,11 +159,13 @@
 
         // Set up a MutationObserver to watch for DOM changes
         const observer = new MutationObserver(() => {
+            replaceDates();
             if (window.location.pathname.startsWith('/hotspots')) {
                 console.log('DOM mutation detected, running addExtraLinks');
                 addExtraLinks();
             }
         });
+
         observer.observe(document.body, { childList: true, subtree: true });
         console.log('MutationObserver set up to watch for DOM changes');
     });

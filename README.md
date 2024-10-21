@@ -8,6 +8,7 @@
 
 eBird Scripts 是一個 [TamperMonkey](https://www.tampermonkey.net/) 使用者腳本，用於增強 [eBird](https://ebird.org) 網站的功能。
 
+- 日期格式由「21 十月 2024」或「21日 10月 2024年」改為「2024/10/21」格式顯示。
 - [eBird 熱門鳥點](https://ebird.org/hotspots)
   - 開啟地圖時自動定位到目前位置，時間範圍設為今年全年度。
   - 點出各別地點的彈跳畫面內，新增「最近鳥種」及「最近紀錄」連結。
@@ -22,14 +23,17 @@ eBird Scripts 是一個 [TamperMonkey](https://www.tampermonkey.net/) 使用者�
 2. **點選[安裝 eBird Scripts](https://github.com/ChrisTorng/eBirdScripts/raw/main/eBirdScripts.user.js)**<br>
    會自動開啟 TamperMonkey Install 畫面，請按 Install 鈕安裝。
 
-3. 若先前已開啟 [eBird 熱門鳥點](https://ebird.org/hotspots)，請重新整理網頁。
+3. 若先前已開啟了 [eBird](https://ebird.org/) 相關網頁，請重新整理網頁。
 
 ## 使用說明
 
 - 進入 [eBird 熱門鳥點](https://ebird.org/hotspots) 時，預設會定位到目前所在位置，時間範圍設定為今年全年。
 
-- 在 [eBird 熱門鳥點](https://ebird.org/hotspots)中點開任一熱點時，會看到新增的「最近鳥種」和「最近紀錄」的連結。
+- 在 [eBird 熱門鳥點](https://ebird.org/hotspots) 中點開任一熱點時，會看到新增的「最近鳥種」和「最近紀錄」的連結。
 
+- 在各 eBird 網頁中的中文日期，會代換為 2021/10/21 的格式，比如在 [我的 eBird](https://ebird.org/myebird)
+ 中「最新紀錄清單」裡的日期
+ 
 另請參考我製作的 [eBird 鳥訊快報整理](https://christorng.github.io/InfoProcess/eBird/)，幫助快速瀏覽 [eBird 鳥訊快報](https://ebird.org/alerts)郵件內容。
 
 如果遇到任何問題或功能建議，請至 [GitHub 頁面](https://github.com/ChrisTorng/eBirdScripts/) 並提交 issue。
