@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         eBird Scripts
-// @version      2024-10-05_0.1
+// @version      2024-10-21_0.2
 // @description  Enchance eBird pages.
 // @match        https://ebird.org/hotspots*
 // @author       ChrisTorng
@@ -8,11 +8,35 @@
 // @downloadURL  https://github.com/ChrisTorng/eBirdScripts/raw/main/eBirdScripts.user.js
 // @updateURL    https://github.com/ChrisTorng/eBirdScripts/raw/main/eBirdScripts.user.js
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=tampermonkey.net
-// @grant        none
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_registerMenuCommand
 // ==/UserScript==
 
 (function() {
     'use strict';
+
+    const defaultOffset = 0.05;
+
+    function getUserSetting() {
+        return GM_getValue('locationOffset', defaultOffset);
+    }
+
+    function setUserSetting() {
+        const currentOffset = getUserSetting();
+        const userInput = prompt(`請輸入經緯度增量範圍 (目前設定為 ${currentOffset}):`, currentOffset);
+        if (userInput !== null) {
+            const offset = parseFloat(userInput);
+            if (!isNaN(offset)) {
+                GM_setValue('locationOffset', offset);
+                console.log(`使用者設定經緯度增量範圍為: ${offset}`);
+            } else {
+                console.log('無效輸入，保持原來的設定。');
+            }
+        }
+    }
+
+    GM_registerMenuCommand('設定經緯度增量範圍', setUserSetting);
 
     function addExtraLinks() {
         console.log('addExtraLinks called');
@@ -64,9 +88,10 @@
         if (window.location.pathname === '/hotspots' && !window.location.search) {
             console.log('Updating URL with user location coordinates');
             navigator.geolocation.getCurrentPosition(position => {
+                const offset = getUserSetting(); // Get user-defined offset value
                 const { latitude, longitude } = position.coords;
-                const minX = longitude - 0.05;
-                const maxX = longitude + 0.05;
+                const minX = longitude - offset;
+                const maxX = longitude + offset;
                 const minY = latitude;
                 const maxY = latitude;
                 const month = ""; // "" means all month, 1-12 means specific month
