@@ -39,13 +39,13 @@
         while (node = walker.nextNode()) {
             let text = node.nodeValue;
 
-            // 格式 1: 2 十月 2024 -> 2024/10/2
+            // 格式 1: 2 十月 2024 -> 2024/10/02
             text = text.replace(/(\d{1,2})\s(一月|二月|三月|四月|五月|六月|七月|八月|九月|十月|十一月|十二月)\s(\d{4})/g, (match, day, month, year) => {
                 const monthNumber = monthMap[month];
                 return `${year}/${monthNumber}/${day.padStart(2, '0')}`;
             });
 
-            // 格式 2: 2日 10月 2024年 -> 2024/10/2
+            // 格式 2: 2日 10月 2024年 -> 2024/10/02
             text = text.replace(/(\d{1,2})日\s(\d{1,2})月\s(\d{4})年/g, (match, day, month, year) => {
                 return `${year}/${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
             });
@@ -65,7 +65,7 @@
 
     function setUserSetting() {
         const currentOffset = getUserSetting();
-        const userInput = prompt(`請輸入經緯度增量範圍 (目前設定為 ${currentOffset}):`, currentOffset);
+        const userInput = prompt(`請輸入經緯度增量範圍 (預設值 ${defaultOffset}，目前設定為 ${currentOffset}):`, currentOffset);
         if (userInput !== null) {
             const offset = parseFloat(userInput);
             if (!isNaN(offset)) {
