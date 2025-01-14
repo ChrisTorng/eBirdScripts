@@ -27,7 +27,7 @@ eBird Scripts 是一個 [Tampermonkey](https://www.tampermonkey.net/) 使用者�
 
 ## 使用說明
 
-- 進入 [eBird 熱門鳥點](https://ebird.org/hotspots) 時，預設會定位到目前所在位置，時間範圍設定為今年全年。
+- 進入 [eBird 熱門鳥點](https://ebird.org/hotspots) 時，會要求取得位置之權限，只要選擇允許，就會預設定位到目前所在位置，時間範圍設定為今年全年。
 
 - 在 [eBird 熱門鳥點](https://ebird.org/hotspots) 中點開任一熱點時，會看到新增的「最近鳥種」和「最近紀錄」的連結。
 
