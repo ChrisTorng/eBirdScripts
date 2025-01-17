@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         eBird Scripts
-// @version      2024-10-21_0.2
+// @version      2025-01-17_1.1.0
 // @description  Enchance eBird pages.
 // @match        https://ebird.org/*
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
 // @downloadURL  https://github.com/ChrisTorng/eBirdScripts/raw/main/eBirdScripts.user.js
 // @updateURL    https://github.com/ChrisTorng/eBirdScripts/raw/main/eBirdScripts.user.js
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=tampermonkey.net
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=ebird.org
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
