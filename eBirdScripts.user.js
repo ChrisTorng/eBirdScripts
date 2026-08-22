@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         eBird Scripts
-// @version      2025-01-17_1.1.0
+// @version      2026-08-20_1.2.0
 // @description  Enchance eBird pages.
 // @match        https://ebird.org/*
 // @author       ChrisTorng
@@ -48,6 +48,11 @@
             // 格式 2: 2日 10月 2024年 -> 2024/10/02
             text = text.replace(/(\d{1,2})日\s(\d{1,2})月\s(\d{4})年/g, (match, day, month, year) => {
                 return `${year}/${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
+            });
+
+            // 格式 3: 20 8月 2026 -> 2026/8/20
+            text = text.replace(/(\d{1,2})\s+(\d{1,2})月\s+(\d{4})/g, (match, day, month, year) => {
+                return `${year}/${Number(month)}/${Number(day)}`;
             });
 
             // 如果文字有變化，則更新節點內容
