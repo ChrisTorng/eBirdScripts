@@ -936,33 +936,55 @@
         return (date.getMonth() + 1) + '/' + date.getDate() + ' (' + weekdayNames[date.getDay()] + ')';
     }
 
-    function createDatePicker(onChanged) {
+    function isoDateValue(value) {
+        return value.year + '-'
+            + String(value.month).padStart(2, '0') + '-'
+            + String(value.day).padStart(2, '0');
+    }
+
+    function recentDateValues(referenceDate, selectedValue) {
+        const reference = startOfDay(referenceDate);
+        const unique = new Map();
+        for (let offset = 0; offset >= -6; offset -= 1) {
+            const date = new Date(reference);
+            date.setDate(date.getDate() + offset);
+            const value = dateValue(date);
+            unique.set(isoDateValue(value), value);
+        }
+        if (selectedValue) {
+            unique.set(isoDateValue(selectedValue), selectedValue);
+        }
+        return Array.from(unique.entries())
+            .sort(function(left, right) { return right[0].localeCompare(left[0]); })
+            .map(function(entry) { return entry[1]; });
+    }
+
+    function createDatePicker(onChanged, referenceDate = new Date()) {
         const label = document.createElement('label');
         label.className = 'tm-ebird-date-picker';
         label.textContent = '日期';
         const select = document.createElement('select');
         label.appendChild(select);
-        const today = startOfDay(new Date());
+        const reference = startOfDay(referenceDate);
+        let selectedValue = dateValue(reference);
 
-        function ensure(value) {
-            const iso = value.year + '-' + String(value.month).padStart(2, '0') + '-' + String(value.day).padStart(2, '0');
-            let option = Array.from(select.options || []).find(function(item) { return item.value === iso; });
-            if (!option) {
-                option = document.createElement('option');
-                option.value = iso;
-                option.textContent = formatDateLabel(value);
+        function rebuild(value) {
+            selectedValue = value;
+            const selectedIso = isoDateValue(value);
+            select.textContent = '';
+            recentDateValues(reference, value).forEach(function(item) {
+                const option = document.createElement('option');
+                option.value = isoDateValue(item);
+                option.textContent = formatDateLabel(item);
                 select.appendChild(option);
-            }
-            return iso;
+            });
+            select.value = selectedIso;
         }
 
-        for (let offset = 0; offset >= -6; offset -= 1) {
-            const date = new Date(today);
-            date.setDate(date.getDate() + offset);
-            ensure(dateValue(date));
-        }
-        select.value = ensure(dateValue(today));
+        rebuild(selectedValue);
         select.addEventListener('change', function() {
+            const parts = select.value.split('-').map(Number);
+            selectedValue = { year: parts[0], month: parts[1], day: parts[2] };
             if (typeof onChanged === 'function') {
                 onChanged();
             }
@@ -971,11 +993,13 @@
             element: label,
             select: select,
             set: function(value) {
-                select.value = ensure(value);
+                rebuild(value);
             },
             getDate: function() {
-                const parts = select.value.split('-').map(Number);
-                return new Date(parts[0], parts[1] - 1, parts[2]);
+                return dateObject(selectedValue);
+            },
+            getReferenceDate: function() {
+                return new Date(reference);
             }
         };
     }
@@ -1355,6 +1379,7 @@
         let datePicker = null;
         let updating = false;
         let lastAutoLocationKey = '';
+        const dateReference = startOfDay(new Date());
         const grid = document.createElement('div');
         grid.className = 'tm-ebird-record-grid';
         const textarea = document.createElement('textarea');
@@ -1396,7 +1421,7 @@
             updating = true;
             try {
                 const fallback = datePicker.getDate();
-                const alias = extractLocationAlias(textarea.value, fallback);
+                const alias = extractLocationAlias(textarea.value, dateReference);
                 const presets = getLocationPresets();
                 const known = presets[alias] || null;
                 const autoLocationKey = alias + '|' + (known ? known.locId : 'new');
@@ -1419,11 +1444,11 @@
                     settings.fields.pageName.value = current.pageName;
                 }
                 const firstLine = normalizeSource(textarea.value).split('\n').find(function(line) { return line.trim(); }) || '';
-                const parsedDate = parseFlexibleDate(firstLine.trim(), fallback);
+                const parsedDate = parseFlexibleDate(firstLine.trim(), dateReference);
                 if (parsedDate.consumed && !parsedDate.error) {
                     datePicker.set(parsedDate.value);
                 }
-                const analysis = analyzeRecordLines(textarea.value, datePicker.getDate(), known, current);
+                const analysis = analyzeRecordLines(textarea.value, dateReference, known, current);
                 renderPreview(analysis);
                 return {
                     alias: alias,
@@ -1436,11 +1461,11 @@
             }
         }
 
-        datePicker = createDatePicker(refresh);
+        datePicker = createDatePicker(refresh, dateReference);
         settings = createSettingsEditor(selectedLocation, refresh);
         body.append(datePicker.element, grid, actionRow, status, settings.element);
         locationFilter = installLocationFilter(function() {
-            const alias = extractLocationAlias(textarea.value, datePicker.getDate());
+            const alias = extractLocationAlias(textarea.value, dateReference);
             if (alias && !getLocationPresets()[alias] && settings) {
                 const current = selectedLocation();
                 if (current) {
@@ -1467,7 +1492,7 @@
                 if (!state.known) {
                     settings.savePending(state.alias);
                 }
-                const record = parseRecord(textarea.value, datePicker.getDate(), getLocationPresets());
+                const record = parseRecord(textarea.value, datePicker.getDate(), getLocationPresets(), dateReference);
                 assertRecordReady(record);
                 button.disabled = true;
                 status.textContent = record.warnings.join('\n');
@@ -1489,7 +1514,7 @@
             const timer = setInterval(function() {
                 attempts += 1;
                 locationFilter = installLocationFilter(function() {
-                    const alias = extractLocationAlias(textarea.value, datePicker.getDate());
+                    const alias = extractLocationAlias(textarea.value, dateReference);
                     if (alias && !getLocationPresets()[alias] && settings) {
                         const current = selectedLocation();
                         if (current) {
