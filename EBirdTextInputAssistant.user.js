@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-03_1.3.1
+// @version      2026-09-03_1.3.2
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -228,7 +228,7 @@
     }
 
     function parseObservationLine(line) {
-        const match = String(line || '').match(/^(.+?)\s+(\d+)(?:\s+(.*))?$/);
+        const match = String(line || '').match(/^(.+?)\s*(\d+)(?:\s+(.*))?$/);
         if (!match) {
             return { error: '無法解析物種紀錄：' + (line || '（未填）') };
         }
@@ -257,7 +257,9 @@
                 name: species.name,
                 count: count,
                 breedingCode: breedingCode,
-                comments: heardCount === null ? '' : 'Heard ' + heardCount
+                comments: heardCount === null ? '' : 'Heard ' + heardCount,
+                sourceLine: String(line || ''),
+                warning: unknownDetails ? '未套用的細節「' + unknownDetails + '」' : ''
             },
             warning: unknownDetails ? '未套用的細節「' + unknownDetails + '」：' + line : ''
         };
@@ -267,7 +269,9 @@
         const normalizedSource = normalizeSource(text);
         const lines = normalizedSource.split('\n').map(function(line) { return line.trim(); }).filter(Boolean);
         const errors = [];
+        const blockingErrors = [];
         const warnings = [];
+        const unresolvedObservations = [];
         let index = 0;
 
         const parsedDate = parseDate(lines[index], fallbackDate);
@@ -276,6 +280,7 @@
             index += 1;
             if (parsedDate.error) {
                 errors.push(parsedDate.error);
+                blockingErrors.push(parsedDate.error);
             }
         } else {
             warnings.push('未提供日期，已使用選取日期。');
@@ -284,7 +289,9 @@
         const locationName = lines[index++] || '';
         const preset = locationPresets[locationName];
         if (!preset) {
-            errors.push('尚未設定的地點：' + (locationName || '（未填）'));
+            const error = '尚未設定的地點：' + (locationName || '（未填）');
+            errors.push(error);
+            blockingErrors.push(error);
         }
 
         const effortLine = lines[index++] || '';
@@ -298,17 +305,23 @@
             partySize: preset ? preset.partySize : 1
         } : null;
         if (!effortMatch) {
-            errors.push('無法解析開始時間與分鐘：' + (effortLine || '（未填）'));
+            const error = '無法解析開始時間與分鐘：' + (effortLine || '（未填）');
+            errors.push(error);
+            blockingErrors.push(error);
         } else if (effort.hour > 23 || effort.minute > 59 || effort.durationMinutes < 1) {
-            errors.push('時間或分鐘不合理：' + effortLine);
+            const error = '時間或分鐘不合理：' + effortLine;
+            errors.push(error);
+            blockingErrors.push(error);
         }
 
         const observations = [];
         const observationsByCode = new Map();
         for (; index < lines.length; index += 1) {
-            const parsed = parseObservationLine(lines[index]);
+            const line = lines[index];
+            const parsed = parseObservationLine(line);
             if (parsed.error) {
                 errors.push(parsed.error);
+                unresolvedObservations.push({ sourceLine: line, error: parsed.error });
                 continue;
             }
             if (parsed.warning) {
@@ -320,11 +333,15 @@
                 const same = existing.count === observation.count
                     && existing.breedingCode === observation.breedingCode
                     && existing.comments === observation.comments;
+                const message = same
+                    ? '重複的相同紀錄已保留一次：' + observation.alias + ' ' + observation.count
+                    : '同一物種出現不同紀錄，請確認：' + existing.alias + '／' + observation.alias;
                 if (same) {
-                    warnings.push('重複的相同紀錄已保留一次：' + observation.alias + ' ' + observation.count);
+                    warnings.push(message);
                 } else {
-                    errors.push('同一物種出現不同紀錄，請確認：' + existing.alias + '／' + observation.alias);
+                    errors.push(message);
                 }
+                unresolvedObservations.push({ sourceLine: line, error: message });
                 continue;
             }
             observationsByCode.set(observation.code, observation);
@@ -332,17 +349,28 @@
         }
 
         if (observations.length === 0) {
-            errors.push('沒有可填入的物種紀錄。');
+            const error = '沒有可填入的物種紀錄。';
+            errors.push(error);
+            blockingErrors.push(error);
         }
         return {
             date: date,
             location: locationName,
             effort: effort,
             observations: observations,
+            unresolvedObservations: unresolvedObservations,
             errors: errors,
+            blockingErrors: blockingErrors,
             warnings: warnings,
             source: normalizedSource.trim()
         };
+    }
+
+    function assertRecordReady(record) {
+        const errors = Array.isArray(record.blockingErrors) ? record.blockingErrors : record.errors;
+        if (errors && errors.length > 0) {
+            throw new Error(errors.join('\n'));
+        }
     }
 
     function dispatchValueEvents(element) {
