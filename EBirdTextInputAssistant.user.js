@@ -1489,6 +1489,7 @@
                 return;
             }
             try {
+                sessionStorage.removeItem(confirmationKey);
                 if (!state.known) {
                     settings.savePending(state.alias);
                 }
@@ -1616,6 +1617,31 @@
         );
     }
 
+    function saveChecklistConfirmation(record, result) {
+        sessionStorage.setItem(confirmationKey, JSON.stringify({
+            record: record,
+            result: {
+                filledCount: result.filledCount,
+                totalCount: result.totalCount,
+                items: result.items,
+                unresolved: result.unresolved,
+                formErrors: result.formErrors
+            }
+        }));
+    }
+
+    function getChecklistConfirmation() {
+        const saved = sessionStorage.getItem(confirmationKey);
+        if (!saved) {
+            return null;
+        }
+        try {
+            return JSON.parse(saved);
+        } catch (error) {
+            return null;
+        }
+    }
+
     function createPanel() {
         if (document.getElementById(panelId)) {
             return document.getElementById(panelId);
@@ -1648,7 +1674,18 @@
 
         const isEffortPage = location.pathname.endsWith('/submit/effort');
         const isChecklistPage = location.pathname.endsWith('/submit/checklist');
-        if (isChecklistPage) {
+        const isSubmittedChecklistPage = !isChecklistPage
+            && /\/checklist\/[^/]+\/?$/.test(location.pathname);
+        if (isSubmittedChecklistPage) {
+            const confirmation = getChecklistConfirmation();
+            body.appendChild(status);
+            if (confirmation) {
+                renderChecklistSummary(status, confirmation.record, confirmation.result);
+            } else {
+                status.textContent = '這個分頁沒有最近一次由助手填寫的核對資料。';
+                status.className = 'tm-ebird-status tm-ebird-error';
+            }
+        } else if (isChecklistPage) {
             const pending = sessionStorage.getItem(storageKey);
             const button = document.createElement('button');
             button.type = 'button';
@@ -1669,6 +1706,7 @@
                         const result = await fillSpecies(record);
                         visibility.apply();
                         renderChecklistSummary(status, record, result);
+                        saveChecklistConfirmation(record, result);
                     } catch (error) {
                         status.textContent = error.message;
                         status.className = 'tm-ebird-status tm-ebird-error';
@@ -1721,8 +1759,12 @@
         fillSpecies: fillSpecies,
         revealAdditionalSpeciesSections: revealAdditionalSpeciesSections,
         setUnobservedVisibility: setUnobservedVisibility,
+        recentDateValues: recentDateValues,
+        saveChecklistConfirmation: saveChecklistConfirmation,
+        getChecklistConfirmation: getChecklistConfirmation,
         storageKey: storageKey,
-        autoEffortKey: autoEffortKey
+        autoEffortKey: autoEffortKey,
+        confirmationKey: confirmationKey
     };
     globalThis.__ebirdTextInputAssistant = api;
 
