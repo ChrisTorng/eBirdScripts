@@ -1135,6 +1135,8 @@
             '#' + panelId + ' .tm-ebird-danger { background:#9a2929; }',
             '#' + panelId + ' .tm-ebird-local-note { margin:6px 0;color:#555;font-size:12px; }',
             '#' + panelId + ' .tm-ebird-status { margin-top:8px;white-space:pre-wrap; }',
+            '#' + panelId + ' .tm-ebird-check-summary > div { margin:3px 0; }',
+            '#' + panelId + ' .tm-ebird-summary-heading { margin-top:9px;font-weight:700; }',
             '#' + panelId + ' .tm-ebird-error { color:#a40000; }',
             '#' + panelId + ' .tm-ebird-ok { color:#176b2c; }',
             '.tm-ebird-location-filter,.tm-ebird-location-select { box-sizing:border-box!important;width:100%!important;max-width:none!important; }',
@@ -1526,6 +1528,69 @@
         return { button: button, apply: apply };
     }
 
+    function renderChecklistSummary(container, record, result) {
+        container.textContent = '';
+        container.className = 'tm-ebird-status tm-ebird-check-summary';
+
+        function appendLine(text, className) {
+            const line = document.createElement('div');
+            line.className = className || '';
+            line.textContent = text;
+            container.appendChild(line);
+            return line;
+        }
+
+        const preset = getLocationPresets()[record.location];
+        const locationName = preset ? preset.pageName : record.location;
+        const locationId = preset ? preset.locId : '';
+        appendLine('地點：' + locationName
+            + (record.location && record.location !== locationName ? '（' + record.location + '）' : '')
+            + (locationId ? '；' + locationId : ''));
+        appendLine('日期：' + formatDateLabel(record.date));
+        if (record.effort) {
+            appendLine(
+                '時間：' + String(record.effort.hour).padStart(2, '0') + ':'
+                + String(record.effort.minute).padStart(2, '0') + ' 開始；'
+                + record.effort.durationMinutes + ' 分鐘；'
+                + record.effort.distanceKm + ' 公里；'
+                + record.effort.partySize + ' 人'
+            );
+        }
+        appendLine(
+            '填寫結果：成功 ' + result.filledCount + '/' + result.totalCount
+            + ' 項（鳥種依 eBird 頁面順序）',
+            'tm-ebird-summary-heading'
+        );
+
+        result.items.forEach(function(item) {
+            const successful = item.status === 'filled';
+            const prefix = successful ? '✓ ' : item.status === 'warning' ? '⚠ ' : '✗ ';
+            appendLine(
+                prefix + item.display + (item.error ? ' — ' + item.error : ''),
+                successful ? 'tm-ebird-ok' : 'tm-ebird-error'
+            );
+        });
+        result.unresolved.forEach(function(item) {
+            appendLine(
+                '✗ 未辨識：' + item.sourceLine + ' — ' + item.error,
+                'tm-ebird-error'
+            );
+        });
+        result.formErrors.forEach(function(error) {
+            appendLine('✗ 表單：' + error, 'tm-ebird-error');
+        });
+
+        const hasProblems = result.items.some(function(item) {
+            return item.status !== 'filled';
+        }) || result.unresolved.length > 0 || result.formErrors.length > 0;
+        appendLine(
+            hasProblems
+                ? '未勾選完整清單，也未送出。'
+                : '已勾選完整清單；尚未送出，請人工確認。',
+            hasProblems ? 'tm-ebird-error' : 'tm-ebird-ok'
+        );
+    }
+
     function createPanel() {
         if (document.getElementById(panelId)) {
             return document.getElementById(panelId);
@@ -1578,15 +1643,7 @@
                         setUnobservedVisibility(false);
                         const result = await fillSpecies(record);
                         visibility.apply();
-                        if (result.errors.length > 0) {
-                            status.textContent = '已填入數量 ' + result.filledCount + '/' + result.totalCount
-                                + ' 種；以下項目未完成：\n- ' + result.errors.join('\n- ')
-                                + '\n\n未勾選完整清單，也未送出。';
-                            status.className = 'tm-ebird-status tm-ebird-error';
-                        } else {
-                            status.textContent = '已完整填入 ' + result.filledCount + ' 種。未觀察鳥種已隱藏；尚未送出，請人工確認。';
-                            status.className = 'tm-ebird-status tm-ebird-ok';
-                        }
+                        renderChecklistSummary(status, record, result);
                     } catch (error) {
                         status.textContent = error.message;
                         status.className = 'tm-ebird-status tm-ebird-error';
@@ -1630,6 +1687,7 @@
         parseFlexibleDate: parseFlexibleDate,
         parseRecord: parseRecord,
         parseObservationLine: parseObservationLine,
+        formatObservationForEbird: formatObservationForEbird,
         analyzeRecordLines: analyzeRecordLines,
         filterLocationItems: filterLocationItems,
         extractLocId: extractLocId,
