@@ -997,21 +997,29 @@
         const results = lines.map(function() { return { text: '', error: false }; });
         let cursor = 0;
         let failureCount = 0;
-        const parsedDate = parseFlexibleDate(indexes.length ? lines[indexes[0]].trim() : '', fallbackDate);
+        let blockingFailureCount = 0;
+        const parsedDate = parseFlexibleDate(
+            indexes.length ? lines[indexes[0]].trim() : '',
+            fallbackDate
+        );
         if (parsedDate.consumed) {
             const lineIndex = indexes[cursor++];
             results[lineIndex] = {
                 text: parsedDate.error || formatDateLabel(parsedDate.value),
                 error: Boolean(parsedDate.error)
             };
-            failureCount += parsedDate.error ? 1 : 0;
+            if (parsedDate.error) {
+                failureCount += 1;
+                blockingFailureCount += 1;
+            }
         }
+
         const locationIndex = indexes[cursor++];
         const effortIndex = indexes[cursor++];
         if (locationIndex === undefined) {
             failureCount += 1;
+            blockingFailureCount += 1;
         } else {
-            const locationName = lines[locationIndex].trim();
             const location = selectedLocation || (preset ? {
                 locId: preset.locId,
                 pageName: preset.pageName
@@ -1028,59 +1036,74 @@
                 text: '找不到可對應的 eBird 地點',
                 error: true
             };
-            failureCount += locationMatches ? 0 : 1;
+            if (!locationMatches) {
+                failureCount += 1;
+                blockingFailureCount += 1;
+            }
         }
+
         if (effortIndex === undefined) {
             failureCount += 1;
+            blockingFailureCount += 1;
         } else {
             const effortText = lines[effortIndex].trim();
             const match = effortText.match(/^(\d{1,2})[：:](\d{1,2})\s*開始\s*(\d+)\s*分鐘$/);
-            const valid = match && Number(match[1]) <= 23 && Number(match[2]) <= 59 && Number(match[3]) > 0;
+            const valid = match
+                && Number(match[1]) <= 23
+                && Number(match[2]) <= 59
+                && Number(match[3]) > 0;
             results[effortIndex] = valid ? {
-                text: String(match[1]).padStart(2, '0') + ':' + String(match[2]).padStart(2, '0') + '／' + match[3] + ' 分鐘',
+                text: String(match[1]).padStart(2, '0') + ':'
+                    + String(match[2]).padStart(2, '0') + '／'
+                    + match[3] + ' 分鐘',
                 error: false
             } : {
                 text: '無法辨識開始時間與分鐘',
                 error: true
             };
-            failureCount += valid ? 0 : 1;
+            if (!valid) {
+                failureCount += 1;
+                blockingFailureCount += 1;
+            }
         }
+
         const seenObservations = new Map();
+        let speciesLineCount = 0;
         for (; cursor < indexes.length; cursor += 1) {
+            speciesLineCount += 1;
             const index = indexes[cursor];
             const parsed = parseObservationLine(lines[index].trim());
             if (parsed.error) {
                 results[index] = { text: parsed.error, error: true };
                 failureCount += 1;
-            } else {
-                const observation = parsed.value;
-                const details = [];
-                if (observation.breedingCode === 'S') {
-                    details.push('唱歌');
-                } else if (observation.breedingCode === 'P') {
-                    details.push('一對');
-                }
-                if (observation.comments) {
-                    details.push(observation.comments.replace('Heard ', '聽到 '));
-                }
-                const previous = seenObservations.get(observation.code);
-                const conflicts = previous
-                    && (previous.count !== observation.count
-                        || previous.breedingCode !== observation.breedingCode
-                        || previous.comments !== observation.comments);
-                seenObservations.set(observation.code, previous || observation);
-                const baseText = observation.name + ' ' + observation.count
-                    + (details.length ? '；' + details.join('，') : '');
-                results[index] = {
-                    text: conflicts
-                        ? baseText + '（與前一筆同鳥種紀錄不同）'
-                        : parsed.warning ? baseText + '（' + parsed.warning + '）' : baseText,
-                    error: Boolean(conflicts || parsed.warning)
-                };
-                failureCount += conflicts || parsed.warning ? 1 : 0;
+                continue;
             }
+            const observation = parsed.value;
+            const previous = seenObservations.get(observation.code);
+            const conflicts = previous
+                && (previous.count !== observation.count
+                    || previous.breedingCode !== observation.breedingCode
+                    || previous.comments !== observation.comments);
+            seenObservations.set(observation.code, previous || observation);
+            const display = formatObservationForEbird(observation);
+            results[index] = {
+                text: conflicts
+                    ? display + '（與前一筆同鳥種紀錄不同）'
+                    : parsed.warning ? display + '（' + parsed.warning + '）' : display,
+                error: Boolean(conflicts || parsed.warning)
+            };
+            failureCount += conflicts || parsed.warning ? 1 : 0;
         }
-        return { lines: results, failureCount: failureCount, parsedDate: parsedDate };
+        if (speciesLineCount === 0) {
+            failureCount += 1;
+            blockingFailureCount += 1;
+        }
+        return {
+            lines: results,
+            failureCount: failureCount,
+            blockingFailureCount: blockingFailureCount,
+            parsedDate: parsedDate
+        };
     }
 
     function addStyle() {
@@ -1433,8 +1456,8 @@
         });
         button.addEventListener('click', async function() {
             const state = refresh();
-            if (!state || state.analysis.failureCount > 0) {
-                status.textContent = '請先修正右側紅字項目。';
+            if (!state || state.analysis.blockingFailureCount > 0) {
+                status.textContent = '日期、地點或時間仍有錯誤，請先修正右側紅字項目。';
                 status.className = 'tm-ebird-status tm-ebird-error';
                 return;
             }
@@ -1443,9 +1466,7 @@
                     settings.savePending(state.alias);
                 }
                 const record = parseRecord(textarea.value, datePicker.getDate(), getLocationPresets());
-                if (record.errors.length > 0) {
-                    throw new Error(record.errors.join('\n'));
-                }
+                assertRecordReady(record);
                 button.disabled = true;
                 status.textContent = record.warnings.join('\n');
                 status.className = 'tm-ebird-status';
