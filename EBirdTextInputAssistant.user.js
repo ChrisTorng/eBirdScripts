@@ -228,7 +228,7 @@
     }
 
     function parseObservationLine(line) {
-        const match = String(line || '').match(/^(.+?)\s*(\d+)(?:\s+(.*))?$/);
+        const match = String(line || '').match(/^(.+?)\s*(\d+)(?:(?:\s*[；;]\s*|\s+)(.*))?$/);
         if (!match) {
             return { error: '無法解析物種紀錄：' + (line || '（未填）') };
         }
@@ -239,15 +239,18 @@
         }
         const count = Number(match[2]);
         const details = (match[3] || '').replace(/，/g, ',').trim();
-        const explicitHeard = details.match(/(?:^|,)\s*(\d+)\s*聽到/);
+        const explicitHeardBefore = details.match(/(?:^|,)\s*(\d+)\s*聽到/);
+        const explicitHeardAfter = details.match(/聽到\s*(\d+)/);
         const heardCount = details.includes('聽到')
-            ? (explicitHeard ? Number(explicitHeard[1]) : count)
+            ? explicitHeardBefore ? Number(explicitHeardBefore[1])
+                : explicitHeardAfter ? Number(explicitHeardAfter[1]) : count
             : null;
         const breedingCode = details.includes('一對') ? 'P' : (details.includes('唱歌') ? 'S' : null);
         const unknownDetails = details
             .replace(/唱歌/g, '')
             .replace(/一對/g, '')
-            .replace(/(?:^|,)\s*\d*\s*聽到/g, '')
+            .replace(/(?:^|,)\s*\d*\s*聽到(?:\s*\d+)?/g, '')
+            .replace(/聽到\s*\d+/g, '')
             .replace(/^[,\s]+|[,\s]+$/g, '');
         return {
             value: {
