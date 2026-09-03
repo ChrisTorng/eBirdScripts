@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-03_1.3.0
+// @version      2026-09-03_1.3.1
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -857,14 +857,19 @@
                 locId: preset.locId,
                 pageName: preset.pageName
             } : null);
-            results[locationIndex] = location ? {
+            const locationMatches = location
+                && (!preset || !selectedLocation || preset.locId === selectedLocation.locId);
+            results[locationIndex] = locationMatches ? {
                 text: location.pageName + '（' + location.locId + '）',
                 error: false
+            } : location ? {
+                text: location.pageName + '（' + location.locId + '）與簡稱設定不符',
+                error: true
             } : {
                 text: '找不到可對應的 eBird 地點',
                 error: true
             };
-            failureCount += location ? 0 : 1;
+            failureCount += locationMatches ? 0 : 1;
         }
         if (effortIndex === undefined) {
             failureCount += 1;
@@ -881,6 +886,7 @@
             };
             failureCount += valid ? 0 : 1;
         }
+        const seenObservations = new Map();
         for (; cursor < indexes.length; cursor += 1) {
             const index = indexes[cursor];
             const parsed = parseObservationLine(lines[index].trim());
@@ -898,10 +904,21 @@
                 if (observation.comments) {
                     details.push(observation.comments.replace('Heard ', '聽到 '));
                 }
+                const previous = seenObservations.get(observation.code);
+                const conflicts = previous
+                    && (previous.count !== observation.count
+                        || previous.breedingCode !== observation.breedingCode
+                        || previous.comments !== observation.comments);
+                seenObservations.set(observation.code, previous || observation);
+                const baseText = observation.name + ' ' + observation.count
+                    + (details.length ? '；' + details.join('，') : '');
                 results[index] = {
-                    text: observation.name + ' ' + observation.count + (details.length ? '；' + details.join('，') : ''),
-                    error: false
+                    text: conflicts
+                        ? baseText + '（與前一筆同鳥種紀錄不同）'
+                        : parsed.warning ? baseText + '（' + parsed.warning + '）' : baseText,
+                    error: Boolean(conflicts || parsed.warning)
                 };
+                failureCount += conflicts || parsed.warning ? 1 : 0;
             }
         }
         return { lines: results, failureCount: failureCount, parsedDate: parsedDate };
@@ -1153,6 +1170,7 @@
         let settings = null;
         let datePicker = null;
         let updating = false;
+        let lastAutoLocationKey = '';
         const grid = document.createElement('div');
         grid.className = 'tm-ebird-record-grid';
         const textarea = document.createElement('textarea');
@@ -1197,14 +1215,19 @@
                 const alias = extractLocationAlias(textarea.value, fallback);
                 const presets = getLocationPresets();
                 const known = presets[alias] || null;
-                if (known && locationFilter) {
-                    locationFilter.selectLocId(known.locId);
-                } else if (alias && !known && locationFilter && locationFilter.input.value !== alias) {
-                    locationFilter.filter(alias);
+                const autoLocationKey = alias + '|' + (known ? known.locId : 'new');
+                if (alias && locationFilter && autoLocationKey !== lastAutoLocationKey) {
+                    if (known) {
+                        locationFilter.selectLocId(known.locId);
+                    } else {
+                        locationFilter.filter(alias);
+                    }
+                    lastAutoLocationKey = autoLocationKey;
                 }
-                const current = known
-                    ? { locId: known.locId, pageName: known.pageName }
-                    : selectedLocation();
+                const current = selectedLocation() || (known ? {
+                    locId: known.locId,
+                    pageName: known.pageName
+                } : null);
                 if (alias && !known && settings && settings.fields.alias.value !== alias) {
                     settings.prepareUnknown(alias, current);
                 } else if (alias && !known && settings && current) {
