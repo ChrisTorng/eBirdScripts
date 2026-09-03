@@ -43,6 +43,21 @@ describe('eBird assistant fast entry workflow', () => {
         assert.match(api.parseFlexibleDate('-7', reference).error, /無法辨識日期/);
     });
 
+    test('accepts a species count without a separating space and formats it like eBird', () => {
+        const { api } = loadAssistant();
+        const compact = api.parseObservationLine('白尾1');
+        const singing = api.parseObservationLine('黑領 1 唱歌，1 聽到');
+
+        assert.equal(compact.error, undefined);
+        assert.equal(compact.value.name, '白尾八哥');
+        assert.equal(compact.value.count, 1);
+        assert.equal(api.formatObservationForEbird(compact.value), '1 白尾八哥');
+        assert.equal(
+            api.formatObservationForEbird(singing.value),
+            '1 黑領椋鳥; S 唱歌中鳥, Heard 1'
+        );
+    });
+
     test('filters one character at a time and ignores characters that would remove every location', () => {
         const { api } = loadAssistant();
         const locations = [
@@ -85,8 +100,8 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(analysis.lines[0].text, '9/2 (三)');
         assert.match(analysis.lines[1].text, /後港新公園完整名稱.*L1001/);
         assert.equal(analysis.lines[2].text, '08:38／28 分鐘');
-        assert.match(analysis.lines[3].text, /珠頸斑鳩 6.*唱歌.*聽到 1/);
-        assert.equal(analysis.lines[4].text, '麻雀 28');
+        assert.equal(analysis.lines[3].text, '6 珠頸斑鳩; S 唱歌中鳥, Heard 1');
+        assert.equal(analysis.lines[4].text, '28 麻雀');
     });
 
     test('marks only unrecognized source lines as preview failures', () => {
