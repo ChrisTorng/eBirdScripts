@@ -1,0 +1,13 @@
+{
+  "name": "ebird-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Utility scripts for the eBirdScripts repository.",
+  "scripts": {
+    "generate:index": "node scripts/generate-index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "marked": "^12.0.2"
+  }
+}
