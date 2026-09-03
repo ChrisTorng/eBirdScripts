@@ -46,7 +46,7 @@ describe('eBird assistant fast entry workflow', () => {
     test('accepts a species count without a separating space and formats it like eBird', () => {
         const { api } = loadAssistant();
         const compact = api.parseObservationLine('白尾1');
-        const singing = api.parseObservationLine('黑領 1 唱歌，1 聽到');
+        const singing = api.parseObservationLine('黑領椋鳥 1；唱歌，聽到 1');
 
         assert.equal(compact.error, undefined);
         assert.equal(compact.value.name, '白尾八哥');
