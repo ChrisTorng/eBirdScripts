@@ -103,6 +103,29 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(analysis.lines[4].error, false);
     });
 
+    test('flags a mismatched selected location and unapplied bird details', () => {
+        const { api } = loadAssistant();
+        const preset = {
+            locId: 'L1001',
+            pageName: '設定地點',
+            protocol: 'P22',
+            distanceKm: 1,
+            partySize: 1
+        };
+        const analysis = api.analyzeRecordLines(
+            '9/2\n測試地點\n8：38 開始 28 分鐘\n麻雀 2 未知細節',
+            new Date(2026, 8, 3),
+            preset,
+            { locId: 'L9999', pageName: '目前選取地點' }
+        );
+
+        assert.equal(analysis.failureCount, 2);
+        assert.match(analysis.lines[1].text, /與簡稱設定不符/);
+        assert.equal(analysis.lines[1].error, true);
+        assert.match(analysis.lines[3].text, /未套用的細節/);
+        assert.equal(analysis.lines[3].error, true);
+    });
+
     test('starts collapsed on a small screen and stays open on a large screen', () => {
         const mobile = loadAssistant({
             readyState: 'complete',
