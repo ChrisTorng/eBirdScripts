@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-03_1.3.2
+// @version      2026-09-03_1.3.3
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -9,6 +9,8 @@
 // @updateURL    https://github.com/ChrisTorng/eBirdScripts/raw/main/EBirdTextInputAssistant.user.js
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=ebird.org
 // @match        https://ebird.org/*/submit*
+// @match        https://ebird.org/checklist/*
+// @match        https://ebird.org/*/checklist/*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // ==/UserScript==
@@ -18,6 +20,7 @@
 
     const storageKey = 'ebirdTextInputAssistant:pendingRecord';
     const autoEffortKey = 'ebirdTextInputAssistant:autoEffort';
+    const confirmationKey = 'ebirdTextInputAssistant:lastConfirmation';
     const settingsKey = 'ebirdTextInputAssistant:locationPresets';
     const panelId = 'tm-ebird-text-input-assistant';
     const styleId = panelId + '-style';
@@ -185,14 +188,6 @@
                 }
             } else if (/^\d{4}$/.test(text)) {
                 recognizedSyntax = true;
-                const month = Number(text.slice(0, 2));
-                const day = Number(text.slice(2));
-                result = new Date(today.getFullYear(), month - 1, day);
-                if (!isSameDateParts(result, today.getFullYear(), month, day)) {
-                    result = null;
-                } else if (result > today) {
-                    result = new Date(today.getFullYear() - 1, month - 1, day);
-                }
             } else if (/^(?:0|-[1-6])$/.test(text)) {
                 recognizedSyntax = true;
                 result = new Date(today);
@@ -216,8 +211,8 @@
         return { consumed: true, value: dateValue(result), error: '' };
     }
 
-    function parseDate(line, fallbackDate) {
-        return parseFlexibleDate(line, fallbackDate);
+    function parseDate(line, referenceDate) {
+        return parseFlexibleDate(line, referenceDate);
     }
 
     function normalizeSource(text) {
@@ -268,7 +263,7 @@
         };
     }
 
-    function parseRecord(text, fallbackDate = new Date(), locationPresets = getLocationPresets()) {
+    function parseRecord(text, fallbackDate = new Date(), locationPresets = getLocationPresets(), dateReference = fallbackDate) {
         const normalizedSource = normalizeSource(text);
         const lines = normalizedSource.split('\n').map(function(line) { return line.trim(); }).filter(Boolean);
         const errors = [];
@@ -277,8 +272,10 @@
         const unresolvedObservations = [];
         let index = 0;
 
-        const parsedDate = parseDate(lines[index], fallbackDate);
-        const date = parsedDate.value;
+        const parsedDate = parseDate(lines[index], dateReference);
+        const date = parsedDate.consumed
+            ? parsedDate.value
+            : dateValue(startOfDay(fallbackDate));
         if (parsedDate.consumed) {
             index += 1;
             if (parsedDate.error) {
