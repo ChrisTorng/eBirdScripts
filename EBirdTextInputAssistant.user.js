@@ -472,9 +472,7 @@
     }
 
     async function fillEffort(record, options = {}) {
-        if (record.errors.length > 0) {
-            throw new Error(record.errors.join('\n'));
-        }
+        assertRecordReady(record);
         const preset = getLocationPresets()[record.location];
         if (!preset) {
             throw new Error('尚未設定的地點：' + record.location);
@@ -512,9 +510,7 @@
     }
 
     function startRecord(record) {
-        if (record.errors.length > 0) {
-            throw new Error(record.errors.join('\n'));
-        }
+        assertRecordReady(record);
         const preset = getLocationPresets()[record.location];
         if (!preset) {
             throw new Error('尚未設定的地點：' + record.location);
@@ -526,9 +522,48 @@
         location.assign(location.origin + portalPrefix + '/submit/effort?locID=' + encodeURIComponent(preset.locId));
     }
 
+    function selectedOptionText(select) {
+        if (!select) {
+            return '';
+        }
+        const selected = Array.from(select.options || []).find(function(option) {
+            return String(option.value) === String(select.value);
+        }) || (select.selectedIndex >= 0 ? select.options[select.selectedIndex] : null);
+        return selected ? selected.textContent.replace(/\s+/g, ' ').trim() : '';
+    }
+
+    function fallbackBreedingLabel(code) {
+        if (code === 'S') {
+            return 'S 唱歌中鳥';
+        }
+        if (code === 'P') {
+            return 'P 一對';
+        }
+        return code || '';
+    }
+
+    function formatObservationForEbird(observation, details) {
+        const extra = [];
+        const breedingText = details && details.breedingText
+            ? details.breedingText
+            : fallbackBreedingLabel(observation.breedingCode);
+        const comments = details && Object.prototype.hasOwnProperty.call(details, 'comments')
+            ? details.comments
+            : observation.comments;
+        if (breedingText) {
+            extra.push(breedingText);
+        }
+        if (comments) {
+            extra.push(comments);
+        }
+        return observation.count + ' ' + observation.name
+            + (extra.length ? '; ' + extra.join(', ') : '');
+    }
+
     async function applyObservationDetails(observation) {
+        let breedingText = '';
         if (!observation.breedingCode && !observation.comments) {
-            return;
+            return { breedingText: '', comments: '' };
         }
         const detailLink = await waitForElement('add_' + observation.code);
         detailLink.click();
@@ -543,10 +578,12 @@
             }
             breedingSelect.value = option.value;
             dispatchValueEvents(breedingSelect);
+            breedingText = selectedOptionText(breedingSelect) || option.textContent.trim();
         }
         if (observation.comments) {
             setValue('p-' + observation.code + '_comments', observation.comments);
         }
+        return { breedingText: breedingText, comments: observation.comments };
     }
 
     function revealAdditionalSpeciesSections() {
@@ -582,54 +619,148 @@
         return hiddenCount;
     }
 
+    function readObservationDisplay(outcome) {
+        const observation = outcome.observation;
+        const code = outcome.code;
+        const breedingSelect = document.getElementById('p-' + code + '_bcode');
+        const commentsField = document.getElementById('p-' + code + '_comments');
+        return formatObservationForEbird(observation, {
+            breedingText: selectedOptionText(breedingSelect) || outcome.breedingText,
+            comments: commentsField ? String(commentsField.value || '').trim() : observation.comments
+        });
+    }
+
+    function orderOutcomesByChecklist(outcomes) {
+        const ordered = [];
+        const included = new Set();
+        Array.from(document.querySelectorAll('.SubmitChecklist-species')).forEach(function(row) {
+            const countField = row.querySelector('input.sc') || row.querySelector('input[type="tel"]');
+            const code = countField ? countField.id : '';
+            if (!code) {
+                return;
+            }
+            const outcome = outcomes.find(function(item) {
+                return item.code === code || (item.observation.codes || [item.observation.code]).includes(code);
+            });
+            if (outcome && !included.has(outcome)) {
+                outcome.code = code;
+                outcome.display = readObservationDisplay(outcome);
+                ordered.push(outcome);
+                included.add(outcome);
+            }
+        });
+        outcomes.forEach(function(outcome) {
+            if (!included.has(outcome)) {
+                outcome.display = formatObservationForEbird(outcome.observation, {
+                    breedingText: outcome.breedingText,
+                    comments: outcome.observation.comments
+                });
+                ordered.push(outcome);
+            }
+        });
+        return ordered;
+    }
+
     async function fillSpecies(record, options = {}) {
-        if (record.errors.length > 0) {
-            throw new Error(record.errors.join('\n'));
-        }
+        assertRecordReady(record);
         const errors = [];
-        const filledObservations = [];
+        const outcomes = record.observations.map(function(observation) {
+            return {
+                observation: observation,
+                code: observation.code,
+                status: 'pending',
+                error: '',
+                breedingText: ''
+            };
+        });
         const missingBeforeReveal = record.observations.some(function(observation) {
-            return !(observation.codes || [observation.code]).some(function(code) { return document.getElementById(code); });
+            return !(observation.codes || [observation.code]).some(function(code) {
+                return document.getElementById(code);
+            });
         });
         if (missingBeforeReveal) {
             revealAdditionalSpeciesSections();
         }
-        const countResults = await Promise.allSettled(record.observations.map(async function(observation) {
-            const resolved = await waitForObservationField(observation, options.elementTimeoutMs ?? 4000);
-            setCountValue(resolved.code, observation.count);
-            return Object.assign({}, observation, { code: resolved.code });
+
+        const countResults = await Promise.allSettled(outcomes.map(async function(outcome) {
+            const resolved = await waitForObservationField(
+                outcome.observation,
+                options.elementTimeoutMs ?? 4000
+            );
+            setCountValue(resolved.code, outcome.observation.count);
+            return resolved.code;
         }));
         countResults.forEach(function(result, index) {
-            const observation = record.observations[index];
+            const outcome = outcomes[index];
             if (result.status === 'fulfilled') {
-                filledObservations.push(result.value);
+                outcome.code = result.value;
+                outcome.status = outcome.observation.warning ? 'warning' : 'filled';
+                outcome.error = outcome.observation.warning || '';
             } else {
-                errors.push(observation.name + '（' + observation.code + '）：找不到數量欄位');
+                outcome.status = 'failed';
+                outcome.error = '找不到數量欄位';
+                errors.push(
+                    outcome.observation.name + '（' + outcome.observation.code + '）：'
+                    + outcome.error
+                );
             }
         });
-        for (const observation of filledObservations) {
+
+        for (const outcome of outcomes) {
+            if (outcome.status === 'failed') {
+                continue;
+            }
             try {
-                await applyObservationDetails(observation);
+                const details = await applyObservationDetails(
+                    Object.assign({}, outcome.observation, { code: outcome.code })
+                );
+                outcome.breedingText = details.breedingText;
             } catch (error) {
-                errors.push(observation.name + '（' + observation.code + '）：' + error.message);
+                outcome.status = 'failed';
+                outcome.error = error.message;
+                errors.push(
+                    outcome.observation.name + '（' + outcome.observation.code + '）：'
+                    + error.message
+                );
             }
         }
+
+        const unresolved = Array.isArray(record.unresolvedObservations)
+            ? record.unresolvedObservations
+            : [];
+        const hasItemIssues = outcomes.some(function(outcome) {
+            return outcome.status === 'failed' || outcome.status === 'warning';
+        }) || unresolved.length > 0;
         const complete = document.getElementById('all-spp-y');
+        const formErrors = [];
         if (!complete) {
-            errors.push('找不到完整清單選項');
-        } else if (errors.length === 0) {
+            formErrors.push('找不到完整清單選項');
+        } else if (errors.length === 0 && !hasItemIssues) {
             complete.click();
         }
+        errors.push.apply(errors, formErrors);
+        unresolved.forEach(function(item) {
+            errors.push(item.error);
+        });
+
         const submit = document.getElementById('btn-continue');
         if (submit) {
             submit.dataset.tmEbirdManualOnly = 'true';
             submit.title = 'Tampermonkey 未按下此按鈕；請人工確認後自行送出。';
         }
+        const orderedItems = orderOutcomesByChecklist(outcomes);
         return {
-            filledCount: filledObservations.length,
-            totalCount: record.observations.length,
+            filledCount: outcomes.filter(function(item) { return item.status !== 'failed'; }).length,
+            totalCount: record.observations.length + unresolved.length,
             errors: errors,
-            filledCodes: filledObservations.map(function(item) { return item.code; })
+            formErrors: formErrors,
+            items: orderedItems,
+            unresolved: unresolved,
+            filledCodes: outcomes.filter(function(item) {
+                return item.status !== 'failed';
+            }).map(function(item) {
+                return item.code;
+            })
         };
     }
 
