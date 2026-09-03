@@ -13,7 +13,8 @@ function loadAssistant(options = {}) {
     const harness = createHarness({
         url: options.url || 'https://ebird.org/atlastw/submit/checklist',
         readyState: options.readyState || 'loading',
-        matchMedia: options.matchMedia || null
+        matchMedia: options.matchMedia || null,
+        sessionStorageSeed: options.sessionStorageSeed || {}
     });
     harness.context.globalThis = harness.context;
     harness.context.global = harness.context;
@@ -35,12 +36,44 @@ describe('eBird assistant fast entry workflow', () => {
 
         assert.deepEqual(plain(api.parseFlexibleDate('2026/8/20', reference).value), { year: 2026, month: 8, day: 20 });
         assert.deepEqual(plain(api.parseFlexibleDate('9/2', reference).value), { year: 2026, month: 9, day: 2 });
-        assert.deepEqual(plain(api.parseFlexibleDate('0902', reference).value), { year: 2026, month: 9, day: 2 });
+        assert.match(api.parseFlexibleDate('0902', reference).error, /無法辨識日期/);
         assert.deepEqual(plain(api.parseFlexibleDate('0', reference).value), { year: 2026, month: 9, day: 3 });
         assert.deepEqual(plain(api.parseFlexibleDate('-2', reference).value), { year: 2026, month: 9, day: 1 });
         assert.deepEqual(plain(api.parseFlexibleDate('二', reference).value), { year: 2026, month: 9, day: 1 });
         assert.match(api.parseFlexibleDate('2026/9/4', reference).error, /無法辨識日期/);
         assert.match(api.parseFlexibleDate('-7', reference).error, /無法辨識日期/);
+    });
+
+    test('keeps relative dates stable and returns unique newest-first date choices', () => {
+        const { api } = loadAssistant();
+        const reference = new Date(2026, 8, 3);
+        const preset = {
+            locId: 'L1001',
+            pageName: '測試公園',
+            protocol: 'P22',
+            distanceKm: 1,
+            partySize: 1
+        };
+        const source = '-1\n測試公園\n8：00 開始 10 分鐘\n麻雀1';
+        const first = api.parseRecord(source, new Date(2026, 8, 2), { 測試公園: preset }, reference);
+        const second = api.parseRecord(source, new Date(2026, 8, 1), { 測試公園: preset }, reference);
+
+        assert.deepEqual(plain(first.date), { year: 2026, month: 9, day: 2 });
+        assert.deepEqual(plain(second.date), { year: 2026, month: 9, day: 2 });
+
+        const choices = plain(api.recentDateValues(reference, {
+            year: 2026,
+            month: 8,
+            day: 20
+        }));
+        const keys = choices.map((value) =>
+            value.year * 10000 + value.month * 100 + value.day
+        );
+        assert.equal(new Set(keys).size, keys.length);
+        assert.deepEqual(keys, [...keys].sort((left, right) => right - left));
+        assert.equal(keys.length, 8);
+        assert.equal(keys[0], 20260903);
+        assert.equal(keys.at(-1), 20260820);
     });
 
     test('accepts a species count without a separating space and formats it like eBird', () => {
@@ -89,7 +122,7 @@ describe('eBird assistant fast entry workflow', () => {
             partySize: 1
         };
         const analysis = api.analyzeRecordLines(
-            '0902\n後港新公園\n8：38 開始 28 分鐘\n珠頸 6 唱歌，1 聽到\n麻雀 28',
+            '-1\n後港新公園\n8：38 開始 28 分鐘\n珠頸 6 唱歌，1 聽到\n麻雀 28',
             new Date(2026, 8, 3),
             preset,
             selectedLocation
@@ -139,6 +172,51 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(analysis.lines[1].error, true);
         assert.match(analysis.lines[3].text, /未套用的細節/);
         assert.equal(analysis.lines[3].error, true);
+    });
+
+    test('keeps the checklist confirmation visible after manual submission', () => {
+        const confirmationKey = 'ebirdTextInputAssistant:lastConfirmation';
+        const confirmation = {
+            record: {
+                date: { year: 2026, month: 9, day: 2 },
+                location: '測試公園',
+                effort: {
+                    hour: 8,
+                    minute: 38,
+                    durationMinutes: 28,
+                    distanceKm: 1,
+                    partySize: 1
+                }
+            },
+            result: {
+                filledCount: 1,
+                totalCount: 2,
+                items: [{
+                    status: 'filled',
+                    display: '1 黑領椋鳥; S 唱歌中鳥, Heard 1',
+                    error: ''
+                }],
+                unresolved: [{
+                    sourceLine: '神秘鳥1',
+                    error: '不確定的物種：神秘鳥'
+                }],
+                formErrors: []
+            }
+        };
+        const { harness } = loadAssistant({
+            url: 'https://ebird.org/atlastw/checklist/S123456789',
+            readyState: 'complete',
+            sessionStorageSeed: {
+                [confirmationKey]: JSON.stringify(confirmation)
+            }
+        });
+        const summary = harness.document.querySelector('.tm-ebird-check-summary');
+
+        assert.ok(summary);
+        assert.match(summary.textContent, /地點：測試公園/);
+        assert.match(summary.textContent, /時間：08:38 開始；28 分鐘/);
+        assert.match(summary.textContent, /1 黑領椋鳥; S 唱歌中鳥, Heard 1/);
+        assert.match(summary.textContent, /未辨識：神秘鳥1/);
     });
 
     test('starts collapsed on a small screen and stays open on a large screen', () => {
