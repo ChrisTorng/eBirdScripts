@@ -446,6 +446,94 @@ describe('eBird species form safety', () => {
         assert.deepEqual(plain(result.errors), []);
     });
 
+    test('orders the confirmation result by the eBird page and reads localized breeding text', async () => {
+        const { harness, api } = loadAssistant();
+        const record = api.parseRecord(`2000.01.05
+測試河段
+7：15 開始 6 分鐘
+白頭翁 3 唱歌，1 聽到
+鵲鴝 2 一對`, new Date(2000, 0, 1), testLocationPresets);
+
+        function addSpeciesRow(observation, breedingOptions) {
+            const row = harness.document.createElement('li');
+            row.className = 'SubmitChecklist-species';
+            const count = harness.document.createElement('input');
+            count.id = observation.code;
+            count.className = 'sc';
+            count.addEventListener('click', () => {
+                if (!harness.document.getElementById(`add_${observation.code}`)) {
+                    const detail = harness.document.createElement('a');
+                    detail.id = `add_${observation.code}`;
+                    harness.appendToBody(detail);
+                }
+            });
+            row.appendChild(count);
+            harness.appendToBody(row);
+
+            const select = harness.document.createElement('select');
+            select.id = `p-${observation.code}_bcode`;
+            select.options = breedingOptions;
+            harness.appendToBody(select);
+            const comments = harness.document.createElement('textarea');
+            comments.id = `p-${observation.code}_comments`;
+            harness.appendToBody(comments);
+        }
+
+        const robin = record.observations.find((item) => item.code === 'magrob');
+        const bulbul = record.observations.find((item) => item.code === 'livbul1');
+        addSpeciesRow(robin, [
+            { value: '', textContent: '選擇繁殖代碼' },
+            { value: 'P', textContent: 'P 適合繁殖棲地的一對成鳥' }
+        ]);
+        addSpeciesRow(bulbul, [
+            { value: '', textContent: '選擇繁殖代碼' },
+            { value: 'S', textContent: 'S 唱歌中鳥' }
+        ]);
+        const complete = harness.document.createElement('input');
+        complete.id = 'all-spp-y';
+        harness.appendToBody(complete);
+
+        const result = await api.fillSpecies(record);
+
+        assert.deepEqual(
+            plain(result.items.map((item) => item.code)),
+            ['magrob', 'livbul1']
+        );
+        assert.equal(result.items[0].display, '2 鵲鴝; P 適合繁殖棲地的一對成鳥');
+        assert.equal(result.items[1].display, '3 白頭翁; S 唱歌中鳥, Heard 1');
+    });
+
+    test('fills recognized birds while retaining every unrecognized input line', async () => {
+        const { harness, api } = loadAssistant();
+        const record = api.parseRecord(`2000.01.05
+測試公園
+7：15 開始 6 分鐘
+神秘鳥1
+麻雀2`, new Date(2000, 0, 1), testLocationPresets);
+        const row = harness.document.createElement('li');
+        row.className = 'SubmitChecklist-species';
+        const count = harness.document.createElement('input');
+        count.id = 'eutspa';
+        count.className = 'sc';
+        row.appendChild(count);
+        harness.appendToBody(row);
+        const complete = harness.document.createElement('input');
+        complete.id = 'all-spp-y';
+        let completeClicks = 0;
+        complete.addEventListener('click', () => { completeClicks += 1; });
+        harness.appendToBody(complete);
+
+        const result = await api.fillSpecies(record, { elementTimeoutMs: 0 });
+
+        assert.equal(count.value, '2');
+        assert.equal(result.filledCount, 1);
+        assert.equal(result.totalCount, 2);
+        assert.equal(result.unresolved.length, 1);
+        assert.equal(result.unresolved[0].sourceLine, '神秘鳥1');
+        assert.match(result.unresolved[0].error, /不確定的物種/);
+        assert.equal(completeClicks, 0);
+    });
+
     test('keeps the fixed assistant panel scrollable within the viewport', () => {
         const { harness } = loadAssistant({ readyState: 'complete' });
         const style = harness.document.getElementById('tm-ebird-text-input-assistant-style');
