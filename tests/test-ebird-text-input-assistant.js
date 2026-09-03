@@ -142,7 +142,7 @@ function plain(value) {
 describe('eBird compact note parser', () => {
     test('parses representative synthetic records without unresolved fields', () => {
         const { api } = loadAssistant();
-        const parsed = syntheticRecords.map((record) => plain(api.parseRecord(record, new Date(2000, 0, 1), testLocationPresets)));
+        const parsed = syntheticRecords.map((record) => plain(api.parseRecord(record, new Date(2000, 0, 31), testLocationPresets)));
 
         assert.deepEqual(parsed.map((item) => item.errors), [[], [], []]);
         assert.deepEqual(parsed.map((item) => item.observations.length), [12, 17, 2]);
@@ -153,8 +153,8 @@ describe('eBird compact note parser', () => {
 
     test('maps singing, pair, heard counts, and white-faced wagtail details', () => {
         const { api } = loadAssistant();
-        const first = plain(api.parseRecord(syntheticRecords[0], new Date(2000, 0, 1), testLocationPresets));
-        const second = plain(api.parseRecord(syntheticRecords[1], new Date(2000, 0, 1), testLocationPresets));
+        const first = plain(api.parseRecord(syntheticRecords[0], new Date(2000, 0, 31), testLocationPresets));
+        const second = plain(api.parseRecord(syntheticRecords[1], new Date(2000, 0, 31), testLocationPresets));
         const spottedDove = first.observations.find((item) => item.code === 'spodov');
         const redCollaredDove = first.observations.find((item) => item.code === 'recdov1');
         const treepie = first.observations.find((item) => item.code === 'grytre1');
@@ -189,7 +189,7 @@ describe('eBird compact note parser', () => {
         const { api } = loadAssistant();
         const record = plain(api.parseRecord(
             '2000/1/4&#x20;\n測試公園\n7：00 開始 8 分鐘\n麻雀 2',
-            new Date(1999, 0, 1),
+            new Date(2000, 0, 31),
             testLocationPresets
         ));
 
@@ -203,7 +203,7 @@ describe('eBird compact note parser', () => {
         for (const [alias, expectedCode] of Object.entries(requestedAliasMappings)) {
             const record = plain(api.parseRecord(
                 `2000.01.04\n測試公園\n7：00 開始 8 分鐘\n${alias} 1`,
-                new Date(2000, 0, 1),
+                new Date(2000, 0, 31),
                 testLocationPresets
             ));
             assert.deepEqual(record.errors, [], alias);
@@ -314,7 +314,7 @@ describe('eBird species form safety', () => {
 測試河段
 7：15 開始 6 分鐘
 鵲鴝 2 一對
-白頭翁 3 唱歌，1 聽到`, new Date(2000, 0, 1), testLocationPresets);
+白頭翁 3 唱歌，1 聽到`, new Date(2000, 0, 31), testLocationPresets);
 
         function addElement(tagName, id) {
             const element = harness.document.createElement(tagName);
@@ -365,7 +365,7 @@ describe('eBird species form safety', () => {
 測試公園
 7：15 開始 6 分鐘
 麻雀 4
-小雨燕 2`, new Date(2000, 0, 1), testLocationPresets);
+小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
 
         function addElement(tagName, id) {
             const element = harness.document.createElement(tagName);
@@ -397,7 +397,7 @@ describe('eBird species form safety', () => {
 測試公園
 7：15 開始 6 分鐘
 麻雀 4
-小雨燕 2`, new Date(2000, 0, 1), testLocationPresets);
+小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
 
         function addElement(tagName, id) {
             const element = harness.document.createElement(tagName);
@@ -431,7 +431,7 @@ describe('eBird species form safety', () => {
         const record = api.parseRecord(`2000.01.05
 測試公園
 7：15 開始 6 分鐘
-小雨燕 2`, new Date(2000, 0, 1), testLocationPresets);
+小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
         const count = harness.document.createElement('input');
         count.id = 'houswi';
         harness.appendToBody(count);
@@ -452,7 +452,7 @@ describe('eBird species form safety', () => {
 測試河段
 7：15 開始 6 分鐘
 白頭翁 3 唱歌，1 聽到
-鵲鴝 2 一對`, new Date(2000, 0, 1), testLocationPresets);
+鵲鴝 2 一對`, new Date(2000, 0, 31), testLocationPresets);
 
         function addSpeciesRow(observation, breedingOptions) {
             const row = harness.document.createElement('li');
@@ -509,7 +509,7 @@ describe('eBird species form safety', () => {
 測試公園
 7：15 開始 6 分鐘
 神秘鳥1
-麻雀2`, new Date(2000, 0, 1), testLocationPresets);
+麻雀2`, new Date(2000, 0, 31), testLocationPresets);
         const row = harness.document.createElement('li');
         row.className = 'SubmitChecklist-species';
         const count = harness.document.createElement('input');
