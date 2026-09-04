@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-04_1.4.1
+// @version      2026-09-04_1.4.2
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -70,10 +70,14 @@
         const normalizedAlias = String(alias || '').trim();
         const locId = String(values.locId || '').trim();
         const pageName = String(values.pageName || '').trim() || normalizedAlias;
-        const incidental = values.effortMode === 'incidental'
-            || values.distanceKm === null
+        const distanceMissing = values.distanceKm === null
             || values.distanceKm === undefined
             || String(values.distanceKm).trim() === '';
+        const incidental = values.effortMode === 'incidental'
+            || (values.effortMode !== 'distance' && distanceMissing);
+        if (!incidental && distanceMissing) {
+            throw new Error('請填寫預設距離，或選擇「附帶紀錄」。');
+        }
         const distanceKm = incidental ? null : Number(values.distanceKm);
         const protocol = protocolForDistance(distanceKm);
         const partySize = Number(values.partySize || 1);
@@ -384,7 +388,7 @@
             hour: parsedEffort.hour,
             minute: parsedEffort.minute,
             durationMinutes: parsedEffort.durationMinutes,
-            protocol: preset ? (preset.protocol || protocolForDistance(preset.distanceKm)) : 'P20',
+            protocol: preset ? protocolForDistance(preset.distanceKm) : 'P20',
             distanceKm: preset && preset.distanceKm !== undefined ? preset.distanceKm : null,
             partySize: preset ? preset.partySize : 1
         } : null;
