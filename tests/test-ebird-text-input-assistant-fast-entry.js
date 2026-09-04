@@ -309,12 +309,15 @@ describe('eBird assistant fast entry workflow', () => {
             }
         });
         const summary = harness.document.querySelector('.tm-ebird-check-summary');
+        const summaryText = summary
+            ? summary.children.map((child) => child.textContent).join('\n')
+            : '';
 
         assert.ok(summary);
-        assert.match(summary.textContent, /地點：測試公園/);
-        assert.match(summary.textContent, /時間：08:38 開始；28 分鐘/);
-        assert.match(summary.textContent, /1 黑領椋鳥; S 唱歌中鳥, Heard 1/);
-        assert.match(summary.textContent, /未辨識：神秘鳥1/);
+        assert.match(summaryText, /地點：測試公園/);
+        assert.match(summaryText, /時間：08:38 開始；28 分鐘/);
+        assert.match(summaryText, /1 黑領椋鳥; S 唱歌中鳥, Heard 1/);
+        assert.match(summaryText, /未辨識：神秘鳥1/);
     });
 
     test('starts collapsed on a small screen and stays open on a large screen', () => {
