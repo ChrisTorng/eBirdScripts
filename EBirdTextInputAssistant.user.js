@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-03_1.3.3
+// @version      2026-09-04_1.4.0
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -41,25 +41,65 @@
         }
     }
 
+    function protocolForDistance(distanceKm) {
+        if (distanceKm === null || distanceKm === undefined || distanceKm === '') {
+            return 'P20';
+        }
+        const distance = Number(distanceKm);
+        if (!Number.isFinite(distance) || distance < 0) {
+            throw new Error('距離必須是 0 以上的數字，或選擇「附帶紀錄」。');
+        }
+        return distance <= 0.03 ? 'P21' : 'P22';
+    }
+
+    function getDefaultLocationPreset(presets = getLocationPresets()) {
+        const entry = Object.entries(presets).find(function(item) {
+            return item[1] && item[1].isDefault === true;
+        });
+        return entry ? { alias: entry[0], preset: entry[1] } : null;
+    }
+
+    function findLocationPresetById(locId, presets = getLocationPresets()) {
+        const entry = Object.entries(presets).find(function(item) {
+            return item[1] && item[1].locId === locId;
+        });
+        return entry ? { alias: entry[0], preset: entry[1] } : null;
+    }
+
     function saveLocationPreset(alias, values) {
         const normalizedAlias = String(alias || '').trim();
         const locId = String(values.locId || '').trim();
         const pageName = String(values.pageName || '').trim() || normalizedAlias;
-        const distanceKm = Number(values.distanceKm);
+        const incidental = values.effortMode === 'incidental'
+            || values.distanceKm === null
+            || values.distanceKm === undefined
+            || String(values.distanceKm).trim() === '';
+        const distanceKm = incidental ? null : Number(values.distanceKm);
+        const protocol = protocolForDistance(distanceKm);
         const partySize = Number(values.partySize || 1);
-        if (!normalizedAlias || !/^L\d+$/.test(locId) || !Number.isFinite(distanceKm) || distanceKm <= 0) {
-            throw new Error('請填寫簡稱、L 開頭的 eBird 地點 ID 與大於 0 的預設距離。');
+        const isDefault = values.isDefault === true;
+        if (!normalizedAlias || !/^L\d+$/.test(locId)) {
+            throw new Error('請填寫簡稱與 L 開頭的 eBird 地點 ID。');
+        }
+        if (!incidental && (!Number.isFinite(distanceKm) || distanceKm < 0)) {
+            throw new Error('距離必須是 0 以上的數字，或選擇「附帶紀錄」。');
         }
         if (!Number.isInteger(partySize) || partySize < 1) {
             throw new Error('人數必須是大於 0 的整數。');
         }
         const presets = getLocationPresets();
+        if (isDefault) {
+            Object.keys(presets).forEach(function(name) {
+                presets[name].isDefault = false;
+            });
+        }
         presets[normalizedAlias] = {
             locId: locId,
             pageName: pageName,
-            protocol: 'P22',
+            protocol: protocol,
             distanceKm: distanceKm,
-            partySize: partySize
+            partySize: partySize,
+            isDefault: isDefault
         };
         setLocationPresets(presets);
         return presets[normalizedAlias];
