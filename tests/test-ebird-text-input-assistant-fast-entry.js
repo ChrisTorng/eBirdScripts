@@ -80,6 +80,7 @@ describe('eBird assistant fast entry workflow', () => {
         const { api } = loadAssistant();
         const compact = api.parseObservationLine('白尾1');
         const singing = api.parseObservationLine('黑領椋鳥 1；唱歌，聽到 1');
+        const fullyCompact = api.parseObservationLine('黑領1聽到唱歌');
 
         assert.equal(compact.error, undefined);
         assert.equal(compact.value.name, '白尾八哥');
@@ -89,6 +90,103 @@ describe('eBird assistant fast entry workflow', () => {
             api.formatObservationForEbird(singing.value),
             '1 黑領椋鳥; S 唱歌中鳥, Heard 1'
         );
+        assert.equal(
+            api.formatObservationForEbird(fullyCompact.value),
+            '1 黑領椋鳥; S 唱歌中鳥, Heard 1'
+        );
+    });
+
+    test('uses one configured default location when the location line is omitted', () => {
+        const { api } = loadAssistant();
+        const presets = {
+            '預設公園': {
+                locId: 'L1001',
+                pageName: '預設公園正式名稱',
+                protocol: 'P20',
+                distanceKm: null,
+                partySize: 1,
+                isDefault: true
+            }
+        };
+        const record = plain(api.parseRecord(
+            '9/2\n8：38 開始 28 分鐘\n麻雀1',
+            new Date(2026, 8, 3),
+            presets,
+            new Date(2026, 8, 3)
+        ));
+
+        assert.equal(record.location, '預設公園');
+        assert.equal(record.locationId, 'L1001');
+        assert.equal(record.usedDefaultLocation, true);
+        assert.equal(record.effort.protocol, 'P20');
+        assert.equal(record.effort.distanceKm, null);
+        assert.equal(record.blockingErrors.length, 0);
+        assert.match(record.warnings.join('\n'), /已使用預設地點/);
+        assert.equal(
+            api.extractLocationAlias('8：38 開始 28 分鐘\n麻雀1', new Date(2026, 8, 3), presets),
+            '預設公園'
+        );
+    });
+
+    test('requires a location when no default location is configured', () => {
+        const { api } = loadAssistant();
+        const record = plain(api.parseRecord(
+            '9/2\n8：38 開始 28 分鐘\n麻雀1',
+            new Date(2026, 8, 3),
+            {},
+            new Date(2026, 8, 3)
+        ));
+        const analysis = plain(api.analyzeRecordLines(
+            '9/2\n8：38 開始 28 分鐘\n麻雀1',
+            new Date(2026, 8, 3),
+            null,
+            { locId: 'L9999', pageName: '目前選取項目' },
+            {}
+        ));
+
+        assert.match(record.blockingErrors.join('\n'), /尚未設定預設地點/);
+        assert.equal(analysis.blockingFailureCount, 1);
+        assert.match(analysis.lines[1].text, /尚未設定預設地點/);
+        assert.equal(analysis.lines[1].error, true);
+    });
+
+    test('derives incidental, stationary, and traveling protocols from distance', () => {
+        const { api } = loadAssistant();
+
+        assert.equal(api.protocolForDistance(null), 'P20');
+        assert.equal(api.protocolForDistance(''), 'P20');
+        assert.equal(api.protocolForDistance(0), 'P21');
+        assert.equal(api.protocolForDistance(0.03), 'P21');
+        assert.equal(api.protocolForDistance(0.031), 'P22');
+        assert.throws(() => api.protocolForDistance(-0.01), /0 以上/);
+    });
+
+    test('keeps only one default location in local settings', () => {
+        const { api } = loadAssistant();
+        api.saveLocationPreset('甲地', {
+            locId: 'L1001',
+            pageName: '甲地正式名稱',
+            effortMode: 'incidental',
+            partySize: 1,
+            isDefault: true
+        });
+        api.saveLocationPreset('乙地', {
+            locId: 'L1002',
+            pageName: '乙地正式名稱',
+            distanceKm: 0.02,
+            partySize: 2,
+            isDefault: true
+        });
+
+        const presets = plain(api.getLocationPresets());
+        assert.equal(presets['甲地'].isDefault, false);
+        assert.equal(presets['乙地'].isDefault, true);
+        assert.equal(presets['甲地'].protocol, 'P20');
+        assert.equal(presets['乙地'].protocol, 'P21');
+        assert.deepEqual(plain(api.getDefaultLocationPreset()), {
+            alias: '乙地',
+            preset: presets['乙地']
+        });
     });
 
     test('filters one character at a time and ignores characters that would remove every location', () => {
