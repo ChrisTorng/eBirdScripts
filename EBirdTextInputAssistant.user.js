@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-04_1.4.0
+// @version      2026-09-04_1.4.1
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -262,18 +262,52 @@
             .replace(/\r/g, '');
     }
 
-    function parseObservationLine(line) {
-        const match = String(line || '').match(/^(.+?)\s*(\d+)(?:(?:\s*[；;]\s*|\s+)(.*))?$/);
+    function parseEffortLine(line) {
+        const match = String(line || '').trim().match(/^(\d{1,2})[：:](\d{1,2})\s*開始\s*(\d+)\s*分鐘$/);
         if (!match) {
-            return { error: '無法解析物種紀錄：' + (line || '（未填）') };
+            return null;
         }
-        const alias = match[1].trim();
+        return {
+            hour: Number(match[1]),
+            minute: Number(match[2]),
+            durationMinutes: Number(match[3]),
+            valid: Number(match[1]) <= 23 && Number(match[2]) <= 59 && Number(match[3]) > 0
+        };
+    }
+
+    function parseObservationLine(line) {
+        const text = String(line || '').trim();
+        const aliases = Object.keys(speciesAliases).sort(function(left, right) {
+            return right.length - left.length;
+        });
+        let match = null;
+        let alias = '';
+        for (const candidate of aliases) {
+            if (!text.startsWith(candidate)) {
+                continue;
+            }
+            const remainder = text.slice(candidate.length);
+            const candidateMatch = remainder.match(/^\s*(\d+)(?:\s*[；;]?\s*(.*))?$/);
+            if (candidateMatch) {
+                alias = candidate;
+                match = candidateMatch;
+                break;
+            }
+        }
+        if (!match) {
+            const fallback = text.match(/^(.+?)\s*(\d+)(?:\s*[；;]?\s*(.*))?$/);
+            if (!fallback) {
+                return { error: '無法解析物種紀錄：' + (line || '（未填）') };
+            }
+            alias = fallback[1].trim();
+            match = [fallback[0], fallback[2], fallback[3]];
+        }
         const species = speciesAliases[alias];
         if (!species) {
             return { error: '不確定的物種：' + alias };
         }
-        const count = Number(match[2]);
-        const details = (match[3] || '').replace(/，/g, ',').trim();
+        const count = Number(match[1]);
+        const details = (match[2] || '').replace(/，/g, ',').trim();
         const explicitHeardBefore = details.match(/(?:^|,)\s*(\d+)\s*聽到/);
         const explicitHeardAfter = details.match(/聽到\s*(\d+)/);
         const heardCount = details.includes('聽到')
@@ -326,29 +360,39 @@
             warnings.push('未提供日期，已使用選取日期。');
         }
 
-        const locationName = lines[index++] || '';
+        const defaultLocation = getDefaultLocationPreset(locationPresets);
+        const locationOmitted = Boolean(parseEffortLine(lines[index]));
+        const locationName = locationOmitted
+            ? (defaultLocation ? defaultLocation.alias : '')
+            : (lines[index++] || '');
         const preset = locationPresets[locationName];
-        if (!preset) {
+        if (locationOmitted && preset) {
+            warnings.push('未提供地點，已使用預設地點「' + locationName + '」。');
+        } else if (locationOmitted) {
+            const error = '未提供地點，且尚未設定預設地點。';
+            errors.push(error);
+            blockingErrors.push(error);
+        } else if (!preset) {
             const error = '尚未設定的地點：' + (locationName || '（未填）');
             errors.push(error);
             blockingErrors.push(error);
         }
 
         const effortLine = lines[index++] || '';
-        const effortMatch = effortLine.match(/^(\d{1,2})[：:](\d{1,2})\s*開始\s*(\d+)\s*分鐘$/);
-        const effort = effortMatch ? {
-            hour: Number(effortMatch[1]),
-            minute: Number(effortMatch[2]),
-            durationMinutes: Number(effortMatch[3]),
-            protocol: preset ? preset.protocol : 'P22',
-            distanceKm: preset ? preset.distanceKm : null,
+        const parsedEffort = parseEffortLine(effortLine);
+        const effort = parsedEffort ? {
+            hour: parsedEffort.hour,
+            minute: parsedEffort.minute,
+            durationMinutes: parsedEffort.durationMinutes,
+            protocol: preset ? (preset.protocol || protocolForDistance(preset.distanceKm)) : 'P20',
+            distanceKm: preset && preset.distanceKm !== undefined ? preset.distanceKm : null,
             partySize: preset ? preset.partySize : 1
         } : null;
-        if (!effortMatch) {
+        if (!parsedEffort) {
             const error = '無法解析開始時間與分鐘：' + (effortLine || '（未填）');
             errors.push(error);
             blockingErrors.push(error);
-        } else if (effort.hour > 23 || effort.minute > 59 || effort.durationMinutes < 1) {
+        } else if (!parsedEffort.valid) {
             const error = '時間或分鐘不合理：' + effortLine;
             errors.push(error);
             blockingErrors.push(error);
@@ -396,6 +440,9 @@
         return {
             date: date,
             location: locationName,
+            locationId: preset ? preset.locId : '',
+            locationPageName: preset ? preset.pageName : '',
+            usedDefaultLocation: locationOmitted && Boolean(preset),
             effort: effort,
             observations: observations,
             unresolvedObservations: unresolvedObservations,
@@ -513,7 +560,10 @@
 
     async function fillEffort(record, options = {}) {
         assertRecordReady(record);
-        const preset = getLocationPresets()[record.location];
+        const preset = getLocationPresets()[record.location] || (record.locationId ? {
+            locId: record.locationId,
+            pageName: record.locationPageName || record.location
+        } : null);
         if (!preset) {
             throw new Error('尚未設定的地點：' + record.location);
         }
@@ -526,7 +576,7 @@
         fillDate(record.date);
         const protocol = document.getElementById(record.effort.protocol);
         if (!protocol) {
-            throw new Error('找不到 eBird 移動式調查選項。');
+            throw new Error('找不到 eBird 努力量選項：' + record.effort.protocol);
         }
         protocol.click();
         await waitForElement('p-shared-hr');
@@ -538,20 +588,35 @@
             isAfternoon ? ['PM', 'pm', 'P'] : ['AM', 'am', 'A'],
             isAfternoon ? ['PM', '下午'] : ['AM', '上午']
         );
-        setValue('p-dur-hrs', Math.floor(record.effort.durationMinutes / 60));
-        setValue('p-dur-min', record.effort.durationMinutes % 60);
-        setValue('p-dist', record.effort.distanceKm);
-        setValue('p-party-size', record.effort.partySize);
+        if (document.getElementById('p-dur-hrs')) {
+            setValue('p-dur-hrs', Math.floor(record.effort.durationMinutes / 60));
+        }
+        if (document.getElementById('p-dur-min')) {
+            setValue('p-dur-min', record.effort.durationMinutes % 60);
+        }
+        if (record.effort.protocol === 'P22' && document.getElementById('p-dist')) {
+            setValue('p-dist', record.effort.distanceKm);
+        }
+        if (document.getElementById('p-party-size')) {
+            setValue('p-party-size', record.effort.partySize);
+        }
         sessionStorage.setItem(storageKey, JSON.stringify(record));
         sessionStorage.removeItem(autoEffortKey);
         if (options.continueToSpecies !== false) {
-            document.getElementById('btn-eff-continue').click();
+            const continueButton = document.getElementById('btn-eff-continue');
+            if (!continueButton) {
+                throw new Error('找不到前往鳥種頁的按鈕。');
+            }
+            continueButton.click();
         }
     }
 
     function startRecord(record) {
         assertRecordReady(record);
-        const preset = getLocationPresets()[record.location];
+        const preset = getLocationPresets()[record.location] || (record.locationId ? {
+            locId: record.locationId,
+            pageName: record.locationPageName || record.location
+        } : null);
         if (!preset) {
             throw new Error('尚未設定的地點：' + record.location);
         }
@@ -771,10 +836,15 @@
         const hasItemIssues = outcomes.some(function(outcome) {
             return outcome.status === 'failed' || outcome.status === 'warning';
         }) || unresolved.length > 0;
-        const complete = document.getElementById('all-spp-y');
+        const completenessId = record.effort && record.effort.protocol === 'P20'
+            ? 'all-spp-n'
+            : 'all-spp-y';
+        const complete = document.getElementById(completenessId);
         const formErrors = [];
         if (!complete) {
-            formErrors.push('找不到完整清單選項');
+            formErrors.push(completenessId === 'all-spp-n'
+                ? '找不到非完整清單選項'
+                : '找不到完整清單選項');
         } else if (errors.length === 0 && !hasItemIssues) {
             complete.click();
         }
@@ -800,7 +870,8 @@
                 return item.status !== 'failed';
             }).map(function(item) {
                 return item.code;
-            })
+            }),
+            listCompleteness: completenessId === 'all-spp-n' ? 'incidental' : 'complete'
         };
     }
 
@@ -1054,7 +1125,7 @@
         return indexes;
     }
 
-    function analyzeRecordLines(text, fallbackDate, preset, selectedLocation) {
+    function analyzeRecordLines(text, fallbackDate, preset, selectedLocation, locationPresets = getLocationPresets()) {
         const source = normalizeSource(text);
         const lines = source.split('\n');
         const indexes = getNonemptyLineIndexes(lines);
@@ -1078,9 +1149,26 @@
             }
         }
 
-        const locationIndex = indexes[cursor++];
+        const candidateIndex = indexes[cursor];
+        const locationOmitted = candidateIndex !== undefined
+            && Boolean(parseEffortLine(lines[candidateIndex]));
+        const defaultLocation = getDefaultLocationPreset(locationPresets);
+        const locationIndex = locationOmitted ? undefined : indexes[cursor++];
         const effortIndex = indexes[cursor++];
-        if (locationIndex === undefined) {
+        let locationPrefix = '';
+        let locationFailure = false;
+
+        if (locationOmitted) {
+            if (defaultLocation) {
+                locationPrefix = '預設地點：' + defaultLocation.preset.pageName
+                    + '（' + defaultLocation.preset.locId + '）；';
+            } else {
+                locationPrefix = '未提供地點，且尚未設定預設地點；';
+                locationFailure = true;
+                failureCount += 1;
+                blockingFailureCount += 1;
+            }
+        } else if (locationIndex === undefined) {
             failureCount += 1;
             blockingFailureCount += 1;
         } else {
@@ -1110,19 +1198,16 @@
             failureCount += 1;
             blockingFailureCount += 1;
         } else {
-            const effortText = lines[effortIndex].trim();
-            const match = effortText.match(/^(\d{1,2})[：:](\d{1,2})\s*開始\s*(\d+)\s*分鐘$/);
-            const valid = match
-                && Number(match[1]) <= 23
-                && Number(match[2]) <= 59
-                && Number(match[3]) > 0;
+            const parsedEffort = parseEffortLine(lines[effortIndex]);
+            const valid = parsedEffort && parsedEffort.valid;
             results[effortIndex] = valid ? {
-                text: String(match[1]).padStart(2, '0') + ':'
-                    + String(match[2]).padStart(2, '0') + '／'
-                    + match[3] + ' 分鐘',
-                error: false
+                text: locationPrefix
+                    + String(parsedEffort.hour).padStart(2, '0') + ':'
+                    + String(parsedEffort.minute).padStart(2, '0') + '／'
+                    + parsedEffort.durationMinutes + ' 分鐘',
+                error: locationFailure
             } : {
-                text: '無法辨識開始時間與分鐘',
+                text: locationPrefix + '無法辨識開始時間與分鐘',
                 error: true
             };
             if (!valid) {
@@ -1166,7 +1251,8 @@
             lines: results,
             failureCount: failureCount,
             blockingFailureCount: blockingFailureCount,
-            parsedDate: parsedDate
+            parsedDate: parsedDate,
+            locationOmitted: locationOmitted
         };
     }
 
@@ -1186,6 +1272,11 @@
             '#' + panelId + ' button:disabled { opacity:.55;cursor:default; }',
             '#' + panelId + ' input,#' + panelId + ' select { box-sizing:border-box;width:100%;padding:7px; }',
             '#' + panelId + ' label { display:block;margin-top:7px;font-size:12px; }',
+            '#' + panelId + ' .tm-ebird-checkbox-label { display:flex;align-items:center;gap:7px;font-size:14px; }',
+            '#' + panelId + ' .tm-ebird-checkbox-label input { width:auto;padding:0; }',
+            '#' + panelId + ' .tm-ebird-effort-override { display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:8px;margin:8px 0;padding:8px;border:1px solid #ccc;border-radius:5px;background:#fafafa; }',
+            '#' + panelId + ' .tm-ebird-effort-override label { margin:0; }',
+            '#' + panelId + ' .tm-ebird-effort-derived { min-width:64px;padding:7px 0;color:#176b2c;font-weight:600; }',
             '#' + panelId + ' .tm-ebird-record-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0; }',
             '#' + panelId + ' textarea { box-sizing:border-box;width:100%;min-height:min(260px,42vh);margin:0;padding:8px;resize:vertical;line-height:1.5;white-space:pre;overflow:auto; }',
             '#' + panelId + ' .tm-ebird-preview { box-sizing:border-box;min-height:min(260px,42vh);overflow:auto;padding:8px;border:1px solid #aaa;background:#f7f7f7;white-space:pre;line-height:1.5; }',
@@ -1206,7 +1297,7 @@
             '.tm-ebird-location-filter,.tm-ebird-location-select { box-sizing:border-box!important;width:100%!important;max-width:none!important; }',
             '.tm-ebird-location-filter input { box-sizing:border-box;width:100%;padding:8px; }',
             '.tm-ebird-unobserved-hidden { display:none!important; }',
-            '@media (max-width:700px) { #' + panelId + ' { right:6px;top:6px;width:calc(100vw - 12px);max-height:calc(100dvh - 12px); } #' + panelId + ' .tm-ebird-record-grid { grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px; } #' + panelId + ' .tm-ebird-body { padding:8px; } #' + panelId + ' textarea,#' + panelId + ' .tm-ebird-preview { min-height:42vh;padding:5px;font-size:12px; } }'
+            '@media (max-width:700px) { #' + panelId + ' { right:6px;top:6px;width:calc(100vw - 12px);max-height:calc(100dvh - 12px); } #' + panelId + ' .tm-ebird-record-grid { grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px; } #' + panelId + ' .tm-ebird-body { padding:8px; } #' + panelId + ' textarea,#' + panelId + ' .tm-ebird-preview { min-height:42vh;padding:5px;font-size:12px; } #' + panelId + ' .tm-ebird-effort-override { grid-template-columns:1fr 1fr; } #' + panelId + ' .tm-ebird-effort-derived { grid-column:1/-1;padding:0; } }'
         ].join('\n');
         document.head.appendChild(style);
     }
@@ -1223,7 +1314,7 @@
         body.hidden = true;
         const note = document.createElement('p');
         note.className = 'tm-ebird-local-note';
-        note.textContent = '選取 eBird 地點後會直接帶入 ID 與完整名稱；設定只存在 Tampermonkey 本機。';
+        note.textContent = '設定只存在 Tampermonkey 本機；最多一個預設地點。距離 0～0.03 公里為定點計數，超過 0.03 公里為行進計數。';
         const existing = document.createElement('select');
 
         function addInput(labelText, type) {
@@ -1236,12 +1327,37 @@
             return input;
         }
 
+        function addSelect(labelText, options) {
+            const label = document.createElement('label');
+            label.textContent = labelText;
+            const select = document.createElement('select');
+            options.forEach(function(item) {
+                const option = document.createElement('option');
+                option.value = item.value;
+                option.textContent = item.text;
+                select.appendChild(option);
+            });
+            label.appendChild(select);
+            body.appendChild(label);
+            return select;
+        }
+
         body.append(note, existing);
         const alias = addInput('文字紀錄中的地點簡稱');
         const locId = addInput('eBird 地點 ID（L 開頭）');
         const pageName = addInput('eBird 完整名稱');
+        const defaultLabel = document.createElement('label');
+        defaultLabel.className = 'tm-ebird-checkbox-label';
+        const isDefault = document.createElement('input');
+        isDefault.type = 'checkbox';
+        defaultLabel.append(isDefault, document.createTextNode('設為未填地點時的預設地點'));
+        body.appendChild(defaultLabel);
+        const effortMode = addSelect('預設努力量', [
+            { value: 'incidental', text: '附帶紀錄（不填距離）' },
+            { value: 'distance', text: '依距離自動判定定點／行進計數' }
+        ]);
         const distanceKm = addInput('預設距離（公里）', 'number');
-        distanceKm.min = '0.01';
+        distanceKm.min = '0';
         distanceKm.step = '0.01';
         const partySize = addInput('預設人數', 'number');
         partySize.min = '1';
@@ -1265,14 +1381,28 @@
         actions.append(capture, save, remove);
         body.append(actions, status);
 
+        function updateDistanceState() {
+            distanceKm.disabled = effortMode.value === 'incidental';
+            if (distanceKm.disabled) {
+                distanceKm.value = '';
+            }
+        }
+
         function loadPreset(selectedAlias) {
             const preset = getLocationPresets()[selectedAlias];
             alias.value = selectedAlias || '';
             locId.value = preset ? preset.locId : '';
             pageName.value = preset ? preset.pageName : '';
-            distanceKm.value = preset ? preset.distanceKm : '';
+            isDefault.checked = Boolean(preset && preset.isDefault);
+            effortMode.value = preset && preset.distanceKm !== null && preset.distanceKm !== undefined
+                ? 'distance'
+                : 'incidental';
+            distanceKm.value = preset && preset.distanceKm !== null && preset.distanceKm !== undefined
+                ? preset.distanceKm
+                : '';
             partySize.value = preset ? preset.partySize : '1';
             remove.disabled = !preset;
+            updateDistanceState();
         }
 
         function refresh(selectedAlias) {
@@ -1281,10 +1411,11 @@
             addOption.value = '';
             addOption.textContent = '新增地點…';
             existing.appendChild(addOption);
-            Object.keys(getLocationPresets()).sort().forEach(function(name) {
+            const presets = getLocationPresets();
+            Object.keys(presets).sort().forEach(function(name) {
                 const option = document.createElement('option');
                 option.value = name;
-                option.textContent = name;
+                option.textContent = (presets[name].isDefault ? '★ ' : '') + name;
                 existing.appendChild(option);
             });
             existing.value = selectedAlias || '';
@@ -1315,13 +1446,27 @@
             alias.value = locationAlias;
             locId.value = current ? current.locId : '';
             pageName.value = current ? current.pageName : '';
+            isDefault.checked = false;
+            effortMode.value = 'incidental';
             distanceKm.value = '';
             partySize.value = '1';
+            updateDistanceState();
             remove.disabled = true;
             status.textContent = current
-                ? '這是新的地點簡稱；確認地點後填寫預設距離與人數，再按「開始填寫紀錄」。'
+                ? '這是新的地點簡稱；確認地點後可設定預設努力量、人數及是否為預設地點。'
                 : '這是新的地點簡稱；請先選擇 eBird 地點。';
             status.className = 'tm-ebird-status ' + (current ? '' : 'tm-ebird-error');
+        }
+
+        function values() {
+            return {
+                locId: locId.value,
+                pageName: pageName.value,
+                effortMode: effortMode.value,
+                distanceKm: effortMode.value === 'incidental' ? null : distanceKm.value,
+                partySize: partySize.value,
+                isDefault: isDefault.checked
+            };
         }
 
         toggle.addEventListener('click', function() { body.hidden = !body.hidden; });
@@ -1337,14 +1482,15 @@
                 onChanged();
             }
         });
+        effortMode.addEventListener('change', function() {
+            updateDistanceState();
+            if (typeof onChanged === 'function') {
+                onChanged();
+            }
+        });
         save.addEventListener('click', function() {
             try {
-                saveLocationPreset(alias.value, {
-                    locId: locId.value,
-                    pageName: pageName.value,
-                    distanceKm: distanceKm.value,
-                    partySize: partySize.value
-                });
+                saveLocationPreset(alias.value, values());
                 const savedAlias = alias.value.trim();
                 refresh(savedAlias);
                 status.textContent = '已在本機儲存「' + savedAlias + '」。';
@@ -1370,7 +1516,7 @@
                 onChanged();
             }
         });
-        [distanceKm, partySize, alias, locId, pageName].forEach(function(input) {
+        [distanceKm, partySize, alias, locId, pageName, isDefault].forEach(function(input) {
             input.addEventListener('input', function() {
                 if (typeof onChanged === 'function') {
                     onChanged();
@@ -1387,8 +1533,10 @@
                 alias: alias,
                 locId: locId,
                 pageName: pageName,
+                effortMode: effortMode,
                 distanceKm: distanceKm,
-                partySize: partySize
+                partySize: partySize,
+                isDefault: isDefault
             },
             refresh: refresh,
             prepareUnknown: prepareUnknown,
@@ -1397,20 +1545,115 @@
                 if (getLocationPresets()[locationAlias]) {
                     return getLocationPresets()[locationAlias];
                 }
-                return saveLocationPreset(locationAlias, {
-                    locId: locId.value,
-                    pageName: pageName.value,
-                    distanceKm: distanceKm.value,
-                    partySize: partySize.value
-                });
+                return saveLocationPreset(locationAlias, values());
             }
         };
     }
 
-    function extractLocationAlias(text, fallbackDate) {
+    function extractLocationAlias(text, fallbackDate, locationPresets = getLocationPresets()) {
         const lines = normalizeSource(text).split('\n').map(function(line) { return line.trim(); }).filter(Boolean);
+        if (lines.length === 0) {
+            return '';
+        }
         const parsedDate = parseFlexibleDate(lines[0], fallbackDate);
-        return lines[parsedDate.consumed ? 1 : 0] || '';
+        const candidate = lines[parsedDate.consumed ? 1 : 0] || '';
+        if (parseEffortLine(candidate)) {
+            const defaultLocation = getDefaultLocationPreset(locationPresets);
+            return defaultLocation ? defaultLocation.alias : '';
+        }
+        return candidate;
+    }
+
+    function createEffortOverride(onChanged) {
+        const section = document.createElement('div');
+        section.className = 'tm-ebird-effort-override';
+        const modeLabel = document.createElement('label');
+        modeLabel.textContent = '本筆努力量';
+        const mode = document.createElement('select');
+        [
+            { value: 'incidental', text: '附帶紀錄（不填距離）' },
+            { value: 'distance', text: '輸入距離' }
+        ].forEach(function(item) {
+            const option = document.createElement('option');
+            option.value = item.value;
+            option.textContent = item.text;
+            mode.appendChild(option);
+        });
+        modeLabel.appendChild(mode);
+        const distanceLabel = document.createElement('label');
+        distanceLabel.textContent = '本筆距離（公里）';
+        const distance = document.createElement('input');
+        distance.type = 'number';
+        distance.min = '0';
+        distance.step = '0.01';
+        distanceLabel.appendChild(distance);
+        const derived = document.createElement('span');
+        derived.className = 'tm-ebird-effort-derived';
+        section.append(modeLabel, distanceLabel, derived);
+
+        function update() {
+            distance.disabled = mode.value === 'incidental';
+            if (distance.disabled) {
+                distance.value = '';
+                derived.textContent = '附帶紀錄';
+            } else {
+                try {
+                    const protocol = protocolForDistance(distance.value);
+                    derived.textContent = protocol === 'P21' ? '定點計數' : '行進計數';
+                } catch (error) {
+                    derived.textContent = error.message;
+                }
+            }
+        }
+
+        function applyPreset(preset) {
+            if (preset && preset.distanceKm !== null && preset.distanceKm !== undefined) {
+                mode.value = 'distance';
+                distance.value = preset.distanceKm;
+            } else {
+                mode.value = 'incidental';
+                distance.value = '';
+            }
+            update();
+        }
+
+        function applyToRecord(record) {
+            if (!record.effort) {
+                return record;
+            }
+            if (mode.value === 'incidental') {
+                record.effort.protocol = 'P20';
+                record.effort.distanceKm = null;
+            } else {
+                if (distance.value === '') {
+                    throw new Error('請填寫本筆距離，或選擇「附帶紀錄」。');
+                }
+                record.effort.distanceKm = Number(distance.value);
+                record.effort.protocol = protocolForDistance(record.effort.distanceKm);
+            }
+            return record;
+        }
+
+        mode.addEventListener('change', function() {
+            update();
+            if (typeof onChanged === 'function') {
+                onChanged();
+            }
+        });
+        distance.addEventListener('input', function() {
+            update();
+            if (typeof onChanged === 'function') {
+                onChanged();
+            }
+        });
+        applyPreset(null);
+        return {
+            element: section,
+            mode: mode,
+            distance: distance,
+            applyPreset: applyPreset,
+            applyToRecord: applyToRecord
+        };
     }
 
     function createRecordEditor(body, status, isEffortPage) {
@@ -1419,11 +1662,12 @@
         let datePicker = null;
         let updating = false;
         let lastAutoLocationKey = '';
+        let lastEffortPresetKey = '';
         const dateReference = startOfDay(new Date());
         const grid = document.createElement('div');
         grid.className = 'tm-ebird-record-grid';
         const textarea = document.createElement('textarea');
-        textarea.placeholder = '貼上日期、地點、時間與物種紀錄';
+        textarea.placeholder = '貼上日期、地點（可省略）、時間與物種紀錄';
         const preview = document.createElement('div');
         preview.className = 'tm-ebird-preview';
         preview.setAttribute('aria-label', '逐行辨識結果');
@@ -1436,6 +1680,7 @@
         const failure = document.createElement('span');
         failure.className = 'tm-ebird-error';
         actionRow.append(button, failure);
+        const effortOverride = createEffortOverride(refresh);
 
         function selectedLocation() {
             return detectCurrentLocation(locationFilter);
@@ -1454,15 +1699,26 @@
                 : '';
         }
 
+        function applyEffortPreset(preset, locationKey) {
+            const distanceKey = preset && preset.distanceKm !== null && preset.distanceKm !== undefined
+                ? String(preset.distanceKm)
+                : 'incidental';
+            const key = (locationKey || 'none') + '|' + distanceKey;
+            if (key !== lastEffortPresetKey) {
+                effortOverride.applyPreset(preset);
+                lastEffortPresetKey = key;
+            }
+        }
+
         function refresh() {
-            if (updating) {
+            if (updating || !datePicker) {
                 return null;
             }
             updating = true;
             try {
                 const fallback = datePicker.getDate();
-                const alias = extractLocationAlias(textarea.value, dateReference);
                 const presets = getLocationPresets();
+                const alias = extractLocationAlias(textarea.value, dateReference, presets);
                 const known = presets[alias] || null;
                 const autoLocationKey = alias + '|' + (known ? known.locId : 'new');
                 if (alias && locationFilter && autoLocationKey !== lastAutoLocationKey) {
@@ -1488,7 +1744,17 @@
                 if (parsedDate.consumed && !parsedDate.error) {
                     datePicker.set(parsedDate.value);
                 }
-                const analysis = analyzeRecordLines(textarea.value, dateReference, known, current);
+                const selectedPreset = known
+                    || (current ? (findLocationPresetById(current.locId, presets) || {}).preset : null)
+                    || null;
+                applyEffortPreset(selectedPreset, current ? current.locId : (known ? known.locId : 'none'));
+                const analysis = analyzeRecordLines(
+                    textarea.value,
+                    dateReference,
+                    known,
+                    current,
+                    presets
+                );
                 renderPreview(analysis);
                 return {
                     alias: alias,
@@ -1501,11 +1767,8 @@
             }
         }
 
-        datePicker = createDatePicker(refresh, dateReference);
-        settings = createSettingsEditor(selectedLocation, refresh);
-        body.append(datePicker.element, grid, actionRow, status, settings.element);
-        locationFilter = installLocationFilter(function() {
-            const alias = extractLocationAlias(textarea.value, dateReference);
+        function onLocationChanged() {
+            const alias = extractLocationAlias(textarea.value, dateReference, getLocationPresets());
             if (alias && !getLocationPresets()[alias] && settings) {
                 const current = selectedLocation();
                 if (current) {
@@ -1513,8 +1776,29 @@
                     settings.fields.pageName.value = current.pageName;
                 }
             }
+            lastEffortPresetKey = '';
+            refresh();
+        }
+
+        function installFilter() {
+            locationFilter = installLocationFilter(onLocationChanged);
+            if (locationFilter) {
+                const defaultLocation = getDefaultLocationPreset();
+                if (defaultLocation) {
+                    locationFilter.selectLocId(defaultLocation.preset.locId);
+                    lastAutoLocationKey = defaultLocation.alias + '|' + defaultLocation.preset.locId;
+                }
+            }
+            return locationFilter;
+        }
+
+        datePicker = createDatePicker(refresh, dateReference);
+        settings = createSettingsEditor(selectedLocation, function() {
+            lastEffortPresetKey = '';
             refresh();
         });
+        body.append(datePicker.element, grid, effortOverride.element, actionRow, status, settings.element);
+        installFilter();
 
         textarea.addEventListener('input', refresh);
         textarea.addEventListener('scroll', function() {
@@ -1533,7 +1817,13 @@
                 if (!state.known) {
                     settings.savePending(state.alias);
                 }
-                const record = parseRecord(textarea.value, datePicker.getDate(), getLocationPresets(), dateReference);
+                const record = parseRecord(
+                    textarea.value,
+                    datePicker.getDate(),
+                    getLocationPresets(),
+                    dateReference
+                );
+                effortOverride.applyToRecord(record);
                 assertRecordReady(record);
                 button.disabled = true;
                 status.textContent = record.warnings.join('\n');
@@ -1554,25 +1844,19 @@
             let attempts = 0;
             const timer = setInterval(function() {
                 attempts += 1;
-                locationFilter = installLocationFilter(function() {
-                    const alias = extractLocationAlias(textarea.value, dateReference);
-                    if (alias && !getLocationPresets()[alias] && settings) {
-                        const current = selectedLocation();
-                        if (current) {
-                            settings.fields.locId.value = current.locId;
-                            settings.fields.pageName.value = current.pageName;
-                        }
-                    }
-                    refresh();
-                });
-                if (locationFilter || attempts >= 30) {
+                if (installFilter() || attempts >= 30) {
                     clearInterval(timer);
                     refresh();
                 }
             }, 250);
         }
         refresh();
-        return { textarea: textarea, button: button, refresh: refresh };
+        return {
+            textarea: textarea,
+            button: button,
+            refresh: refresh,
+            effortOverride: effortOverride
+        };
     }
 
     function addSpeciesVisibilityButton(parent) {
@@ -1607,19 +1891,25 @@
         }
 
         const preset = getLocationPresets()[record.location];
-        const locationName = preset ? preset.pageName : record.location;
-        const locationId = preset ? preset.locId : '';
+        const locationName = record.locationPageName || (preset ? preset.pageName : record.location);
+        const locationId = record.locationId || (preset ? preset.locId : '');
         appendLine('地點：' + locationName
             + (record.location && record.location !== locationName ? '（' + record.location + '）' : '')
             + (locationId ? '；' + locationId : ''));
         appendLine('日期：' + formatDateLabel(record.date));
         if (record.effort) {
+            const protocolName = record.effort.protocol === 'P20'
+                ? '附帶紀錄'
+                : record.effort.protocol === 'P21' ? '定點計數' : '行進計數';
             appendLine(
                 '時間：' + String(record.effort.hour).padStart(2, '0') + ':'
                 + String(record.effort.minute).padStart(2, '0') + ' 開始；'
                 + record.effort.durationMinutes + ' 分鐘；'
-                + record.effort.distanceKm + ' 公里；'
-                + record.effort.partySize + ' 人'
+                + protocolName
+                + (record.effort.distanceKm === null || record.effort.distanceKm === undefined
+                    ? ''
+                    : '；' + record.effort.distanceKm + ' 公里')
+                + '；' + record.effort.partySize + ' 人'
             );
         }
         appendLine(
@@ -1649,10 +1939,14 @@
         const hasProblems = result.items.some(function(item) {
             return item.status !== 'filled';
         }) || result.unresolved.length > 0 || result.formErrors.length > 0;
+        const incidental = result.listCompleteness === 'incidental'
+            || (record.effort && record.effort.protocol === 'P20');
         appendLine(
             hasProblems
-                ? '未勾選完整清單，也未送出。'
-                : '已勾選完整清單；尚未送出，請人工確認。',
+                ? '尚有錯誤，且未送出。'
+                : incidental
+                    ? '已選擇附帶紀錄（非完整清單）；尚未送出，請人工確認。'
+                    : '已勾選完整清單；尚未送出，請人工確認。',
             hasProblems ? 'tm-ebird-error' : 'tm-ebird-ok'
         );
     }
@@ -1665,7 +1959,8 @@
                 totalCount: result.totalCount,
                 items: result.items,
                 unresolved: result.unresolved,
-                formErrors: result.formErrors
+                formErrors: result.formErrors,
+                listCompleteness: result.listCompleteness
             }
         }));
     }
@@ -1785,13 +2080,18 @@
     const api = {
         getLocationPresets: getLocationPresets,
         saveLocationPreset: saveLocationPreset,
+        protocolForDistance: protocolForDistance,
+        getDefaultLocationPreset: getDefaultLocationPreset,
+        findLocationPresetById: findLocationPresetById,
         deleteLocationPreset: deleteLocationPreset,
         speciesAliases: speciesAliases,
         parseFlexibleDate: parseFlexibleDate,
+        parseEffortLine: parseEffortLine,
         parseRecord: parseRecord,
         parseObservationLine: parseObservationLine,
         formatObservationForEbird: formatObservationForEbird,
         analyzeRecordLines: analyzeRecordLines,
+        extractLocationAlias: extractLocationAlias,
         filterLocationItems: filterLocationItems,
         extractLocId: extractLocId,
         startRecord: startRecord,
