@@ -237,7 +237,8 @@ describe('eBird compact note parser', () => {
                 pageName: '測試公園',
                 protocol: 'P22',
                 distanceKm: 1.25,
-                partySize: 2
+                partySize: 2,
+                isDefault: false
             }
         });
         api.deleteLocationPreset('測試公園');
@@ -532,6 +533,43 @@ describe('eBird species form safety', () => {
         assert.equal(result.unresolved[0].sourceLine, '神秘鳥1');
         assert.match(result.unresolved[0].error, /不確定的物種/);
         assert.equal(completeClicks, 0);
+    });
+
+    test('marks an incidental checklist as incomplete and never submits it', async () => {
+        const { harness, api } = loadAssistant();
+        const presets = {
+            '附帶地點': {
+                locId: 'L10000003',
+                pageName: '附帶地點正式名稱',
+                protocol: 'P20',
+                distanceKm: null,
+                partySize: 1
+            }
+        };
+        const record = api.parseRecord(
+            '2000.01.05\n附帶地點\n7：15 開始 6 分鐘\n麻雀1',
+            new Date(2000, 0, 31),
+            presets
+        );
+        const count = harness.document.createElement('input');
+        count.id = 'eutspa';
+        harness.appendToBody(count);
+        const incomplete = harness.document.createElement('input');
+        incomplete.id = 'all-spp-n';
+        harness.appendToBody(incomplete);
+        const submit = harness.document.createElement('button');
+        submit.id = 'btn-continue';
+        harness.appendToBody(submit);
+        let incompleteClicks = 0;
+        let submitClicks = 0;
+        incomplete.addEventListener('click', () => { incompleteClicks += 1; });
+        submit.addEventListener('click', () => { submitClicks += 1; });
+
+        const result = await api.fillSpecies(record);
+
+        assert.equal(incompleteClicks, 1);
+        assert.equal(submitClicks, 0);
+        assert.equal(result.listCompleteness, 'incidental');
     });
 
     test('keeps the fixed assistant panel scrollable within the viewport', () => {
