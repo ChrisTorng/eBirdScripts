@@ -159,6 +159,22 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(api.protocolForDistance(0.03), 'P21');
         assert.equal(api.protocolForDistance(0.031), 'P22');
         assert.throws(() => api.protocolForDistance(-0.01), /0 以上/);
+
+        const legacyPresetRecord = plain(api.parseRecord(
+            '9/2\n舊設定\n8：38 開始 28 分鐘\n麻雀1',
+            new Date(2026, 8, 3),
+            {
+                '舊設定': {
+                    locId: 'L1003',
+                    pageName: '舊設定正式名稱',
+                    protocol: 'P22',
+                    distanceKm: 0.02,
+                    partySize: 1
+                }
+            },
+            new Date(2026, 8, 3)
+        ));
+        assert.equal(legacyPresetRecord.effort.protocol, 'P21');
     });
 
     test('keeps only one default location in local settings', () => {
@@ -177,6 +193,14 @@ describe('eBird assistant fast entry workflow', () => {
             partySize: 2,
             isDefault: true
         });
+
+        assert.throws(() => api.saveLocationPreset('空距離', {
+            locId: 'L1004',
+            pageName: '空距離正式名稱',
+            effortMode: 'distance',
+            distanceKm: '',
+            partySize: 1
+        }), /請填寫預設距離/);
 
         const presets = plain(api.getLocationPresets());
         assert.equal(presets['甲地'].isDefault, false);
