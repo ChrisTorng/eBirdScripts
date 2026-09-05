@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-05_1.6.2
-// @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
+// @version      2026-09-05_1.6.3
+// @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
 // @downloadURL  https://github.com/ChrisTorng/eBirdScripts/raw/main/EBirdTextInputAssistant.user.js
@@ -1090,145 +1090,97 @@
         return true;
     }
 
-    function pageVisibleText() {
-        if (!document.body) {
-            return '';
-        }
-        return String(document.body.innerText || document.body.textContent || '')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
-
     function escapeRegex(text) {
         return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    function containsAny(text, candidates) {
-        const normalized = String(text || '').toLocaleLowerCase();
-        return candidates.some(function(candidate) {
-            return candidate && normalized.includes(String(candidate).toLocaleLowerCase());
-        });
-    }
-
-    function submittedDateCandidates(date) {
-        const monthNames = [
-            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-        ];
-        return [
-            date.year + '/' + date.month + '/' + date.day,
-            date.month + '/' + date.day + '/' + date.year,
-            String(date.month).padStart(2, '0') + '/' + String(date.day).padStart(2, '0') + '/' + date.year,
-            date.day + ' ' + monthNames[date.month - 1] + ' ' + date.year,
-            monthNames[date.month - 1] + ' ' + date.day + ', ' + date.year,
-            date.year + '年' + date.month + '月' + date.day + '日'
-        ];
-    }
-
-    function submittedDurationCandidates(minutes) {
-        const hours = Math.floor(minutes / 60);
-        const remaining = minutes % 60;
-        const candidates = [
-            minutes + ' min',
-            minutes + ' mins',
-            minutes + ' minute',
-            minutes + ' minutes',
-            minutes + ' 分鐘'
-        ];
-        if (hours > 0) {
-            candidates.push(
-                hours + ' hr ' + remaining + ' min',
-                hours + ' hr, ' + remaining + ' min',
-                hours + ' 小時 ' + remaining + ' 分鐘'
-            );
-        }
-        return candidates;
-    }
-
-    function readSubmittedMetadata(record, text) {
+    function readStructuredSubmittedMetadata(record, primary, effort) {
         const checks = [];
         const expected = record.effort;
-        function add(key, label, value, matched) {
-            checks.push({ key: key, label: label, value: value, matched: Boolean(matched) });
-        }
-        const locationName = record.locationPageName || record.location;
-        add('location', '地點', locationName, text.includes(locationName));
-
-        const dateMatched = containsAny(text, submittedDateCandidates(record.date));
-        const timeText = formatTime12(expected.hour, expected.minute);
-        const compactTime = timeText.replace(':0', ':');
-        const timeMatched = containsAny(text, [timeText, compactTime]);
-        add(
-            'datetime',
-            '日期時間',
-            formatDateLabel(record.date) + ' ' + timeText,
-            dateMatched && timeMatched
-        );
-
-        const protocolNames = {
-            P20: ['附帶紀錄', 'Incidental'],
-            P21: ['定點計數', 'Stationary'],
-            P22: ['行進計數', 'Traveling']
+        const content = function(element) { return element ? element.textContent.replace(/\s+/g, ' ').trim() : ''; };
+        const add = function(key, label, value, matched) {
+            checks.push({ key: key, label: label, value: value || '找不到', matched: Boolean(matched) });
         };
-        const protocolLabels = { P20: '附帶紀錄', P21: '定點計數', P22: '行進計數' };
-        add(
-            'protocol',
-            '努力量',
-            protocolLabels[expected.protocol],
-            containsAny(text, protocolNames[expected.protocol] || [])
-        );
-        add(
-            'duration',
-            '耗時',
-            expected.durationMinutes + ' 分鐘',
-            containsAny(text, submittedDurationCandidates(expected.durationMinutes))
-        );
+        const links = primary ? Array.from(primary.querySelectorAll('a')) : [];
+        const locationLink = links.find(function(link) {
+            return /\/(?:hotspot|location)\/L\d+(?:[/?#]|$)/.test(link.getAttribute('href') || '');
+        });
+        const actualLocationId = locationLink && (locationLink.getAttribute('href').match(/\/(L\d+)/) || [])[1];
+        add('location', '地點', content(locationLink), record.locationId
+            ? actualLocationId === record.locationId
+            : content(locationLink) === (record.locationPageName || record.location));
 
-        if (expected.protocol === 'P22') {
-            const distanceText = String(expected.distanceKm);
-            const distancePattern = new RegExp(
-                '(^|\\D)' + escapeRegex(distanceText) + '\\s*(?:km|公里)(?=\\D|$)',
-                'i'
-            );
-            add(
-                'distance',
-                '距離',
-                distanceText + ' 公里',
-                distancePattern.test(text)
-            );
-        } else {
-            add('distance', '距離', '不適用', true);
-        }
+        const time = primary && primary.querySelector('time[datetime]');
+        const timestamp = time && time.getAttribute('datetime');
+        const parts = timestamp && timestamp.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+        const actualDate = parts && { year: Number(parts[1]), month: Number(parts[2]), day: Number(parts[3]) };
+        add('datetime', '日期時間', parts
+            ? formatDateLabel(actualDate) + ' ' + formatTime12(Number(parts[4]), Number(parts[5]))
+            : content(time), Boolean(parts)
+                && actualDate.year === record.date.year && actualDate.month === record.date.month
+                && actualDate.day === record.date.day && Number(parts[4]) === Number(expected.hour)
+                && Number(parts[5]) === Number(expected.minute));
 
-        const party = String(expected.partySize);
-        const partyPattern = new RegExp(
-            '(?:observers?|觀察者|人數)\\s*[:：]?\\s*' + escapeRegex(party)
-                + '|' + escapeRegex(party) + '\\s*(?:observers?|人)',
-            'i'
-        );
-        add('party', '人數', party + ' 人', partyPattern.test(text));
+        const protocolNode = effort && effort.querySelector('.Heading-main');
+        const protocolText = content(protocolNode);
+        const protocols = { P20: ['附帶紀錄', 'Incidental'], P21: ['定點計數', 'Stationary'], P22: ['行進計數', 'Traveling'] };
+        add('protocol', '努力量', protocolText, (protocols[expected.protocol] || []).includes(protocolText));
+        const durationNode = effort && effort.querySelector('time[datetime]');
+        const duration = durationNode && (durationNode.getAttribute('datetime') || '').match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+        const minutes = duration && (Number(duration[1] || 0) * 60 + Number(duration[2] || 0) + Number(duration[3] || 0) / 60);
+        add('duration', '耗時', duration ? minutes + ' 分鐘' : '', duration && minutes === Number(expected.durationMinutes));
 
-        const expectedComplete = expected.protocol !== 'P20';
-        const completeMatched = expectedComplete
-            ? containsAny(text, ['Complete Checklist', '完整清單：是', '完整清單 是'])
-            : containsAny(text, ['Incomplete Checklist', 'Not a complete checklist', '非完整清單', '完整清單：否']);
-        add(
-            'completeness',
-            '完整清單',
-            expectedComplete ? '是完整清單' : '否（附帶紀錄）',
-            completeMatched
-        );
+        const badgeForIcon = function(iconClass) {
+            const icon = effort && effort.querySelector('.' + iconClass);
+            return icon && icon.parentElement.querySelector('.Badge-label');
+        };
+        const distanceText = content(badgeForIcon('Icon--track'));
+        const distance = distanceText.match(/^(\d+(?:\.\d+)?)\s*(km|公里|mi|miles?)$/i);
+        const distanceKm = distance && Number(distance[1]) * (/^(mi|mile)/i.test(distance[2]) ? 1.609344 : 1);
+        add('distance', '距離', expected.protocol === 'P22' ? distanceText : distanceText || '不適用',
+            expected.protocol === 'P22' ? distance && Math.abs(distanceKm - Number(expected.distanceKm)) < 0.000001 : !distanceText);
+        const party = content(badgeForIcon('Icon--user'));
+        add('party', '人數', party ? party + ' 人' : '', /^\d+$/.test(party) && Number(party) === Number(expected.partySize));
+
+        const completeNode = effort && effort.querySelector('[aria-controls="status-info"] .Badge-label');
+        const completeText = content(completeNode);
+        const complete = ['Complete', '完整紀錄清單', '完整清單'].includes(completeText) ? true
+            : ['Incomplete', '非完整紀錄清單', '非完整清單', '不完整紀錄清單', '不完整清單'].includes(completeText) ? false : null;
+        add('completeness', '完整清單', completeText, complete !== null && complete === (expected.protocol !== 'P20'));
         return checks;
     }
 
+    function readSubmittedMetadata(record) {
+        // Stable attributes survive translation and eBird Scripts date rewriting.
+        const sectionFor = function(id) {
+            const heading = document.getElementById(id);
+            if (heading) return heading.closest('section');
+            return Array.from(document.querySelectorAll('section')).find(function(section) {
+                return (section.getAttribute('aria-labelledby') || section.getAttribute('aria-labelledBy')) === id;
+            });
+        };
+        const primary = sectionFor('primary-details');
+        const effort = sectionFor('other-details-effort');
+        return readStructuredSubmittedMetadata(record, primary, effort);
+    }
+
     function findSubmittedSpeciesRow(observation, code) {
+        const normalizeName = function(value) {
+            return String(value || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+        };
+        const names = [observation.name];
+        if (observation.code === 'whiwag8') names.push('White Wagtail (Chinese)');
         const anchors = Array.from(document.querySelectorAll('a'));
         const anchor = anchors.find(function(item) {
+            if (item.closest('#' + panelId)) return false;
             const href = String(item.href || item.getAttribute('href') || '');
-            return href.includes('/species/' + code)
-                || item.textContent.replace(/\s+/g, ' ').trim() === observation.name;
+            const linkedCode = (href.match(/\/species\/([^/?#]+)/) || [])[1];
+            return (code && linkedCode === code)
+                || names.some(function(name) { return normalizeName(item.textContent) === normalizeName(name); });
         });
         if (anchor) {
+            const structuredRow = anchor.closest('.Observation');
+            if (structuredRow) return { row: structuredRow, name: anchor.textContent.replace(/\s+/g, ' ').trim() };
             let current = anchor;
             let best = anchor.parentElement || anchor;
             for (let depth = 0; current && current !== document.body && depth < 7; depth += 1) {
@@ -1247,6 +1199,7 @@
         }
         const candidates = Array.from(document.querySelectorAll('li,article,section,div'))
             .filter(function(item) {
+                if (item.closest('#' + panelId) || item.querySelector('#' + panelId)) return false;
                 const value = String(item.innerText || item.textContent || '').replace(/\s+/g, ' ').trim();
                 return value.includes(observation.name);
             })
@@ -1279,21 +1232,30 @@
             const rowText = String(found.row.innerText || found.row.textContent || '')
                 .replace(/\s+/g, ' ')
                 .trim();
-            const countMatched = new RegExp(
+            const countField = found.row.querySelector('.Observation-numberObserved');
+            const structured = found.row.classList.contains('Observation');
+            const countCopy = countField && countField.cloneNode(true);
+            if (countCopy) countCopy.querySelectorAll('.is-visuallyHidden').forEach(function(node) { node.remove(); });
+            const countText = countCopy ? countCopy.textContent.trim() : structured ? '' : rowText;
+            const countMatched = structured ? countText === String(observation.count) : new RegExp(
                 '(^|\\D)' + escapeRegex(observation.count) + '(?=\\D|$)'
-            ).test(rowText);
+            ).test(countText);
+            const breedingField = found.row.querySelector('.Observation-meta-item-value');
+            const commentsField = found.row.querySelector('.Observation-comments p');
+            const breedingText = breedingField ? breedingField.textContent.trim() : structured ? '' : rowText;
+            const commentsText = commentsField ? commentsField.textContent.trim() : structured ? '' : rowText;
             const breedingMatched = observation.breedingCode
                 ? new RegExp(
                     '(^|[^A-Za-z])' + escapeRegex(observation.breedingCode) + '(?=[^A-Za-z]|$)',
                     'i'
-                ).test(rowText)
-                : true;
+                ).test(breedingText)
+                : !structured || !breedingText;
             const commentsMatched = observation.comments
-                ? rowText.includes(observation.comments)
-                : true;
+                ? (structured ? commentsText === observation.comments : commentsText.includes(observation.comments))
+                : !structured || !commentsText;
             const extras = [];
             if (observation.breedingCode && breedingMatched) {
-                extras.push(observation.breedingCode);
+                extras.push(breedingField ? breedingText : observation.breedingCode);
             }
             if (observation.comments && commentsMatched) {
                 extras.push(observation.comments);
@@ -1304,7 +1266,7 @@
             if (!commentsMatched) mismatches.push('完成頁附註不符');
             return Object.assign({}, previous, {
                 observation: observation,
-                display: observation.count + ' ' + found.name
+                display: (structured ? countText || '?' : observation.count) + ' ' + found.name
                     + (extras.length ? '; ' + extras.join(', ') : ''),
                 status: mismatches.length ? 'failed' : 'filled',
                 error: mismatches.join('；')
@@ -1313,9 +1275,18 @@
     }
 
     function verifySubmittedChecklist(record, preResult) {
-        const text = pageVisibleText();
-        const metadata = readSubmittedMetadata(record, text);
+        const metadata = readSubmittedMetadata(record);
         const items = verifySubmittedSpecies(record, preResult);
+        const rows = Array.from(document.querySelectorAll('.Observation'));
+        if (rows.length) {
+            const order = function(item) {
+                const observation = item.observation;
+                const found = observation && findSubmittedSpeciesRow(observation, item.code || observation.code);
+                const index = found ? rows.indexOf(found.row) : -1;
+                return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+            };
+            items.sort(function(left, right) { return order(left) - order(right); });
+        }
         const preSubmitPassed = preResult.preSubmitPassed === true
             || preResult.allMatched === true
             || resultFullyVerified(record, preResult);

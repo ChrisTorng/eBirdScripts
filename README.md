@@ -19,6 +19,8 @@ eBird Scripts 是一個 [Tampermonkey](https://www.tampermonkey.net/) 使用者�
 
 ### eBird 文字輸入助手
 
+Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
+
 [eBird 文字輸入助手](https://github.com/ChrisTorng/eBirdScripts/raw/main/EBirdTextInputAssistant.user.js)可將慣用的臺灣賞鳥文字紀錄帶入 eBird 提交表單：
 
 - 貼上後立即逐行顯示日期、地點、時間及鳥種的辨識結果，無法辨識的項目會以紅字標示。
@@ -26,6 +28,7 @@ eBird Scripts 是一個 [Tampermonkey](https://www.tampermonkey.net/) 使用者�
 - 支援多種日期簡寫、常用鳥種簡稱、鳥名與數字相連的寫法，以及「唱歌」、「聽到」與「一對」等細節。
 - 核對面板採窄版、限制為約半個視窗高度；行動裝置預設收合，並可由右上角按鈕展開或收合。
 - 填寫完成後及送出後，會分別重新讀取 eBird 頁面中的正式地點、日期時間、努力量、完整清單及鳥種欄位，逐項比對並標示結果。
+- Completed checklists use structured date/time and effort fields, supporting English, Chinese, and dates rewritten by eBird Scripts. Species follow page order, including subspecies displayed under a parent species link.
 - 「確認成功後自動儲存」預設開啟，但只有輸入無辨識失敗且提交頁全部讀回吻合時才會送出；任一項不符即禁止自動送出。
 
 ## 安裝

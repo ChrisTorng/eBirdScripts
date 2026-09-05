@@ -365,8 +365,27 @@ describe('eBird assistant fast entry workflow', () => {
                 [confirmationKey]: JSON.stringify(confirmation)
             },
             beforeLoad(currentHarness) {
-                currentHarness.document.body.textContent =
-                    '測試公園正式名稱 2026/9/2 8:38 AM Traveling 28 min 1 km Observers 1 Complete Checklist';
+                const doc = currentHarness.document;
+                function node(parent, tag, text, attributes = {}) {
+                    const element = doc.createElement(tag);
+                    element.textContent = text;
+                    Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+                    parent.appendChild(element);
+                    return element;
+                }
+                const primary = node(doc.body, 'section', '', { 'aria-labelledby': 'primary-details' });
+                node(primary, 'time', '2026/9/2 8:38 AM', { datetime: '2026-09-02T08:38' });
+                node(primary, 'a', '測試公園正式名稱', { href: '/atlastw/hotspot/L1001' });
+                const effort = node(doc.body, 'section', '', { 'aria-labelledby': 'other-details-effort' });
+                node(effort, 'span', 'Traveling', { class: 'Heading-main' });
+                node(effort, 'time', '28 min', { datetime: 'PT28M' });
+                const complete = node(effort, 'button', '', { 'aria-controls': 'status-info' });
+                node(complete, 'span', '完整紀錄清單', { class: 'Badge-label' });
+                for (const [icon, label] of [['Icon--user', '1'], ['Icon--track', '1 km']]) {
+                    const badge = node(effort, 'span', '');
+                    node(badge, 'svg', '', { class: icon });
+                    node(badge, 'span', label, { class: 'Badge-label' });
+                }
                 const row = currentHarness.document.createElement('div');
                 row.textContent = '5 黑領椋鳥 S Singing Bird Heard 2';
                 const species = currentHarness.document.createElement('a');
@@ -390,7 +409,7 @@ describe('eBird assistant fast entry workflow', () => {
         assert.match(summaryText, /地點：測試公園正式名稱/);
         assert.doesNotMatch(summaryText, /L\d+/);
         assert.match(summaryText, /日期時間：9\/2 \(三\) 8:38 AM/);
-        assert.match(summaryText, /完整清單：是完整清單/);
+        assert.match(summaryText, /完整清單：完整紀錄清單/);
         assert.match(summaryText, /5 黑領椋鳥; S, Heard 2/);
         assert.match(summaryText, /送出前所有欄位均已重新讀取並符合預期/);
     });
