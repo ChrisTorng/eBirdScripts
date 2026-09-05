@@ -571,7 +571,7 @@ describe('eBird species form safety', () => {
         ]);
         addSpeciesRow(bulbul, [
             { value: '', textContent: '選擇繁殖代碼' },
-            { value: 'S ', textContent: 'S 唱歌中鳥' }
+            { value: 'S唱歌中鳥', textContent: 'S 唱歌中鳥' }
         ]);
         const complete = harness.document.createElement('input');
         complete.id = 'all-spp-y';
