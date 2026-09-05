@@ -306,7 +306,19 @@ describe('eBird species form safety', () => {
         assert.equal(harness.document.getElementById('p-dur-min').value, '10');
         assert.equal(harness.document.getElementById('p-dist').value, '0.2');
         assert.equal(harness.document.getElementById('p-party-size').value, '1');
-        assert.equal(JSON.parse(harness.sessionStorage.getItem(api.storageKey)).location, '測試河段');
+        const saved = JSON.parse(harness.sessionStorage.getItem(api.storageKey));
+        assert.equal(saved.location, '測試河段');
+        assert.deepEqual(saved.effortReadback.date, { year: 2000, month: 1, day: 2 });
+        assert.deepEqual(saved.effortReadback.time, {
+            hour: 14,
+            minute: 30,
+            hour12: 2,
+            ampm: 'PM'
+        });
+        assert.equal(saved.effortReadback.protocol, 'P22');
+        assert.equal(saved.effortReadback.durationMinutes, 10);
+        assert.equal(saved.effortReadback.distanceKm, 0.2);
+        assert.equal(saved.effortReadback.partySize, 1);
     });
 
     test('fills counts and details, marks a complete list, and never clicks Submit', async () => {
@@ -357,6 +369,77 @@ describe('eBird species form safety', () => {
         assert.equal(harness.document.getElementById('p-livbul1_comments').value, 'Heard 1');
         assert.equal(completeClicks, 1);
         assert.equal(submitClicks, 0);
+        assert.equal(submit.dataset.tmEbirdManualOnly, 'true');
+    });
+
+    test('re-reads every checklist field and omits an unselected breeding-code placeholder', async () => {
+        const { harness, api } = loadAssistant();
+        const record = api.parseRecord(`2000.01.05
+測試河段
+7：15 開始 6 分鐘
+麻雀 1`, new Date(2000, 0, 31), testLocationPresets);
+        record.effortReadback = {
+            locationId: 'L10000002',
+            locationName: '測試河段正式名稱',
+            date: { year: 2000, month: 1, day: 5 },
+            time: { hour: 7, minute: 15, hour12: 7, ampm: 'AM' },
+            protocol: 'P22',
+            durationMinutes: 6,
+            distanceKm: 0.2,
+            partySize: 1
+        };
+
+        const row = harness.document.createElement('li');
+        row.className = 'SubmitChecklist-species';
+        const count = harness.document.createElement('input');
+        count.id = 'eutspa';
+        count.className = 'sc';
+        row.appendChild(count);
+        harness.appendToBody(row);
+
+        const name = harness.document.createElement('div');
+        name.id = 'name_eutspa';
+        name.textContent = '麻雀';
+        harness.appendToBody(name);
+        const breeding = harness.document.createElement('select');
+        breeding.id = 'p-eutspa_bcode';
+        breeding.options = [
+            { value: '', textContent: '選擇最可能的代碼...' },
+            { value: 'S', textContent: 'S 唱歌中鳥' }
+        ];
+        breeding.value = '';
+        harness.appendToBody(breeding);
+        const comments = harness.document.createElement('textarea');
+        comments.id = 'p-eutspa_comments';
+        harness.appendToBody(comments);
+
+        const complete = harness.document.createElement('input');
+        complete.id = 'all-spp-y';
+        harness.appendToBody(complete);
+        const submit = harness.document.createElement('button');
+        submit.id = 'btn-continue';
+        harness.appendToBody(submit);
+
+        const result = await api.fillSpecies(record);
+
+        assert.equal(result.filledCount, 1);
+        assert.equal(result.items[0].display, '1 麻雀');
+        assert.doesNotMatch(result.items[0].display, /選擇最可能的代碼/);
+        assert.equal(result.metadata.length, 7);
+        assert.equal(result.metadata.every((item) => item.matched), true);
+        assert.deepEqual(
+            plain(result.metadata.map((item) => [item.label, item.value])),
+            [
+                ['地點', '測試河段正式名稱'],
+                ['日期時間', '1/5 (三) 7:15 AM'],
+                ['努力量', '行進計數'],
+                ['耗時', '6 分鐘'],
+                ['距離', '0.2 公里'],
+                ['人數', '1 人'],
+                ['完整清單', '是完整清單']
+            ]
+        );
+        assert.match(harness.document.getElementById('tm-ebird-actual-effort').textContent, /耗時：6 分鐘/);
         assert.equal(submit.dataset.tmEbirdManualOnly, 'true');
     });
 
@@ -578,7 +661,10 @@ describe('eBird species form safety', () => {
         const panel = harness.document.getElementById('tm-ebird-text-input-assistant');
 
         assert.ok(panel);
-        assert.match(style.textContent, /max-height:\s*calc\(100dvh - 24px\)/);
+        assert.match(style.textContent, /width:min\(520px/);
+        assert.match(style.textContent, /max-height:min\(58dvh,560px\)/);
+        assert.match(style.textContent, /tm-ebird-review-panel.*width:min\(380px/);
+        assert.match(style.textContent, /max-height:48dvh/);
         assert.match(style.textContent, /overflow-y:\s*auto/);
     });
 });
