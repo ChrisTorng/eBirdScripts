@@ -339,6 +339,8 @@ describe('eBird assistant fast entry workflow', () => {
             { key: 'completeness', label: '完整清單', value: '是完整清單', matched: true }
         ];
         const confirmation = {
+            submittedPath: '/atlastw/checklist/S123456789',
+            awaitingSubmittedPage: false,
             record,
             result: {
                 filledCount: 1,
@@ -412,6 +414,43 @@ describe('eBird assistant fast entry workflow', () => {
         assert.match(summaryText, /完整清單：完整紀錄清單/);
         assert.match(summaryText, /5 黑領椋鳥; S, Heard 2/);
         assert.match(summaryText, /送出前所有欄位均已重新讀取並符合預期/);
+    });
+
+    test('does not show the assistant while browsing unrelated completed checklists', () => {
+        const confirmationKey = 'ebirdTextInputAssistant:lastConfirmation';
+        const unrelated = loadAssistant({
+            url: 'https://ebird.org/atlastw/checklist/S999999999',
+            readyState: 'complete',
+            sessionStorageSeed: {
+                [confirmationKey]: JSON.stringify({
+                    submittedPath: '/atlastw/checklist/S123456789',
+                    awaitingSubmittedPage: false,
+                    record: {},
+                    result: {}
+                })
+            }
+        }).harness;
+        assert.equal(unrelated.document.getElementById('tm-ebird-text-input-assistant'), null);
+
+        const noConfirmation = loadAssistant({
+            url: 'https://ebird.org/atlastw/checklist/S999999999',
+            readyState: 'complete'
+        }).harness;
+        assert.equal(noConfirmation.document.getElementById('tm-ebird-text-input-assistant'), null);
+
+        const unsubmitted = loadAssistant({
+            url: 'https://ebird.org/atlastw/checklist/S999999999',
+            readyState: 'complete',
+            sessionStorageSeed: {
+                [confirmationKey]: JSON.stringify({
+                    submittedPath: null,
+                    awaitingSubmittedPage: false,
+                    record: {},
+                    result: {}
+                })
+            }
+        }).harness;
+        assert.equal(unsubmitted.document.getElementById('tm-ebird-text-input-assistant'), null);
     });
 
     test('expands checklist errors even on a small screen and keeps desktop open', () => {

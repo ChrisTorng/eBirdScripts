@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-05_1.6.3
+// @version      2026-09-05_1.6.4
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -1085,6 +1085,7 @@
         if (!submit || sessionStorage.getItem(autoSubmitGuardKey) === 'true') {
             return false;
         }
+        markSubmittedPageExpected();
         sessionStorage.setItem(autoSubmitGuardKey, 'true');
         submit.click();
         return true;
@@ -2579,9 +2580,19 @@
         );
     }
 
-    function saveChecklistConfirmation(record, result) {
+    function saveChecklistConfirmation(record, result, pageState) {
+        const existing = getChecklistConfirmation();
+        const state = pageState || {};
+        const hasAwaiting = Object.prototype.hasOwnProperty.call(state, 'awaitingSubmittedPage');
+        const hasPath = Object.prototype.hasOwnProperty.call(state, 'submittedPath');
         sessionStorage.setItem(confirmationKey, JSON.stringify({
             record: record,
+            awaitingSubmittedPage: hasAwaiting
+                ? Boolean(state.awaitingSubmittedPage)
+                : Boolean(existing && existing.awaitingSubmittedPage),
+            submittedPath: hasPath
+                ? state.submittedPath
+                : existing && existing.submittedPath || null,
             result: {
                 filledCount: result.filledCount,
                 totalCount: result.totalCount,
@@ -2599,6 +2610,16 @@
         }));
     }
 
+    function markSubmittedPageExpected() {
+        const confirmation = getChecklistConfirmation();
+        if (!confirmation) return false;
+        saveChecklistConfirmation(confirmation.record, confirmation.result, {
+            awaitingSubmittedPage: true,
+            submittedPath: null
+        });
+        return true;
+    }
+
     function getChecklistConfirmation() {
         const saved = sessionStorage.getItem(confirmationKey);
         if (!saved) {
@@ -2614,6 +2635,22 @@
     function createPanel() {
         if (document.getElementById(panelId)) {
             return document.getElementById(panelId);
+        }
+        const isEffortPage = location.pathname.endsWith('/submit/effort');
+        const isChecklistPage = location.pathname.endsWith('/submit/checklist');
+        const isSubmittedChecklistPage = !isChecklistPage
+            && /\/checklist\/[^/]+\/?$/.test(location.pathname);
+        let submittedConfirmation = null;
+        const submittedPath = location.pathname.replace(/\/$/, '');
+        if (isSubmittedChecklistPage) {
+            submittedConfirmation = getChecklistConfirmation();
+            const boundPath = submittedConfirmation && submittedConfirmation.submittedPath;
+            const awaiting = submittedConfirmation && submittedConfirmation.awaitingSubmittedPage;
+            if (!submittedConfirmation
+                || (boundPath && boundPath !== submittedPath)
+                || (!boundPath && !awaiting)) {
+                return null;
+            }
         }
         addStyle();
         const panel = document.createElement('section');
@@ -2648,60 +2685,55 @@
         header.append(title, collapse);
         panel.append(header, body);
 
-        const isEffortPage = location.pathname.endsWith('/submit/effort');
-        const isChecklistPage = location.pathname.endsWith('/submit/checklist');
-        const isSubmittedChecklistPage = !isChecklistPage
-            && /\/checklist\/[^/]+\/?$/.test(location.pathname);
         if (isChecklistPage || isSubmittedChecklistPage) {
             panel.classList.add('tm-ebird-review-panel');
         }
 
         if (isSubmittedChecklistPage) {
-            const confirmation = getChecklistConfirmation();
+            const confirmation = submittedConfirmation;
             body.appendChild(status);
-            if (confirmation) {
-                status.textContent = '';
-                const postResult = verifySubmittedChecklist(
-                    confirmation.record,
-                    confirmation.result
-                );
-                saveChecklistConfirmation(confirmation.record, postResult);
-                renderChecklistSummary(status, confirmation.record, postResult);
-                if (postResult.allMatched) {
-                    setHeaderState('✓ 全部檢查符合', true);
-                    initialCollapsed = true;
-                } else {
-                    setHeaderState('完成頁檢查未通過', false);
-                    initialCollapsed = false;
-                    setHeaderState('正在等待完成頁內容…', false);
-                    let retryCount = 0;
-                    const retrySubmittedVerification = function() {
-                        retryCount += 1;
-                        status.textContent = '';
-                        const retried = verifySubmittedChecklist(
-                            confirmation.record,
-                            confirmation.result
-                        );
-                        saveChecklistConfirmation(confirmation.record, retried);
-                        renderChecklistSummary(status, confirmation.record, retried);
-                        if (retried.allMatched) {
-                            setHeaderState('✓ 全部檢查符合', true);
-                            setCollapsed(true);
-                        } else if (retryCount < 10) {
-                            setHeaderState('正在等待完成頁內容…', false);
-                            setTimeout(retrySubmittedVerification, 500);
-                        } else {
-                            setHeaderState('完成頁檢查未通過', false);
-                            setCollapsed(false);
-                        }
-                    };
-                    setTimeout(retrySubmittedVerification, 500);
-                }
+            status.textContent = '';
+            const postResult = verifySubmittedChecklist(
+                confirmation.record,
+                confirmation.result
+            );
+            saveChecklistConfirmation(confirmation.record, postResult, {
+                awaitingSubmittedPage: false,
+                submittedPath: submittedPath
+            });
+            renderChecklistSummary(status, confirmation.record, postResult);
+            if (postResult.allMatched) {
+                setHeaderState('✓ 全部檢查符合', true);
+                initialCollapsed = true;
             } else {
-                status.textContent = '這個分頁沒有最近一次由助手填寫的核對資料。';
-                status.className = 'tm-ebird-status tm-ebird-error';
-                setHeaderState('缺少核對資料', false);
+                setHeaderState('完成頁檢查未通過', false);
                 initialCollapsed = false;
+                setHeaderState('正在等待完成頁內容…', false);
+                let retryCount = 0;
+                const retrySubmittedVerification = function() {
+                    retryCount += 1;
+                    status.textContent = '';
+                    const retried = verifySubmittedChecklist(
+                        confirmation.record,
+                        confirmation.result
+                    );
+                    saveChecklistConfirmation(confirmation.record, retried, {
+                        awaitingSubmittedPage: false,
+                        submittedPath: submittedPath
+                    });
+                    renderChecklistSummary(status, confirmation.record, retried);
+                    if (retried.allMatched) {
+                        setHeaderState('✓ 全部檢查符合', true);
+                        setCollapsed(true);
+                    } else if (retryCount < 10) {
+                        setHeaderState('正在等待完成頁內容…', false);
+                        setTimeout(retrySubmittedVerification, 500);
+                    } else {
+                        setHeaderState('完成頁檢查未通過', false);
+                        setCollapsed(false);
+                    }
+                };
+                setTimeout(retrySubmittedVerification, 500);
             }
         } else if (isChecklistPage) {
             const pending = sessionStorage.getItem(storageKey);
@@ -2726,8 +2758,15 @@
                         const result = await fillSpecies(record);
                         visibility.apply();
                         renderChecklistSummary(status, record, result);
-                        saveChecklistConfirmation(record, result);
+                        saveChecklistConfirmation(record, result, {
+                            awaitingSubmittedPage: false,
+                            submittedPath: null
+                        });
                         if (result.allMatched) {
+                            const submit = document.getElementById('btn-continue');
+                            if (submit) {
+                                submit.addEventListener('click', markSubmittedPageExpected, { once: true });
+                            }
                             setHeaderState(
                                 record.autoSubmit ? '提交頁檢查符合，正在自動儲存…' : '提交頁檢查符合',
                                 true
@@ -2810,6 +2849,7 @@
         recentDateValues: recentDateValues,
         saveChecklistConfirmation: saveChecklistConfirmation,
         getChecklistConfirmation: getChecklistConfirmation,
+        markSubmittedPageExpected: markSubmittedPageExpected,
         storageKey: storageKey,
         autoEffortKey: autoEffortKey,
         confirmationKey: confirmationKey,
