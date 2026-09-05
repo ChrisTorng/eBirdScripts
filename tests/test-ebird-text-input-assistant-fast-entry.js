@@ -322,7 +322,16 @@ describe('eBird assistant fast entry workflow', () => {
                     sourceLine: '神秘鳥1',
                     error: '不確定的物種：神秘鳥'
                 }],
-                formErrors: []
+                formErrors: [],
+                metadata: [
+                    { key: 'location', label: '地點', value: '測試公園正式名稱', matched: true },
+                    { key: 'datetime', label: '日期時間', value: '9/2 (三) 8:38 AM', matched: true },
+                    { key: 'protocol', label: '努力量', value: '行進計數', matched: true },
+                    { key: 'duration', label: '耗時', value: '28 分鐘', matched: true },
+                    { key: 'distance', label: '距離', value: '1 公里', matched: true },
+                    { key: 'party', label: '人數', value: '1 人', matched: true },
+                    { key: 'completeness', label: '完整清單', value: '是完整清單', matched: true }
+                ]
             }
         };
         const { harness } = loadAssistant({
@@ -338,10 +347,16 @@ describe('eBird assistant fast entry workflow', () => {
             : '';
 
         assert.ok(summary);
-        assert.match(summaryText, /地點：測試公園/);
-        assert.match(summaryText, /時間：08:38 開始；28 分鐘/);
+        assert.match(summaryText, /地點：測試公園正式名稱/);
+        assert.doesNotMatch(summaryText, /L\d+/);
+        assert.match(summaryText, /日期時間：9\/2 \(三\) 8:38 AM/);
+        assert.match(summaryText, /努力量：行進計數/);
+        assert.match(summaryText, /耗時：28 分鐘/);
+        assert.match(summaryText, /距離：1 公里/);
+        assert.match(summaryText, /人數：1 人/);
+        assert.match(summaryText, /完整清單：是完整清單/);
         assert.match(summaryText, /1 黑領椋鳥; S 唱歌中鳥, Heard 1/);
-        assert.match(summaryText, /未辨識：神秘鳥1/);
+        assert.doesNotMatch(summaryText, /神秘鳥1/);
     });
 
     test('starts collapsed on a small screen and stays open on a large screen', () => {
