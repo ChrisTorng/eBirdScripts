@@ -571,7 +571,7 @@ describe('eBird species form safety', () => {
         ]);
         addSpeciesRow(bulbul, [
             { value: '', textContent: '選擇繁殖代碼' },
-            { value: 'S', textContent: 'S 唱歌中鳥' }
+            { value: 'S ', textContent: 'S 唱歌中鳥' }
         ]);
         const complete = harness.document.createElement('input');
         complete.id = 'all-spp-y';
@@ -653,6 +653,51 @@ describe('eBird species form safety', () => {
         assert.equal(incompleteClicks, 1);
         assert.equal(submitClicks, 0);
         assert.equal(result.listCompleteness, 'incidental');
+    });
+
+    test('auto-submits only after every readback check succeeds and only once', () => {
+        const { harness, api } = loadAssistant();
+        const record = api.parseRecord(
+            '2000.01.05\n測試河段\n7：15 開始 6 分鐘\n麻雀1',
+            new Date(2000, 0, 31),
+            testLocationPresets
+        );
+        record.autoSubmit = true;
+        const result = {
+            formErrors: [],
+            unresolved: [],
+            items: [{
+                observation: record.observations[0],
+                code: 'eutspa',
+                status: 'filled',
+                display: '1 麻雀',
+                error: ''
+            }],
+            metadata: [{ key: 'all', label: '全部欄位', value: '符合', matched: true }]
+        };
+        const submit = harness.document.createElement('button');
+        submit.id = 'btn-continue';
+        harness.appendToBody(submit);
+        let submitClicks = 0;
+        submit.addEventListener('click', () => { submitClicks += 1; });
+
+        assert.equal(api.tryAutoSubmit(record, result), true);
+        assert.equal(api.tryAutoSubmit(record, result), false);
+        assert.equal(submitClicks, 1);
+        assert.equal(harness.sessionStorage.getItem(api.autoSubmitGuardKey), 'true');
+
+        harness.sessionStorage.removeItem(api.autoSubmitGuardKey);
+        result.items[0].status = 'failed';
+        assert.equal(api.tryAutoSubmit(record, result), false);
+        assert.equal(submitClicks, 1);
+
+        result.items[0].status = 'filled';
+        record.unresolvedObservations.push({
+            sourceLine: '未知鳥1',
+            error: '不確定的物種'
+        });
+        assert.equal(api.tryAutoSubmit(record, result), false);
+        assert.equal(submitClicks, 1);
     });
 
     test('keeps the fixed assistant panel scrollable within the viewport', () => {
