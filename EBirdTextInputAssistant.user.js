@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-05_1.5.1
+// @version      2026-09-05_1.6.0
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -21,6 +21,7 @@
     const storageKey = 'ebirdTextInputAssistant:pendingRecord';
     const autoEffortKey = 'ebirdTextInputAssistant:autoEffort';
     const confirmationKey = 'ebirdTextInputAssistant:lastConfirmation';
+    const autoSubmitGuardKey = 'ebirdTextInputAssistant:autoSubmitAttempted';
     const settingsKey = 'ebirdTextInputAssistant:locationPresets';
     const panelId = 'tm-ebird-text-input-assistant';
     const styleId = panelId + '-style';
@@ -837,8 +838,13 @@
             ? nameNode.textContent.replace(/\s+/g, ' ').trim()
             : observation.name;
         const breedingSelect = document.getElementById('p-' + code + '_bcode');
-        const breedingValue = breedingSelect ? String(breedingSelect.value || '').trim() : '';
-        const breedingText = breedingValue ? selectedOptionText(breedingSelect) : '';
+        const rawBreedingValue = breedingSelect ? String(breedingSelect.value || '').trim() : '';
+        const selectedBreedingText = rawBreedingValue ? selectedOptionText(breedingSelect) : '';
+        const breedingMatch = (rawBreedingValue + ' ' + selectedBreedingText)
+            .trim()
+            .match(/^([A-Za-z]{1,3})(?:\s|$)/);
+        const breedingValue = breedingMatch ? breedingMatch[1].toUpperCase() : rawBreedingValue;
+        const breedingText = rawBreedingValue ? selectedBreedingText : '';
         const commentsField = document.getElementById('p-' + code + '_comments');
         const comments = commentsField ? String(commentsField.value || '').trim() : '';
         const extras = [];
@@ -1051,6 +1057,289 @@
         return block;
     }
 
+    function resultFullyVerified(record, result) {
+        return Boolean(
+            record
+            && result
+            && (!record.blockingErrors || record.blockingErrors.length === 0)
+            && (!record.unresolvedObservations || record.unresolvedObservations.length === 0)
+            && (!result.formErrors || result.formErrors.length === 0)
+            && (!result.unresolved || result.unresolved.length === 0)
+            && Array.isArray(result.items)
+            && result.items.length === record.observations.length
+            && result.items.every(function(item) { return item.status === 'filled'; })
+            && Array.isArray(result.metadata)
+            && result.metadata.length > 0
+            && result.metadata.every(function(item) { return item.matched; })
+        );
+    }
+
+    function tryAutoSubmit(record, result) {
+        if (!record.autoSubmit || !resultFullyVerified(record, result)) {
+            return false;
+        }
+        const submit = document.getElementById('btn-continue');
+        if (!submit || sessionStorage.getItem(autoSubmitGuardKey) === 'true') {
+            return false;
+        }
+        sessionStorage.setItem(autoSubmitGuardKey, 'true');
+        submit.click();
+        return true;
+    }
+
+    function pageVisibleText() {
+        if (!document.body) {
+            return '';
+        }
+        return String(document.body.innerText || document.body.textContent || '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function escapeRegex(text) {
+        return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function containsAny(text, candidates) {
+        const normalized = String(text || '').toLocaleLowerCase();
+        return candidates.some(function(candidate) {
+            return candidate && normalized.includes(String(candidate).toLocaleLowerCase());
+        });
+    }
+
+    function submittedDateCandidates(date) {
+        const monthNames = [
+            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ];
+        return [
+            date.year + '/' + date.month + '/' + date.day,
+            date.month + '/' + date.day + '/' + date.year,
+            String(date.month).padStart(2, '0') + '/' + String(date.day).padStart(2, '0') + '/' + date.year,
+            date.day + ' ' + monthNames[date.month - 1] + ' ' + date.year,
+            monthNames[date.month - 1] + ' ' + date.day + ', ' + date.year,
+            date.year + '年' + date.month + '月' + date.day + '日'
+        ];
+    }
+
+    function submittedDurationCandidates(minutes) {
+        const hours = Math.floor(minutes / 60);
+        const remaining = minutes % 60;
+        const candidates = [
+            minutes + ' min',
+            minutes + ' mins',
+            minutes + ' minute',
+            minutes + ' minutes',
+            minutes + ' 分鐘'
+        ];
+        if (hours > 0) {
+            candidates.push(
+                hours + ' hr ' + remaining + ' min',
+                hours + ' hr, ' + remaining + ' min',
+                hours + ' 小時 ' + remaining + ' 分鐘'
+            );
+        }
+        return candidates;
+    }
+
+    function readSubmittedMetadata(record, text) {
+        const checks = [];
+        const expected = record.effort;
+        function add(key, label, value, matched) {
+            checks.push({ key: key, label: label, value: value, matched: Boolean(matched) });
+        }
+        const locationName = record.locationPageName || record.location;
+        add('location', '地點', locationName, text.includes(locationName));
+
+        const dateMatched = containsAny(text, submittedDateCandidates(record.date));
+        const timeText = formatTime12(expected.hour, expected.minute);
+        const compactTime = timeText.replace(':0', ':');
+        const timeMatched = containsAny(text, [timeText, compactTime]);
+        add(
+            'datetime',
+            '日期時間',
+            formatDateLabel(record.date) + ' ' + timeText,
+            dateMatched && timeMatched
+        );
+
+        const protocolNames = {
+            P20: ['附帶紀錄', 'Incidental'],
+            P21: ['定點計數', 'Stationary'],
+            P22: ['行進計數', 'Traveling']
+        };
+        const protocolLabels = { P20: '附帶紀錄', P21: '定點計數', P22: '行進計數' };
+        add(
+            'protocol',
+            '努力量',
+            protocolLabels[expected.protocol],
+            containsAny(text, protocolNames[expected.protocol] || [])
+        );
+        add(
+            'duration',
+            '耗時',
+            expected.durationMinutes + ' 分鐘',
+            containsAny(text, submittedDurationCandidates(expected.durationMinutes))
+        );
+
+        if (expected.protocol === 'P22') {
+            const distanceText = String(expected.distanceKm);
+            const distancePattern = new RegExp(
+                '(^|\\D)' + escapeRegex(distanceText) + '\\s*(?:km|公里)(?=\\D|$)',
+                'i'
+            );
+            add(
+                'distance',
+                '距離',
+                distanceText + ' 公里',
+                distancePattern.test(text)
+            );
+        } else {
+            add('distance', '距離', '不適用', true);
+        }
+
+        const party = String(expected.partySize);
+        const partyPattern = new RegExp(
+            '(?:observers?|觀察者|人數)\\s*[:：]?\\s*' + escapeRegex(party)
+                + '|' + escapeRegex(party) + '\\s*(?:observers?|人)',
+            'i'
+        );
+        add('party', '人數', party + ' 人', partyPattern.test(text));
+
+        const expectedComplete = expected.protocol !== 'P20';
+        const completeMatched = expectedComplete
+            ? containsAny(text, ['Complete Checklist', '完整清單：是', '完整清單 是'])
+            : containsAny(text, ['Incomplete Checklist', 'Not a complete checklist', '非完整清單', '完整清單：否']);
+        add(
+            'completeness',
+            '完整清單',
+            expectedComplete ? '是完整清單' : '否（附帶紀錄）',
+            completeMatched
+        );
+        return checks;
+    }
+
+    function findSubmittedSpeciesRow(observation, code) {
+        const anchors = Array.from(document.querySelectorAll('a'));
+        const anchor = anchors.find(function(item) {
+            const href = String(item.href || item.getAttribute('href') || '');
+            return href.includes('/species/' + code)
+                || item.textContent.replace(/\s+/g, ' ').trim() === observation.name;
+        });
+        if (anchor) {
+            let current = anchor;
+            let best = anchor.parentElement || anchor;
+            for (let depth = 0; current && current !== document.body && depth < 7; depth += 1) {
+                const candidateText = String(current.innerText || current.textContent || '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                if (candidateText.includes(observation.name)) {
+                    best = current;
+                    if (new RegExp('(^|\\D)' + escapeRegex(observation.count) + '(?=\\D|$)').test(candidateText)) {
+                        break;
+                    }
+                }
+                current = current.parentElement;
+            }
+            return { row: best, name: anchor.textContent.replace(/\s+/g, ' ').trim() || observation.name };
+        }
+        const candidates = Array.from(document.querySelectorAll('li,article,section,div'))
+            .filter(function(item) {
+                const value = String(item.innerText || item.textContent || '').replace(/\s+/g, ' ').trim();
+                return value.includes(observation.name);
+            })
+            .sort(function(left, right) {
+                return String(left.textContent || '').length - String(right.textContent || '').length;
+            });
+        return candidates.length ? { row: candidates[0], name: observation.name } : null;
+    }
+
+    function verifySubmittedSpecies(record, preResult) {
+        return preResult.items.map(function(previous) {
+            const observation = previous.observation
+                || record.observations.find(function(item) {
+                    return item.code === previous.code || (item.codes || [item.code]).includes(previous.code);
+                });
+            if (!observation) {
+                return Object.assign({}, previous, {
+                    status: 'failed',
+                    error: '找不到送出前的鳥種預期資料'
+                });
+            }
+            const found = findSubmittedSpeciesRow(observation, previous.code || observation.code);
+            if (!found) {
+                return Object.assign({}, previous, {
+                    status: 'failed',
+                    display: observation.count + ' ' + observation.name,
+                    error: '完成鳥單頁找不到此鳥種'
+                });
+            }
+            const rowText = String(found.row.innerText || found.row.textContent || '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            const countMatched = new RegExp(
+                '(^|\\D)' + escapeRegex(observation.count) + '(?=\\D|$)'
+            ).test(rowText);
+            const breedingMatched = observation.breedingCode
+                ? new RegExp(
+                    '(^|[^A-Za-z])' + escapeRegex(observation.breedingCode) + '(?=[^A-Za-z]|$)',
+                    'i'
+                ).test(rowText)
+                : true;
+            const commentsMatched = observation.comments
+                ? rowText.includes(observation.comments)
+                : true;
+            const extras = [];
+            if (observation.breedingCode && breedingMatched) {
+                extras.push(observation.breedingCode);
+            }
+            if (observation.comments && commentsMatched) {
+                extras.push(observation.comments);
+            }
+            const mismatches = [];
+            if (!countMatched) mismatches.push('完成頁數量不符');
+            if (!breedingMatched) mismatches.push('完成頁繁殖代碼不符');
+            if (!commentsMatched) mismatches.push('完成頁附註不符');
+            return Object.assign({}, previous, {
+                observation: observation,
+                display: observation.count + ' ' + found.name
+                    + (extras.length ? '; ' + extras.join(', ') : ''),
+                status: mismatches.length ? 'failed' : 'filled',
+                error: mismatches.join('；')
+            });
+        });
+    }
+
+    function verifySubmittedChecklist(record, preResult) {
+        const text = pageVisibleText();
+        const metadata = readSubmittedMetadata(record, text);
+        const items = verifySubmittedSpecies(record, preResult);
+        const preSubmitPassed = preResult.preSubmitPassed === true
+            || preResult.allMatched === true
+            || resultFullyVerified(record, preResult);
+        const result = {
+            filledCount: items.filter(function(item) { return item.status === 'filled'; }).length,
+            totalCount: preResult.totalCount,
+            errors: preResult.errors || [],
+            formErrors: preResult.formErrors || [],
+            verificationErrors: metadata.filter(function(item) { return !item.matched; }),
+            metadata: metadata,
+            items: items,
+            unresolved: preResult.unresolved || [],
+            filledCodes: items.filter(function(item) {
+                return item.status === 'filled';
+            }).map(function(item) { return item.code; }),
+            listCompleteness: preResult.listCompleteness,
+            preSubmitPassed: preSubmitPassed,
+            postSubmitPassed: false,
+            allMatched: false
+        };
+        result.postSubmitPassed = metadata.every(function(item) { return item.matched; })
+            && items.every(function(item) { return item.status === 'filled'; })
+            && result.unresolved.length === 0;
+        result.allMatched = result.preSubmitPassed && result.postSubmitPassed;
+        return result;
+    }
+
     function orderOutcomesByChecklist(outcomes) {
         const ordered = [];
         const included = new Set();
@@ -1187,7 +1476,7 @@
             submit.dataset.tmEbirdManualOnly = 'true';
             submit.title = 'Tampermonkey 未按下此按鈕；請人工確認後自行送出。';
         }
-        return {
+        const result = {
             filledCount: orderedItems.filter(function(item) { return item.status === 'filled'; }).length,
             totalCount: record.observations.length + unresolved.length,
             errors: errors,
@@ -1201,8 +1490,14 @@
             }).map(function(item) {
                 return item.code;
             }),
-            listCompleteness: completenessId === 'all-spp-n' ? 'incidental' : 'complete'
+            listCompleteness: completenessId === 'all-spp-n' ? 'incidental' : 'complete',
+            preSubmitPassed: false,
+            postSubmitPassed: null,
+            allMatched: false
         };
+        result.preSubmitPassed = resultFullyVerified(record, result);
+        result.allMatched = result.preSubmitPassed;
+        return result;
     }
 
     function extractLocId(value) {
@@ -1559,6 +1854,7 @@
             }
             const observation = parsed.value;
             const previous = seenObservations.get(observation.code);
+            const duplicate = Boolean(previous);
             const conflicts = previous
                 && (previous.count !== observation.count
                     || previous.breedingCode !== observation.breedingCode
@@ -1566,12 +1862,14 @@
             seenObservations.set(observation.code, previous || observation);
             const display = formatObservationForEbird(observation);
             results[index] = {
-                text: conflicts
-                    ? display + '（與前一筆同鳥種紀錄不同）'
+                text: duplicate
+                    ? display + (conflicts
+                        ? '（與前一筆同鳥種紀錄不同）'
+                        : '（重複的相同鳥種紀錄）')
                     : parsed.warning ? display + '（' + parsed.warning + '）' : display,
-                error: Boolean(conflicts || parsed.warning)
+                error: Boolean(duplicate || parsed.warning)
             };
-            failureCount += conflicts || parsed.warning ? 1 : 0;
+            failureCount += duplicate || parsed.warning ? 1 : 0;
         }
         if (speciesLineCount === 0) {
             failureCount += 1;
@@ -1605,6 +1903,9 @@
             '#' + panelId + ' label { display:block;margin-top:7px;font-size:12px; }',
             '#' + panelId + ' .tm-ebird-checkbox-label { display:flex;align-items:center;gap:7px;font-size:14px; }',
             '#' + panelId + ' .tm-ebird-checkbox-label input { width:auto;padding:0; }',
+            '#' + panelId + ' .tm-ebird-auto-submit { margin:5px 0;padding:5px 7px;border:1px solid #b8d8bf;border-radius:5px;background:#f4faf5; }',
+            '#' + panelId + ' .tm-ebird-auto-submit[aria-disabled="true"] { border-color:#d8b8b8;background:#fff6f6; }',
+            '#' + panelId + ' .tm-ebird-header-ok { color:#176b2c; }',
             '#' + panelId + ' .tm-ebird-effort-override { display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:8px;margin:8px 0;padding:8px;border:1px solid #ccc;border-radius:5px;background:#fafafa; }',
             '#' + panelId + ' .tm-ebird-effort-override label { margin:0; }',
             '#' + panelId + ' .tm-ebird-effort-derived { min-width:64px;padding:7px 0;color:#176b2c;font-weight:600; }',
@@ -2014,6 +2315,17 @@
         failure.className = 'tm-ebird-error';
         actionRow.append(button, failure);
         const effortOverride = createEffortOverride(refresh);
+        const autoSubmitBox = document.createElement('div');
+        autoSubmitBox.className = 'tm-ebird-auto-submit';
+        const autoSubmitLabel = document.createElement('label');
+        autoSubmitLabel.className = 'tm-ebird-checkbox-label';
+        const autoSubmit = document.createElement('input');
+        autoSubmit.type = 'checkbox';
+        autoSubmit.checked = true;
+        autoSubmitLabel.append(autoSubmit, document.createTextNode('確認成功後自動儲存'));
+        const autoSubmitHint = document.createElement('div');
+        autoSubmitHint.className = 'tm-ebird-local-note';
+        autoSubmitBox.append(autoSubmitLabel, autoSubmitHint);
 
         function selectedLocation() {
             return detectCurrentLocation(locationFilter);
@@ -2030,6 +2342,11 @@
             failure.textContent = analysis.failureCount > 0
                 ? '仍有 ' + analysis.failureCount + ' 項辨識失敗'
                 : '';
+            autoSubmit.disabled = analysis.failureCount > 0;
+            autoSubmitBox.setAttribute('aria-disabled', autoSubmit.disabled ? 'true' : 'false');
+            autoSubmitHint.textContent = autoSubmit.disabled
+                ? '輸入尚有失敗項目，禁止自動儲存。'
+                : '全部欄位讀回吻合後才會送出。';
         }
 
         function applyEffortPreset(preset, locationKey) {
@@ -2130,7 +2447,15 @@
             lastEffortPresetKey = '';
             refresh();
         });
-        body.append(datePicker.element, grid, effortOverride.element, actionRow, status, settings.element);
+        body.append(
+            datePicker.element,
+            grid,
+            effortOverride.element,
+            autoSubmitBox,
+            actionRow,
+            status,
+            settings.element
+        );
         installFilter();
 
         textarea.addEventListener('input', refresh);
@@ -2147,6 +2472,7 @@
             }
             try {
                 sessionStorage.removeItem(confirmationKey);
+                sessionStorage.removeItem(autoSubmitGuardKey);
                 if (!state.known) {
                     settings.savePending(state.alias);
                 }
@@ -2157,6 +2483,9 @@
                     dateReference
                 );
                 effortOverride.applyToRecord(record);
+                record.autoSubmit = autoSubmit.checked
+                    && !autoSubmit.disabled
+                    && state.analysis.failureCount === 0;
                 assertRecordReady(record);
                 button.disabled = true;
                 status.textContent = record.warnings.join('\n');
@@ -2188,7 +2517,8 @@
             textarea: textarea,
             button: button,
             refresh: refresh,
-            effortOverride: effortOverride
+            effortOverride: effortOverride,
+            autoSubmit: autoSubmit
         };
     }
 
@@ -2281,12 +2611,16 @@
             result: {
                 filledCount: result.filledCount,
                 totalCount: result.totalCount,
+                errors: result.errors,
                 items: result.items,
                 unresolved: result.unresolved,
                 formErrors: result.formErrors,
                 verificationErrors: result.verificationErrors,
                 metadata: result.metadata,
-                listCompleteness: result.listCompleteness
+                listCompleteness: result.listCompleteness,
+                preSubmitPassed: result.preSubmitPassed,
+                postSubmitPassed: result.postSubmitPassed,
+                allMatched: result.allMatched
             }
         }));
     }
@@ -2323,12 +2657,19 @@
         const status = document.createElement('div');
         status.className = 'tm-ebird-status';
         const mobile = (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) || window.innerWidth <= 700;
+        let initialCollapsed = mobile;
 
         function setCollapsed(collapsed) {
             body.hidden = collapsed;
             collapse.textContent = collapsed ? '▼' : '▲';
             collapse.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         }
+
+        function setHeaderState(text, successful) {
+            title.textContent = text;
+            title.className = successful ? 'tm-ebird-header-ok' : '';
+        }
+
         collapse.addEventListener('click', function() { setCollapsed(!body.hidden); });
         header.append(title, collapse);
         panel.append(header, body);
@@ -2340,20 +2681,52 @@
         if (isChecklistPage || isSubmittedChecklistPage) {
             panel.classList.add('tm-ebird-review-panel');
         }
+
         if (isSubmittedChecklistPage) {
             const confirmation = getChecklistConfirmation();
             body.appendChild(status);
             if (confirmation) {
-                renderChecklistSummary(status, confirmation.record, confirmation.result);
+                status.textContent = '';
+                const postResult = verifySubmittedChecklist(
+                    confirmation.record,
+                    confirmation.result
+                );
+                saveChecklistConfirmation(confirmation.record, postResult);
+                renderChecklistSummary(status, confirmation.record, postResult);
+                if (postResult.allMatched) {
+                    setHeaderState('✓ 全部檢查符合', true);
+                    initialCollapsed = true;
+                } else {
+                    setHeaderState('完成頁檢查未通過', false);
+                    initialCollapsed = false;
+                    setTimeout(function() {
+                        status.textContent = '';
+                        const retried = verifySubmittedChecklist(
+                            confirmation.record,
+                            confirmation.result
+                        );
+                        saveChecklistConfirmation(confirmation.record, retried);
+                        renderChecklistSummary(status, confirmation.record, retried);
+                        if (retried.allMatched) {
+                            setHeaderState('✓ 全部檢查符合', true);
+                            setCollapsed(true);
+                        } else {
+                            setHeaderState('完成頁檢查未通過', false);
+                            setCollapsed(false);
+                        }
+                    }, 700);
+                }
             } else {
                 status.textContent = '這個分頁沒有最近一次由助手填寫的核對資料。';
                 status.className = 'tm-ebird-status tm-ebird-error';
+                setHeaderState('缺少核對資料', false);
+                initialCollapsed = false;
             }
         } else if (isChecklistPage) {
             const pending = sessionStorage.getItem(storageKey);
             const button = document.createElement('button');
             button.type = 'button';
-            button.textContent = '重新填入物種';
+            button.textContent = '重新填入並檢查';
             const visibility = addSpeciesVisibilityButton(body);
             body.append(button, status);
             if (!pending) {
@@ -2361,6 +2734,8 @@
                 status.className = 'tm-ebird-status tm-ebird-error';
                 button.disabled = true;
                 visibility.apply();
+                setHeaderState('缺少待填紀錄', false);
+                initialCollapsed = false;
             } else {
                 const record = JSON.parse(pending);
                 const run = async function() {
@@ -2371,9 +2746,25 @@
                         visibility.apply();
                         renderChecklistSummary(status, record, result);
                         saveChecklistConfirmation(record, result);
+                        if (result.allMatched) {
+                            setHeaderState(
+                                record.autoSubmit ? '提交頁檢查符合，正在自動儲存…' : '提交頁檢查符合',
+                                true
+                            );
+                            if (tryAutoSubmit(record, result)) {
+                                setCollapsed(true);
+                            } else {
+                                setCollapsed(false);
+                            }
+                        } else {
+                            setHeaderState('提交頁檢查未通過', false);
+                            setCollapsed(false);
+                        }
                     } catch (error) {
                         status.textContent = error.message;
                         status.className = 'tm-ebird-status tm-ebird-error';
+                        setHeaderState('提交頁檢查未通過', false);
+                        setCollapsed(false);
                     } finally {
                         button.disabled = false;
                     }
@@ -2402,7 +2793,7 @@
             }
         }
         document.body.appendChild(panel);
-        setCollapsed(mobile);
+        setCollapsed(initialCollapsed);
         return panel;
     }
 
@@ -2429,6 +2820,10 @@
         readEffortFormState: readEffortFormState,
         readChecklistVerification: readChecklistVerification,
         verifyObservationOutcome: verifyObservationOutcome,
+        resultFullyVerified: resultFullyVerified,
+        tryAutoSubmit: tryAutoSubmit,
+        readSubmittedMetadata: readSubmittedMetadata,
+        verifySubmittedChecklist: verifySubmittedChecklist,
         revealAdditionalSpeciesSections: revealAdditionalSpeciesSections,
         setUnobservedVisibility: setUnobservedVisibility,
         recentDateValues: recentDateValues,
@@ -2436,7 +2831,8 @@
         getChecklistConfirmation: getChecklistConfirmation,
         storageKey: storageKey,
         autoEffortKey: autoEffortKey,
-        confirmationKey: confirmationKey
+        confirmationKey: confirmationKey,
+        autoSubmitGuardKey: autoSubmitGuardKey
     };
     globalThis.__ebirdTextInputAssistant = api;
 
