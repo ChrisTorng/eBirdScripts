@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-05_1.6.1
+// @version      2026-09-05_1.6.2
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -2702,7 +2702,10 @@
                 } else {
                     setHeaderState('完成頁檢查未通過', false);
                     initialCollapsed = false;
-                    setTimeout(function() {
+                    setHeaderState('正在等待完成頁內容…', false);
+                    let retryCount = 0;
+                    const retrySubmittedVerification = function() {
+                        retryCount += 1;
                         status.textContent = '';
                         const retried = verifySubmittedChecklist(
                             confirmation.record,
@@ -2713,11 +2716,15 @@
                         if (retried.allMatched) {
                             setHeaderState('✓ 全部檢查符合', true);
                             setCollapsed(true);
+                        } else if (retryCount < 10) {
+                            setHeaderState('正在等待完成頁內容…', false);
+                            setTimeout(retrySubmittedVerification, 500);
                         } else {
                             setHeaderState('完成頁檢查未通過', false);
                             setCollapsed(false);
                         }
-                    }, 700);
+                    };
+                    setTimeout(retrySubmittedVerification, 500);
                 }
             } else {
                 status.textContent = '這個分頁沒有最近一次由助手填寫的核對資料。';
