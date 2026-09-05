@@ -16,6 +16,9 @@ function loadAssistant(options = {}) {
         matchMedia: options.matchMedia || null,
         sessionStorageSeed: options.sessionStorageSeed || {}
     });
+    if (typeof options.beforeLoad === 'function') {
+        options.beforeLoad(harness);
+    }
     harness.context.globalThis = harness.context;
     harness.context.global = harness.context;
     const gmStorage = new Map();
@@ -296,42 +299,63 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(analysis.lines[3].error, true);
     });
 
-    test('keeps the checklist confirmation visible after manual submission', () => {
+    test('re-reads the submitted checklist, collapses it, and shows a green success title', () => {
         const confirmationKey = 'ebirdTextInputAssistant:lastConfirmation';
-        const confirmation = {
-            record: {
-                date: { year: 2026, month: 9, day: 2 },
-                location: '測試公園',
-                effort: {
-                    hour: 8,
-                    minute: 38,
-                    durationMinutes: 28,
-                    distanceKm: 1,
-                    partySize: 1
-                }
+        const observation = {
+            alias: '黑領',
+            code: 'bkcsta1',
+            codes: ['bkcsta1'],
+            name: '黑領椋鳥',
+            count: 5,
+            breedingCode: 'S',
+            comments: 'Heard 2',
+            sourceLine: '黑領5聽到2唱歌',
+            warning: ''
+        };
+        const record = {
+            date: { year: 2026, month: 9, day: 2 },
+            location: '測試公園',
+            locationId: 'L1001',
+            locationPageName: '測試公園正式名稱',
+            effort: {
+                hour: 8,
+                minute: 38,
+                durationMinutes: 28,
+                protocol: 'P22',
+                distanceKm: 1,
+                partySize: 1
             },
+            observations: [observation],
+            unresolvedObservations: [],
+            blockingErrors: []
+        };
+        const metadata = [
+            { key: 'location', label: '地點', value: '測試公園正式名稱', matched: true },
+            { key: 'datetime', label: '日期時間', value: '9/2 (三) 8:38 AM', matched: true },
+            { key: 'protocol', label: '努力量', value: '行進計數', matched: true },
+            { key: 'duration', label: '耗時', value: '28 分鐘', matched: true },
+            { key: 'distance', label: '距離', value: '1 公里', matched: true },
+            { key: 'party', label: '人數', value: '1 人', matched: true },
+            { key: 'completeness', label: '完整清單', value: '是完整清單', matched: true }
+        ];
+        const confirmation = {
+            record,
             result: {
                 filledCount: 1,
-                totalCount: 2,
+                totalCount: 1,
                 items: [{
+                    observation,
+                    code: 'bkcsta1',
                     status: 'filled',
-                    display: '1 黑領椋鳥; S 唱歌中鳥, Heard 1',
+                    display: '5 黑領椋鳥; S 唱歌中鳥, Heard 2',
                     error: ''
                 }],
-                unresolved: [{
-                    sourceLine: '神秘鳥1',
-                    error: '不確定的物種：神秘鳥'
-                }],
+                unresolved: [],
                 formErrors: [],
-                metadata: [
-                    { key: 'location', label: '地點', value: '測試公園正式名稱', matched: true },
-                    { key: 'datetime', label: '日期時間', value: '9/2 (三) 8:38 AM', matched: true },
-                    { key: 'protocol', label: '努力量', value: '行進計數', matched: true },
-                    { key: 'duration', label: '耗時', value: '28 分鐘', matched: true },
-                    { key: 'distance', label: '距離', value: '1 公里', matched: true },
-                    { key: 'party', label: '人數', value: '1 人', matched: true },
-                    { key: 'completeness', label: '完整清單', value: '是完整清單', matched: true }
-                ]
+                metadata,
+                preSubmitPassed: true,
+                postSubmitPassed: null,
+                allMatched: true
             }
         };
         const { harness } = loadAssistant({
@@ -339,24 +363,36 @@ describe('eBird assistant fast entry workflow', () => {
             readyState: 'complete',
             sessionStorageSeed: {
                 [confirmationKey]: JSON.stringify(confirmation)
+            },
+            beforeLoad(currentHarness) {
+                currentHarness.document.body.textContent =
+                    '測試公園正式名稱 2026/9/2 8:38 AM Traveling 28 min 1 km Observers 1 Complete Checklist';
+                const row = currentHarness.document.createElement('div');
+                row.textContent = '5 黑領椋鳥 S Singing Bird Heard 2';
+                const species = currentHarness.document.createElement('a');
+                species.href = 'https://ebird.org/species/bkcsta1';
+                species.textContent = '黑領椋鳥';
+                row.appendChild(species);
+                currentHarness.appendToBody(row);
             }
         });
         const summary = harness.document.querySelector('.tm-ebird-check-summary');
         const summaryText = summary
             ? summary.children.map((child) => child.textContent).join('\n')
             : '';
+        const panelBody = harness.document.querySelector('.tm-ebird-body');
+        const panelTitle = harness.document.querySelector('.tm-ebird-header').children[0];
 
         assert.ok(summary);
+        assert.equal(panelBody.hidden, true);
+        assert.equal(panelTitle.textContent, '✓ 全部檢查符合');
+        assert.equal(panelTitle.className, 'tm-ebird-header-ok');
         assert.match(summaryText, /地點：測試公園正式名稱/);
         assert.doesNotMatch(summaryText, /L\d+/);
         assert.match(summaryText, /日期時間：9\/2 \(三\) 8:38 AM/);
-        assert.match(summaryText, /努力量：行進計數/);
-        assert.match(summaryText, /耗時：28 分鐘/);
-        assert.match(summaryText, /距離：1 公里/);
-        assert.match(summaryText, /人數：1 人/);
         assert.match(summaryText, /完整清單：是完整清單/);
-        assert.match(summaryText, /1 黑領椋鳥; S 唱歌中鳥, Heard 1/);
-        assert.doesNotMatch(summaryText, /神秘鳥1/);
+        assert.match(summaryText, /5 黑領椋鳥; S, Heard 2/);
+        assert.match(summaryText, /送出前所有欄位均已重新讀取並符合預期/);
     });
 
     test('starts collapsed on a small screen and stays open on a large screen', () => {
