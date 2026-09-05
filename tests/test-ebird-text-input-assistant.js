@@ -142,7 +142,7 @@ function plain(value) {
 describe('eBird compact note parser', () => {
     test('parses representative synthetic records without unresolved fields', () => {
         const { api } = loadAssistant();
-        const parsed = syntheticRecords.map((record) => plain(api.parseRecord(record, new Date(2000, 0, 1), testLocationPresets)));
+        const parsed = syntheticRecords.map((record) => plain(api.parseRecord(record, new Date(2000, 0, 31), testLocationPresets)));
 
         assert.deepEqual(parsed.map((item) => item.errors), [[], [], []]);
         assert.deepEqual(parsed.map((item) => item.observations.length), [12, 17, 2]);
@@ -153,8 +153,8 @@ describe('eBird compact note parser', () => {
 
     test('maps singing, pair, heard counts, and white-faced wagtail details', () => {
         const { api } = loadAssistant();
-        const first = plain(api.parseRecord(syntheticRecords[0], new Date(2000, 0, 1), testLocationPresets));
-        const second = plain(api.parseRecord(syntheticRecords[1], new Date(2000, 0, 1), testLocationPresets));
+        const first = plain(api.parseRecord(syntheticRecords[0], new Date(2000, 0, 31), testLocationPresets));
+        const second = plain(api.parseRecord(syntheticRecords[1], new Date(2000, 0, 31), testLocationPresets));
         const spottedDove = first.observations.find((item) => item.code === 'spodov');
         const redCollaredDove = first.observations.find((item) => item.code === 'recdov1');
         const treepie = first.observations.find((item) => item.code === 'grytre1');
@@ -189,7 +189,7 @@ describe('eBird compact note parser', () => {
         const { api } = loadAssistant();
         const record = plain(api.parseRecord(
             '2000/1/4&#x20;\n測試公園\n7：00 開始 8 分鐘\n麻雀 2',
-            new Date(1999, 0, 1),
+            new Date(2000, 0, 31),
             testLocationPresets
         ));
 
@@ -203,7 +203,7 @@ describe('eBird compact note parser', () => {
         for (const [alias, expectedCode] of Object.entries(requestedAliasMappings)) {
             const record = plain(api.parseRecord(
                 `2000.01.04\n測試公園\n7：00 開始 8 分鐘\n${alias} 1`,
-                new Date(2000, 0, 1),
+                new Date(2000, 0, 31),
                 testLocationPresets
             ));
             assert.deepEqual(record.errors, [], alias);
@@ -237,7 +237,8 @@ describe('eBird compact note parser', () => {
                 pageName: '測試公園',
                 protocol: 'P22',
                 distanceKm: 1.25,
-                partySize: 2
+                partySize: 2,
+                isDefault: false
             }
         });
         api.deleteLocationPreset('測試公園');
@@ -305,7 +306,19 @@ describe('eBird species form safety', () => {
         assert.equal(harness.document.getElementById('p-dur-min').value, '10');
         assert.equal(harness.document.getElementById('p-dist').value, '0.2');
         assert.equal(harness.document.getElementById('p-party-size').value, '1');
-        assert.equal(JSON.parse(harness.sessionStorage.getItem(api.storageKey)).location, '測試河段');
+        const saved = JSON.parse(harness.sessionStorage.getItem(api.storageKey));
+        assert.equal(saved.location, '測試河段');
+        assert.deepEqual(saved.effortReadback.date, { year: 2000, month: 1, day: 2 });
+        assert.deepEqual(saved.effortReadback.time, {
+            hour: 14,
+            minute: 30,
+            hour12: 2,
+            ampm: 'PM'
+        });
+        assert.equal(saved.effortReadback.protocol, 'P22');
+        assert.equal(saved.effortReadback.durationMinutes, 10);
+        assert.equal(saved.effortReadback.distanceKm, 0.2);
+        assert.equal(saved.effortReadback.partySize, 1);
     });
 
     test('fills counts and details, marks a complete list, and never clicks Submit', async () => {
@@ -314,7 +327,7 @@ describe('eBird species form safety', () => {
 測試河段
 7：15 開始 6 分鐘
 鵲鴝 2 一對
-白頭翁 3 唱歌，1 聽到`, new Date(2000, 0, 1), testLocationPresets);
+白頭翁 3 唱歌，1 聽到`, new Date(2000, 0, 31), testLocationPresets);
 
         function addElement(tagName, id) {
             const element = harness.document.createElement(tagName);
@@ -359,13 +372,84 @@ describe('eBird species form safety', () => {
         assert.equal(submit.dataset.tmEbirdManualOnly, 'true');
     });
 
+    test('re-reads every checklist field and omits an unselected breeding-code placeholder', async () => {
+        const { harness, api } = loadAssistant();
+        const record = api.parseRecord(`2000.01.05
+測試河段
+7：15 開始 6 分鐘
+麻雀 1`, new Date(2000, 0, 31), testLocationPresets);
+        record.effortReadback = {
+            locationId: 'L10000002',
+            locationName: '測試河段正式名稱',
+            date: { year: 2000, month: 1, day: 5 },
+            time: { hour: 7, minute: 15, hour12: 7, ampm: 'AM' },
+            protocol: 'P22',
+            durationMinutes: 6,
+            distanceKm: 0.2,
+            partySize: 1
+        };
+
+        const row = harness.document.createElement('li');
+        row.className = 'SubmitChecklist-species';
+        const count = harness.document.createElement('input');
+        count.id = 'eutspa';
+        count.className = 'sc';
+        row.appendChild(count);
+        harness.appendToBody(row);
+
+        const name = harness.document.createElement('div');
+        name.id = 'name_eutspa';
+        name.textContent = '麻雀';
+        harness.appendToBody(name);
+        const breeding = harness.document.createElement('select');
+        breeding.id = 'p-eutspa_bcode';
+        breeding.options = [
+            { value: '', textContent: '選擇最可能的代碼...' },
+            { value: 'S', textContent: 'S 唱歌中鳥' }
+        ];
+        breeding.value = '';
+        harness.appendToBody(breeding);
+        const comments = harness.document.createElement('textarea');
+        comments.id = 'p-eutspa_comments';
+        harness.appendToBody(comments);
+
+        const complete = harness.document.createElement('input');
+        complete.id = 'all-spp-y';
+        harness.appendToBody(complete);
+        const submit = harness.document.createElement('button');
+        submit.id = 'btn-continue';
+        harness.appendToBody(submit);
+
+        const result = await api.fillSpecies(record);
+
+        assert.equal(result.filledCount, 1);
+        assert.equal(result.items[0].display, '1 麻雀');
+        assert.doesNotMatch(result.items[0].display, /選擇最可能的代碼/);
+        assert.equal(result.metadata.length, 7);
+        assert.equal(result.metadata.every((item) => item.matched), true);
+        assert.deepEqual(
+            plain(result.metadata.map((item) => [item.label, item.value])),
+            [
+                ['地點', '測試河段正式名稱'],
+                ['日期時間', '1/5 (三) 7:15 AM'],
+                ['努力量', '行進計數'],
+                ['耗時', '6 分鐘'],
+                ['距離', '0.2 公里'],
+                ['人數', '1 人'],
+                ['完整清單', '是完整清單']
+            ]
+        );
+        assert.match(harness.document.getElementById('tm-ebird-actual-effort').textContent, /耗時：6 分鐘/);
+        assert.equal(submit.dataset.tmEbirdManualOnly, 'true');
+    });
+
     test('continues after missing species fields and reports every known failure', async () => {
         const { harness, api } = loadAssistant();
         const record = api.parseRecord(`2000.01.05
 測試公園
 7：15 開始 6 分鐘
 麻雀 4
-小雨燕 2`, new Date(2000, 0, 1), testLocationPresets);
+小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
 
         function addElement(tagName, id) {
             const element = harness.document.createElement(tagName);
@@ -397,7 +481,7 @@ describe('eBird species form safety', () => {
 測試公園
 7：15 開始 6 分鐘
 麻雀 4
-小雨燕 2`, new Date(2000, 0, 1), testLocationPresets);
+小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
 
         function addElement(tagName, id) {
             const element = harness.document.createElement(tagName);
@@ -431,7 +515,7 @@ describe('eBird species form safety', () => {
         const record = api.parseRecord(`2000.01.05
 測試公園
 7：15 開始 6 分鐘
-小雨燕 2`, new Date(2000, 0, 1), testLocationPresets);
+小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
         const count = harness.document.createElement('input');
         count.id = 'houswi';
         harness.appendToBody(count);
@@ -446,13 +530,186 @@ describe('eBird species form safety', () => {
         assert.deepEqual(plain(result.errors), []);
     });
 
+    test('orders the confirmation result by the eBird page and reads localized breeding text', async () => {
+        const { harness, api } = loadAssistant();
+        const record = api.parseRecord(`2000.01.05
+測試河段
+7：15 開始 6 分鐘
+白頭翁 3 唱歌，1 聽到
+鵲鴝 2 一對`, new Date(2000, 0, 31), testLocationPresets);
+
+        function addSpeciesRow(observation, breedingOptions) {
+            const row = harness.document.createElement('li');
+            row.className = 'SubmitChecklist-species';
+            const count = harness.document.createElement('input');
+            count.id = observation.code;
+            count.className = 'sc';
+            count.addEventListener('click', () => {
+                if (!harness.document.getElementById(`add_${observation.code}`)) {
+                    const detail = harness.document.createElement('a');
+                    detail.id = `add_${observation.code}`;
+                    harness.appendToBody(detail);
+                }
+            });
+            row.appendChild(count);
+            harness.appendToBody(row);
+
+            const select = harness.document.createElement('select');
+            select.id = `p-${observation.code}_bcode`;
+            select.options = breedingOptions;
+            harness.appendToBody(select);
+            const comments = harness.document.createElement('textarea');
+            comments.id = `p-${observation.code}_comments`;
+            harness.appendToBody(comments);
+        }
+
+        const robin = record.observations.find((item) => item.code === 'magrob');
+        const bulbul = record.observations.find((item) => item.code === 'livbul1');
+        addSpeciesRow(robin, [
+            { value: '', textContent: '選擇繁殖代碼' },
+            { value: 'P', textContent: 'P 適合繁殖棲地的一對成鳥' }
+        ]);
+        addSpeciesRow(bulbul, [
+            { value: '', textContent: '選擇繁殖代碼' },
+            { value: 'S唱歌中鳥', textContent: 'S 唱歌中鳥' }
+        ]);
+        const complete = harness.document.createElement('input');
+        complete.id = 'all-spp-y';
+        harness.appendToBody(complete);
+
+        const result = await api.fillSpecies(record);
+
+        assert.deepEqual(
+            plain(result.items.map((item) => item.code)),
+            ['magrob', 'livbul1']
+        );
+        assert.equal(result.items[0].display, '2 鵲鴝; P 適合繁殖棲地的一對成鳥');
+        assert.equal(result.items[1].display, '3 白頭翁; S 唱歌中鳥, Heard 1');
+    });
+
+    test('fills recognized birds while retaining every unrecognized input line', async () => {
+        const { harness, api } = loadAssistant();
+        const record = api.parseRecord(`2000.01.05
+測試公園
+7：15 開始 6 分鐘
+神秘鳥1
+麻雀2`, new Date(2000, 0, 31), testLocationPresets);
+        const row = harness.document.createElement('li');
+        row.className = 'SubmitChecklist-species';
+        const count = harness.document.createElement('input');
+        count.id = 'eutspa';
+        count.className = 'sc';
+        row.appendChild(count);
+        harness.appendToBody(row);
+        const complete = harness.document.createElement('input');
+        complete.id = 'all-spp-y';
+        let completeClicks = 0;
+        complete.addEventListener('click', () => { completeClicks += 1; });
+        harness.appendToBody(complete);
+
+        const result = await api.fillSpecies(record, { elementTimeoutMs: 0 });
+
+        assert.equal(count.value, '2');
+        assert.equal(result.filledCount, 1);
+        assert.equal(result.totalCount, 2);
+        assert.equal(result.unresolved.length, 1);
+        assert.equal(result.unresolved[0].sourceLine, '神秘鳥1');
+        assert.match(result.unresolved[0].error, /不確定的物種/);
+        assert.equal(completeClicks, 0);
+    });
+
+    test('marks an incidental checklist as incomplete and never submits it', async () => {
+        const { harness, api } = loadAssistant();
+        const presets = {
+            '附帶地點': {
+                locId: 'L10000003',
+                pageName: '附帶地點正式名稱',
+                protocol: 'P20',
+                distanceKm: null,
+                partySize: 1
+            }
+        };
+        const record = api.parseRecord(
+            '2000.01.05\n附帶地點\n7：15 開始 6 分鐘\n麻雀1',
+            new Date(2000, 0, 31),
+            presets
+        );
+        const count = harness.document.createElement('input');
+        count.id = 'eutspa';
+        harness.appendToBody(count);
+        const incomplete = harness.document.createElement('input');
+        incomplete.id = 'all-spp-n';
+        harness.appendToBody(incomplete);
+        const submit = harness.document.createElement('button');
+        submit.id = 'btn-continue';
+        harness.appendToBody(submit);
+        let incompleteClicks = 0;
+        let submitClicks = 0;
+        incomplete.addEventListener('click', () => { incompleteClicks += 1; });
+        submit.addEventListener('click', () => { submitClicks += 1; });
+
+        const result = await api.fillSpecies(record);
+
+        assert.equal(incompleteClicks, 1);
+        assert.equal(submitClicks, 0);
+        assert.equal(result.listCompleteness, 'incidental');
+    });
+
+    test('auto-submits only after every readback check succeeds and only once', () => {
+        const { harness, api } = loadAssistant();
+        const record = api.parseRecord(
+            '2000.01.05\n測試河段\n7：15 開始 6 分鐘\n麻雀1',
+            new Date(2000, 0, 31),
+            testLocationPresets
+        );
+        record.autoSubmit = true;
+        const result = {
+            formErrors: [],
+            unresolved: [],
+            items: [{
+                observation: record.observations[0],
+                code: 'eutspa',
+                status: 'filled',
+                display: '1 麻雀',
+                error: ''
+            }],
+            metadata: [{ key: 'all', label: '全部欄位', value: '符合', matched: true }]
+        };
+        const submit = harness.document.createElement('button');
+        submit.id = 'btn-continue';
+        harness.appendToBody(submit);
+        let submitClicks = 0;
+        submit.addEventListener('click', () => { submitClicks += 1; });
+
+        assert.equal(api.tryAutoSubmit(record, result), true);
+        assert.equal(api.tryAutoSubmit(record, result), false);
+        assert.equal(submitClicks, 1);
+        assert.equal(harness.sessionStorage.getItem(api.autoSubmitGuardKey), 'true');
+
+        harness.sessionStorage.removeItem(api.autoSubmitGuardKey);
+        result.items[0].status = 'failed';
+        assert.equal(api.tryAutoSubmit(record, result), false);
+        assert.equal(submitClicks, 1);
+
+        result.items[0].status = 'filled';
+        record.unresolvedObservations.push({
+            sourceLine: '未知鳥1',
+            error: '不確定的物種'
+        });
+        assert.equal(api.tryAutoSubmit(record, result), false);
+        assert.equal(submitClicks, 1);
+    });
+
     test('keeps the fixed assistant panel scrollable within the viewport', () => {
         const { harness } = loadAssistant({ readyState: 'complete' });
         const style = harness.document.getElementById('tm-ebird-text-input-assistant-style');
         const panel = harness.document.getElementById('tm-ebird-text-input-assistant');
 
         assert.ok(panel);
-        assert.match(style.textContent, /max-height:\s*calc\(100dvh - 24px\)/);
+        assert.match(style.textContent, /width:min\(520px/);
+        assert.match(style.textContent, /max-height:min\(58dvh,560px\)/);
+        assert.match(style.textContent, /tm-ebird-review-panel.*width:min\(380px/);
+        assert.match(style.textContent, /max-height:48dvh/);
         assert.match(style.textContent, /overflow-y:\s*auto/);
     });
 });
