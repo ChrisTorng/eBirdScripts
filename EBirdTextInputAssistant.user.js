@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-04_1.4.2
+// @version      2026-09-05_1.5.0
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -562,6 +562,100 @@
         selectOption(year, [date.year], [String(date.year), date.year + '年']);
     }
 
+    function findFormField(ids, nameFragments) {
+        for (const id of ids || []) {
+            const element = document.getElementById(id);
+            if (element) {
+                return element;
+            }
+        }
+        const fragments = (nameFragments || []).map(function(item) {
+            return String(item).toLowerCase();
+        });
+        if (fragments.length === 0) {
+            return null;
+        }
+        return Array.from(document.querySelectorAll('input,select,textarea')).find(function(element) {
+            const key = (String(element.name || '') + ' ' + String(element.id || '')).toLowerCase();
+            return fragments.some(function(fragment) { return key.includes(fragment); });
+        }) || null;
+    }
+
+    function fieldValue(ids, nameFragments) {
+        const field = findFormField(ids, nameFragments);
+        return field ? String(field.value === undefined ? '' : field.value).trim() : null;
+    }
+
+    function normalizeAmPm(value, text) {
+        const source = (String(value || '') + ' ' + String(text || '')).toLowerCase();
+        return source.includes('pm') || source.includes('下午') || /^p(?:\s|$)/.test(source)
+            ? 'PM'
+            : 'AM';
+    }
+
+    function readEffortFormState(record, preset) {
+        const month = fieldValue(['p-month'], ['obsmonth', 'month']);
+        const day = fieldValue(['p-day'], ['obsday', 'day']);
+        const year = fieldValue(['p-year'], ['obsyear', 'year']);
+        const hourField = findFormField(['p-shared-hr'], ['shared-hr', 'starthour']);
+        const minuteField = findFormField(['p-shared-min'], ['shared-min', 'startminute']);
+        const ampmField = findFormField(['p-shared-ampm'], ['shared-ampm', 'ampm']);
+        const hour12 = hourField ? Number(hourField.value) : null;
+        const minute = minuteField ? Number(minuteField.value) : null;
+        const ampm = ampmField
+            ? normalizeAmPm(ampmField.value, selectedOptionText(ampmField))
+            : null;
+        const hour24 = hour12 === null || ampm === null
+            ? null
+            : (hour12 % 12) + (ampm === 'PM' ? 12 : 0);
+        const selectedProtocol = ['P20', 'P21', 'P22'].find(function(id) {
+            const field = document.getElementById(id);
+            return field && (field.checked === true || field.getAttribute('aria-checked') === 'true');
+        }) || null;
+        const protocolFieldValue = fieldValue(
+            ['protocol', 'p-protocol'],
+            ['protocol', 'efforttype']
+        );
+        const protocol = selectedProtocol
+            || (protocolFieldValue && protocolFieldValue.match(/P2[012]/i)
+                ? protocolFieldValue.match(/P2[012]/i)[0].toUpperCase()
+                : null);
+        const durationHours = fieldValue(['p-dur-hrs'], ['dur-hrs', 'durationhours']);
+        const durationMinutes = fieldValue(['p-dur-min'], ['dur-min', 'durationminutes']);
+        const distance = fieldValue(['p-dist'], ['distance', 'dist']);
+        const partySize = fieldValue(['p-party-size'], ['party-size', 'partysize']);
+        const hiddenLocId = fieldValue(['locID', 'locId', 'p-loc-id'], ['locid', 'locationid']);
+        const queryLocId = new URLSearchParams(location.search).get('locID');
+        const detectedLocationName = detectCurrentLocationName();
+        const locationName = detectedLocationName
+            || (preset && document.body && document.body.textContent.includes(preset.pageName)
+                ? preset.pageName
+                : null);
+        const totalDuration = durationHours === null && durationMinutes === null
+            ? null
+            : (Number(durationHours || 0) * 60) + Number(durationMinutes || 0);
+        return {
+            locationId: queryLocId || hiddenLocId || null,
+            locationName: locationName || null,
+            date: month === null || day === null || year === null ? null : {
+                year: Number(year),
+                month: Number(month),
+                day: Number(day)
+            },
+            time: hour24 === null || minute === null ? null : {
+                hour: hour24,
+                minute: minute,
+                hour12: hour12,
+                ampm: ampm
+            },
+            protocol: protocol,
+            durationMinutes: Number.isFinite(totalDuration) ? totalDuration : null,
+            distanceKm: distance === null || distance === '' ? null : Number(distance),
+            partySize: partySize === null || partySize === '' ? null : Number(partySize),
+            expectedLocationName: preset ? preset.pageName : null
+        };
+    }
+
     async function fillEffort(record, options = {}) {
         assertRecordReady(record);
         const preset = getLocationPresets()[record.location] || (record.locationId ? {
@@ -583,6 +677,8 @@
             throw new Error('找不到 eBird 努力量選項：' + record.effort.protocol);
         }
         protocol.click();
+        protocol.checked = true;
+        dispatchValueEvents(protocol);
         await waitForElement('p-shared-hr');
         const isAfternoon = record.effort.hour >= 12;
         setValue('p-shared-hr', record.effort.hour % 12 || 12);
@@ -604,6 +700,7 @@
         if (document.getElementById('p-party-size')) {
             setValue('p-party-size', record.effort.partySize);
         }
+        record.effortReadback = readEffortFormState(record, preset);
         sessionStorage.setItem(storageKey, JSON.stringify(record));
         sessionStorage.removeItem(autoEffortKey);
         if (options.continueToSpecies !== false) {
@@ -731,12 +828,227 @@
     function readObservationDisplay(outcome) {
         const observation = outcome.observation;
         const code = outcome.code;
+        const countField = document.getElementById(code);
+        const nameContainer = document.getElementById('name_' + code);
+        const nameNode = nameContainer
+            ? (nameContainer.querySelector('span') || nameContainer)
+            : null;
+        const actualName = nameNode && nameNode.textContent.trim()
+            ? nameNode.textContent.replace(/\s+/g, ' ').trim()
+            : observation.name;
         const breedingSelect = document.getElementById('p-' + code + '_bcode');
+        const breedingValue = breedingSelect ? String(breedingSelect.value || '').trim() : '';
+        const breedingText = breedingValue ? selectedOptionText(breedingSelect) : '';
         const commentsField = document.getElementById('p-' + code + '_comments');
-        return formatObservationForEbird(observation, {
-            breedingText: selectedOptionText(breedingSelect) || outcome.breedingText,
-            comments: commentsField ? String(commentsField.value || '').trim() : observation.comments
+        const comments = commentsField ? String(commentsField.value || '').trim() : '';
+        const extras = [];
+        if (breedingText) {
+            extras.push(breedingText);
+        }
+        if (comments) {
+            extras.push(comments);
+        }
+        return {
+            text: (countField ? String(countField.value || '').trim() : '—') + ' ' + actualName
+                + (extras.length ? '; ' + extras.join(', ') : ''),
+            count: countField ? String(countField.value || '').trim() : null,
+            breedingCode: breedingValue || null,
+            breedingText: breedingText,
+            comments: comments,
+            hasCountField: Boolean(countField),
+            hasBreedingField: Boolean(breedingSelect),
+            hasCommentsField: Boolean(commentsField)
+        };
+    }
+
+    function verifyObservationOutcome(outcome) {
+        if (outcome.status === 'failed') {
+            outcome.display = outcome.observation.count + ' ' + outcome.observation.name;
+            return outcome;
+        }
+        const actual = readObservationDisplay(outcome);
+        const expected = outcome.observation;
+        const mismatches = [];
+        if (!actual.hasCountField || actual.count !== String(expected.count)) {
+            mismatches.push('數量讀回為「' + (actual.count === null ? '找不到欄位' : actual.count) + '」');
+        }
+        if (expected.breedingCode) {
+            if (!actual.hasBreedingField || actual.breedingCode !== expected.breedingCode) {
+                mismatches.push('繁殖代碼讀回不符');
+            }
+        } else if (actual.breedingCode) {
+            mismatches.push('出現未預期的繁殖代碼');
+        }
+        if (expected.comments) {
+            if (!actual.hasCommentsField || actual.comments !== expected.comments) {
+                mismatches.push('附註讀回為「' + (actual.hasCommentsField ? actual.comments : '找不到欄位') + '」');
+            }
+        } else if (actual.comments) {
+            mismatches.push('出現未預期的附註');
+        }
+        outcome.display = actual.text;
+        if (mismatches.length > 0) {
+            outcome.status = 'failed';
+            outcome.error = mismatches.join('；');
+        } else if (expected.warning) {
+            outcome.status = 'warning';
+            outcome.error = expected.warning;
+        } else {
+            outcome.status = 'filled';
+            outcome.error = '';
+        }
+        return outcome;
+    }
+
+    function mergeEffortReadback(current, previous) {
+        const merged = {};
+        [
+            'locationId', 'locationName', 'date', 'time', 'protocol',
+            'durationMinutes', 'distanceKm', 'partySize', 'expectedLocationName'
+        ].forEach(function(key) {
+            merged[key] = current[key] !== null && current[key] !== undefined
+                ? current[key]
+                : previous && previous[key] !== undefined ? previous[key] : null;
         });
+        return merged;
+    }
+
+    function formatTime12(hour, minute) {
+        if (hour === null || hour === undefined || minute === null || minute === undefined) {
+            return '找不到';
+        }
+        return (hour % 12 || 12) + ':' + String(minute).padStart(2, '0')
+            + (hour >= 12 ? ' PM' : ' AM');
+    }
+
+    function sameDate(left, right) {
+        return Boolean(left && right
+            && Number(left.year) === Number(right.year)
+            && Number(left.month) === Number(right.month)
+            && Number(left.day) === Number(right.day));
+    }
+
+    function readChecklistVerification(record, completenessId) {
+        const preset = getLocationPresets()[record.location] || {
+            locId: record.locationId,
+            pageName: record.locationPageName || record.location
+        };
+        const current = readEffortFormState(record, preset);
+        const actual = mergeEffortReadback(current, record.effortReadback || {});
+        const expected = record.effort;
+        const checks = [];
+        function add(key, label, value, matched) {
+            checks.push({ key: key, label: label, value: value, matched: Boolean(matched) });
+        }
+
+        const expectedLocationId = record.locationId || preset.locId;
+        const expectedLocationName = record.locationPageName || preset.pageName;
+        const locationMatched = actual.locationId
+            ? actual.locationId === expectedLocationId
+            : Boolean(actual.locationName && actual.locationName === expectedLocationName);
+        add(
+            'location',
+            '地點',
+            actual.locationName || (locationMatched ? expectedLocationName : '找不到'),
+            locationMatched
+        );
+
+        const dateMatched = sameDate(actual.date, record.date);
+        const timeMatched = actual.time
+            && Number(actual.time.hour) === Number(expected.hour)
+            && Number(actual.time.minute) === Number(expected.minute);
+        add(
+            'datetime',
+            '日期時間',
+            (actual.date ? formatDateLabel(actual.date) : '找不到')
+                + ' ' + formatTime12(
+                    actual.time ? actual.time.hour : null,
+                    actual.time ? actual.time.minute : null
+                ),
+            dateMatched && timeMatched
+        );
+
+        const protocolNames = {
+            P20: '附帶紀錄',
+            P21: '定點計數',
+            P22: '行進計數'
+        };
+        add(
+            'protocol',
+            '努力量',
+            protocolNames[actual.protocol] || '找不到',
+            actual.protocol === expected.protocol
+        );
+        add(
+            'duration',
+            '耗時',
+            actual.durationMinutes === null ? '找不到' : actual.durationMinutes + ' 分鐘',
+            Number(actual.durationMinutes) === Number(expected.durationMinutes)
+        );
+
+        const distanceRequired = expected.protocol === 'P22';
+        add(
+            'distance',
+            '距離',
+            actual.distanceKm === null
+                ? (distanceRequired ? '找不到' : '不適用')
+                : actual.distanceKm + ' 公里',
+            distanceRequired
+                ? Number(actual.distanceKm) === Number(expected.distanceKm)
+                : actual.distanceKm === null
+        );
+        add(
+            'party',
+            '人數',
+            actual.partySize === null ? '找不到' : actual.partySize + ' 人',
+            Number(actual.partySize) === Number(expected.partySize)
+        );
+
+        const yes = document.getElementById('all-spp-y');
+        const no = document.getElementById('all-spp-n');
+        const actualCompleteness = yes && yes.checked === true
+            ? 'all-spp-y'
+            : no && no.checked === true ? 'all-spp-n' : null;
+        add(
+            'completeness',
+            '完整清單',
+            actualCompleteness === 'all-spp-y'
+                ? '是完整清單'
+                : actualCompleteness === 'all-spp-n' ? '否（附帶紀錄）' : '找不到',
+            actualCompleteness === completenessId
+        );
+        return { actual: actual, checks: checks };
+    }
+
+    function renderEffortDetailsOnPage(checks) {
+        const old = document.getElementById('tm-ebird-actual-effort');
+        if (old) {
+            old.remove();
+        }
+        const block = document.createElement('div');
+        block.id = 'tm-ebird-actual-effort';
+        block.className = 'tm-ebird-actual-effort';
+        block.textContent = checks
+            .filter(function(item) {
+                return ['protocol', 'duration', 'distance', 'party', 'completeness'].includes(item.key);
+            })
+            .map(function(item) {
+                return item.label + '：' + item.value;
+            })
+            .join('；');
+        const locationLink = document.getElementById('href_changeLoc') || document.getElementById('href_loc');
+        const anchor = locationLink ? (locationLink.parentElement || locationLink) : null;
+        if (anchor && anchor.parentElement) {
+            anchor.insertAdjacentElement('afterend', block);
+        } else {
+            const form = document.querySelector('form');
+            if (form && form.parentElement) {
+                form.parentElement.insertBefore(block, form);
+            } else if (document.body) {
+                document.body.insertBefore(block, document.body.firstChild);
+            }
+        }
+        return block;
     }
 
     function orderOutcomesByChecklist(outcomes) {
@@ -753,17 +1065,12 @@
             });
             if (outcome && !included.has(outcome)) {
                 outcome.code = code;
-                outcome.display = readObservationDisplay(outcome);
                 ordered.push(outcome);
                 included.add(outcome);
             }
         });
         outcomes.forEach(function(outcome) {
             if (!included.has(outcome)) {
-                outcome.display = formatObservationForEbird(outcome.observation, {
-                    breedingText: outcome.breedingText,
-                    comments: outcome.observation.comments
-                });
                 ordered.push(outcome);
             }
         });
@@ -837,7 +1144,7 @@
         const unresolved = Array.isArray(record.unresolvedObservations)
             ? record.unresolvedObservations
             : [];
-        const hasItemIssues = outcomes.some(function(outcome) {
+        const hasInputIssues = outcomes.some(function(outcome) {
             return outcome.status === 'failed' || outcome.status === 'warning';
         }) || unresolved.length > 0;
         const completenessId = record.effort && record.effort.protocol === 'P20'
@@ -849,9 +1156,27 @@
             formErrors.push(completenessId === 'all-spp-n'
                 ? '找不到非完整清單選項'
                 : '找不到完整清單選項');
-        } else if (errors.length === 0 && !hasItemIssues) {
+        } else if (errors.length === 0 && !hasInputIssues) {
             complete.click();
+            complete.checked = true;
+            dispatchValueEvents(complete);
         }
+
+        await new Promise(function(resolve) { setTimeout(resolve, 0); });
+
+        const orderedItems = orderOutcomesByChecklist(outcomes);
+        orderedItems.forEach(verifyObservationOutcome);
+        orderedItems.forEach(function(outcome) {
+            if (outcome.status === 'failed' && outcome.error) {
+                const message = outcome.observation.name + '（' + outcome.code + '）：' + outcome.error;
+                if (!errors.includes(message)) {
+                    errors.push(message);
+                }
+            }
+        });
+        const verification = readChecklistVerification(record, completenessId);
+        renderEffortDetailsOnPage(verification.checks);
+
         errors.push.apply(errors, formErrors);
         unresolved.forEach(function(item) {
             errors.push(item.error);
@@ -862,16 +1187,17 @@
             submit.dataset.tmEbirdManualOnly = 'true';
             submit.title = 'Tampermonkey 未按下此按鈕；請人工確認後自行送出。';
         }
-        const orderedItems = orderOutcomesByChecklist(outcomes);
         return {
-            filledCount: outcomes.filter(function(item) { return item.status !== 'failed'; }).length,
+            filledCount: orderedItems.filter(function(item) { return item.status === 'filled'; }).length,
             totalCount: record.observations.length + unresolved.length,
             errors: errors,
             formErrors: formErrors,
+            verificationErrors: verification.checks.filter(function(item) { return !item.matched; }),
+            metadata: verification.checks,
             items: orderedItems,
             unresolved: unresolved,
-            filledCodes: outcomes.filter(function(item) {
-                return item.status !== 'failed';
+            filledCodes: orderedItems.filter(function(item) {
+                return item.status === 'filled';
             }).map(function(item) {
                 return item.code;
             }),
@@ -1267,10 +1593,11 @@
         const style = document.createElement('style');
         style.id = styleId;
         style.textContent = [
-            '#' + panelId + ' { box-sizing:border-box;position:fixed;z-index:2147483647;right:12px;top:12px;width:min(780px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;padding:0;border:2px solid #2f7f45;border-radius:8px;background:#fff;color:#222;box-shadow:0 4px 18px #0004;font:14px/1.5 sans-serif; }',
-            '#' + panelId + ' .tm-ebird-header { position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fff;border-bottom:1px solid #ddd; }',
+            '#' + panelId + ' { box-sizing:border-box;position:fixed;z-index:2147483647;right:8px;top:8px;width:min(520px,calc(100vw - 16px));max-height:min(58dvh,560px);overflow-y:auto;overscroll-behavior:contain;padding:0;border:2px solid #2f7f45;border-radius:8px;background:#fff;color:#222;box-shadow:0 4px 18px #0004;font:13px/1.4 sans-serif; }',
+            '#' + panelId + '.tm-ebird-review-panel { width:min(380px,calc(100vw - 16px));max-height:min(52dvh,480px); }',
+            '#' + panelId + ' .tm-ebird-header { position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:#fff;border-bottom:1px solid #ddd; }',
             '#' + panelId + ' .tm-ebird-collapse { min-width:36px;padding:5px 9px;font-size:16px; }',
-            '#' + panelId + ' .tm-ebird-body { padding:10px 12px 12px; }',
+            '#' + panelId + ' .tm-ebird-body { padding:7px 9px 9px; }',
             '#' + panelId + ' .tm-ebird-body[hidden] { display:none; }',
             '#' + panelId + ' button { padding:7px 12px;border:0;border-radius:5px;background:#2f7f45;color:#fff;cursor:pointer; }',
             '#' + panelId + ' button:disabled { opacity:.55;cursor:default; }',
@@ -1294,14 +1621,16 @@
             '#' + panelId + ' .tm-ebird-danger { background:#9a2929; }',
             '#' + panelId + ' .tm-ebird-local-note { margin:6px 0;color:#555;font-size:12px; }',
             '#' + panelId + ' .tm-ebird-status { margin-top:8px;white-space:pre-wrap; }',
-            '#' + panelId + ' .tm-ebird-check-summary > div { margin:3px 0; }',
+            '#' + panelId + ' .tm-ebird-check-summary { font-size:12px;line-height:1.3; }',
+            '#' + panelId + ' .tm-ebird-check-summary > div { margin:1px 0; }',
+            '.tm-ebird-actual-effort { margin:4px 0;padding:5px 7px;border-left:3px solid #2f7f45;background:#f4faf5;font:12px/1.35 sans-serif; }',
             '#' + panelId + ' .tm-ebird-summary-heading { margin-top:9px;font-weight:700; }',
             '#' + panelId + ' .tm-ebird-error { color:#a40000; }',
             '#' + panelId + ' .tm-ebird-ok { color:#176b2c; }',
             '.tm-ebird-location-filter,.tm-ebird-location-select { box-sizing:border-box!important;width:100%!important;max-width:none!important; }',
             '.tm-ebird-location-filter input { box-sizing:border-box;width:100%;padding:8px; }',
             '.tm-ebird-unobserved-hidden { display:none!important; }',
-            '@media (max-width:700px) { #' + panelId + ' { right:6px;top:6px;width:calc(100vw - 12px);max-height:calc(100dvh - 12px); } #' + panelId + ' .tm-ebird-record-grid { grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px; } #' + panelId + ' .tm-ebird-body { padding:8px; } #' + panelId + ' textarea,#' + panelId + ' .tm-ebird-preview { min-height:42vh;padding:5px;font-size:12px; } #' + panelId + ' .tm-ebird-effort-override { grid-template-columns:1fr 1fr; } #' + panelId + ' .tm-ebird-effort-derived { grid-column:1/-1;padding:0; } }'
+            '@media (max-width:700px) { #' + panelId + ' { right:6px;top:6px;width:min(420px,calc(100vw - 12px));max-height:52dvh; } #' + panelId + '.tm-ebird-review-panel { width:min(360px,calc(100vw - 12px));max-height:48dvh; } #' + panelId + ' .tm-ebird-record-grid { grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px; } #' + panelId + ' .tm-ebird-body { padding:6px; } #' + panelId + ' textarea,#' + panelId + ' .tm-ebird-preview { min-height:34vh;padding:5px;font-size:11px; } #' + panelId + ' .tm-ebird-effort-override { grid-template-columns:1fr 1fr; } #' + panelId + ' .tm-ebird-effort-derived { grid-column:1/-1;padding:0; } }'
         ].join('\n');
         document.head.appendChild(style);
     }
@@ -1894,31 +2223,19 @@
             return line;
         }
 
-        const preset = getLocationPresets()[record.location];
-        const locationName = record.locationPageName || (preset ? preset.pageName : record.location);
-        const locationId = record.locationId || (preset ? preset.locId : '');
-        appendLine('地點：' + locationName
-            + (record.location && record.location !== locationName ? '（' + record.location + '）' : '')
-            + (locationId ? '；' + locationId : ''));
-        appendLine('日期：' + formatDateLabel(record.date));
-        if (record.effort) {
-            const protocolName = record.effort.protocol === 'P20'
-                ? '附帶紀錄'
-                : record.effort.protocol === 'P21' ? '定點計數' : '行進計數';
+        const metadata = Array.isArray(result.metadata) ? result.metadata : [];
+        metadata.forEach(function(item) {
             appendLine(
-                '時間：' + String(record.effort.hour).padStart(2, '0') + ':'
-                + String(record.effort.minute).padStart(2, '0') + ' 開始；'
-                + record.effort.durationMinutes + ' 分鐘；'
-                + protocolName
-                + (record.effort.distanceKm === null || record.effort.distanceKm === undefined
-                    ? ''
-                    : '；' + record.effort.distanceKm + ' 公里')
-                + '；' + record.effort.partySize + ' 人'
+                (item.matched ? '✓ ' : '✗ ') + item.label + '：' + item.value,
+                item.matched ? 'tm-ebird-ok' : 'tm-ebird-error'
             );
-        }
+        });
+
+        const verifiedSpecies = result.items.filter(function(item) {
+            return item.status === 'filled';
+        }).length;
         appendLine(
-            '填寫結果：成功 ' + result.filledCount + '/' + result.totalCount
-            + ' 項（鳥種依 eBird 頁面順序）',
+            '讀回驗證：鳥種 ' + verifiedSpecies + '/' + result.totalCount,
             'tm-ebird-summary-heading'
         );
 
@@ -1931,8 +2248,9 @@
             );
         });
         result.unresolved.forEach(function(item) {
+            const reason = String(item.error || '無法辨識').split('：')[0];
             appendLine(
-                '✗ 未辨識：' + item.sourceLine + ' — ' + item.error,
+                '✗ 未寫入：無可比對的 eBird 鳥種（' + reason + '）',
                 'tm-ebird-error'
             );
         });
@@ -1942,15 +2260,17 @@
 
         const hasProblems = result.items.some(function(item) {
             return item.status !== 'filled';
-        }) || result.unresolved.length > 0 || result.formErrors.length > 0;
-        const incidental = result.listCompleteness === 'incidental'
-            || (record.effort && record.effort.protocol === 'P20');
+        }) || result.unresolved.length > 0
+            || result.formErrors.length > 0
+            || metadata.some(function(item) { return !item.matched; });
+        const submitted = !location.pathname.endsWith('/submit/checklist')
+            && /\/checklist\/[^/]+\/?$/.test(location.pathname);
         appendLine(
             hasProblems
-                ? '尚有錯誤，且未送出。'
-                : incidental
-                    ? '已選擇附帶紀錄（非完整清單）；尚未送出，請人工確認。'
-                    : '已勾選完整清單；尚未送出，請人工確認。',
+                ? '仍有讀回結果不符，請檢查紅字項目。'
+                : submitted
+                    ? '✓ 送出前所有欄位均已重新讀取並符合預期。'
+                    : '✓ 所有欄位均已重新讀取並符合預期；尚未送出。',
             hasProblems ? 'tm-ebird-error' : 'tm-ebird-ok'
         );
     }
@@ -1964,6 +2284,8 @@
                 items: result.items,
                 unresolved: result.unresolved,
                 formErrors: result.formErrors,
+                verificationErrors: result.verificationErrors,
+                metadata: result.metadata,
                 listCompleteness: result.listCompleteness
             }
         }));
@@ -2015,6 +2337,9 @@
         const isChecklistPage = location.pathname.endsWith('/submit/checklist');
         const isSubmittedChecklistPage = !isChecklistPage
             && /\/checklist\/[^/]+\/?$/.test(location.pathname);
+        if (isChecklistPage || isSubmittedChecklistPage) {
+            panel.classList.add('tm-ebird-review-panel');
+        }
         if (isSubmittedChecklistPage) {
             const confirmation = getChecklistConfirmation();
             body.appendChild(status);
@@ -2101,6 +2426,9 @@
         startRecord: startRecord,
         fillEffort: fillEffort,
         fillSpecies: fillSpecies,
+        readEffortFormState: readEffortFormState,
+        readChecklistVerification: readChecklistVerification,
+        verifyObservationOutcome: verifyObservationOutcome,
         revealAdditionalSpeciesSections: revealAdditionalSpeciesSections,
         setUnobservedVisibility: setUnobservedVisibility,
         recentDateValues: recentDateValues,
