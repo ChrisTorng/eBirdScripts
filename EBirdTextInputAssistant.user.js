@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-05_1.5.0
+// @version      2026-09-05_1.5.1
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -1162,7 +1162,7 @@
             dispatchValueEvents(complete);
         }
 
-        await new Promise(function(resolve) { setTimeout(resolve, 0); });
+        await Promise.resolve();
 
         const orderedItems = orderOutcomesByChecklist(outcomes);
         orderedItems.forEach(verifyObservationOutcome);
