@@ -395,13 +395,17 @@ describe('eBird assistant fast entry workflow', () => {
         assert.match(summaryText, /送出前所有欄位均已重新讀取並符合預期/);
     });
 
-    test('starts collapsed on a small screen and stays open on a large screen', () => {
+    test('expands checklist errors even on a small screen and keeps desktop open', () => {
         const mobile = loadAssistant({
             readyState: 'complete',
             matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} })
         }).harness;
-        assert.equal(mobile.document.querySelector('.tm-ebird-body').hidden, true);
-        assert.equal(mobile.document.querySelector('.tm-ebird-collapse').textContent, '▼');
+        assert.equal(mobile.document.querySelector('.tm-ebird-body').hidden, false);
+        assert.equal(mobile.document.querySelector('.tm-ebird-collapse').textContent, '▲');
+        assert.match(
+            mobile.document.querySelector('.tm-ebird-header').children[0].textContent,
+            /缺少待填紀錄/
+        );
 
         const desktop = loadAssistant({
             readyState: 'complete',
