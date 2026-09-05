@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-05_1.6.0
+// @version      2026-09-05_1.6.1
 // @description  Parse compact Taiwan birding notes, preview every line, select locations, and fill eBird forms without submitting them.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -840,10 +840,13 @@
         const breedingSelect = document.getElementById('p-' + code + '_bcode');
         const rawBreedingValue = breedingSelect ? String(breedingSelect.value || '').trim() : '';
         const selectedBreedingText = rawBreedingValue ? selectedOptionText(breedingSelect) : '';
-        const breedingMatch = (rawBreedingValue + ' ' + selectedBreedingText)
-            .trim()
-            .match(/^([A-Za-z]{1,3})(?:\s|$)/);
-        const breedingValue = breedingMatch ? breedingMatch[1].toUpperCase() : rawBreedingValue;
+        const breedingSource = (rawBreedingValue + ' ' + selectedBreedingText).trim();
+        const expectedBreedingCode = String(observation.breedingCode || '').trim().toUpperCase();
+        const breedingMatch = breedingSource.match(/^([A-Za-z]{1,3})(?:\s|$)/);
+        const breedingValue = expectedBreedingCode
+            && breedingSource.toUpperCase().startsWith(expectedBreedingCode)
+            ? expectedBreedingCode
+            : breedingMatch ? breedingMatch[1].toUpperCase() : rawBreedingValue;
         const breedingText = rawBreedingValue ? selectedBreedingText : '';
         const commentsField = document.getElementById('p-' + code + '_comments');
         const comments = commentsField ? String(commentsField.value || '').trim() : '';
