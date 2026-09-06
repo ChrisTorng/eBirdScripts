@@ -27,7 +27,7 @@ Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally
 - 可直接篩選及選取 eBird 地點，並在 Tampermonkey 本機設定地名簡稱、預設地點、努力量與人數。
 - 支援多種日期簡寫、常用鳥種簡稱、鳥名與數字相連的寫法，以及「唱歌」、「聽到」與「一對」等細節。
 - 核對面板採窄版、限制為約半個視窗高度；行動裝置預設收合，並可由右上角按鈕展開或收合。
-- 填寫完成後及送出後，會分別重新讀取 eBird 頁面中的正式地點、日期時間、努力量、完整清單及鳥種欄位，逐項比對並標示結果。
+- 填寫完成後及送出後，會分別重新讀取 eBird 頁面中的正式地點（含自建地點）、日期時間、努力量、完整清單及鳥種欄位；找不到或不符時同時顯示預期值與原因。
 - 完成頁核對結果只會顯示於剛由助手填寫的該筆鳥單；平時瀏覽其他鳥單不顯示助手面板。
 - Completed checklists use structured date/time and effort fields, supporting English, Chinese, and dates rewritten by eBird Scripts. Species follow page order, including subspecies displayed under a parent species link.
 - 「確認成功後自動儲存」預設開啟，但只有輸入無辨識失敗且提交頁全部讀回吻合時才會送出；任一項不符即禁止自動送出。

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-05_1.6.4
+// @version      2026-09-06_1.6.6
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -1099,23 +1099,46 @@
         const checks = [];
         const expected = record.effort;
         const content = function(element) { return element ? element.textContent.replace(/\s+/g, ' ').trim() : ''; };
-        const add = function(key, label, value, matched) {
-            checks.push({ key: key, label: label, value: value || '找不到', matched: Boolean(matched) });
+        const add = function(key, label, expectedValue, actualValue, matched) {
+            const found = actualValue !== null && actualValue !== undefined
+                && String(actualValue).trim() !== '';
+            checks.push({
+                key: key,
+                label: label,
+                expectedValue: expectedValue,
+                actualValue: found ? actualValue : null,
+                value: found ? actualValue : expectedValue,
+                matched: Boolean(matched),
+                error: matched ? '' : found
+                    ? '預期：' + expectedValue
+                    : '完成頁找不到實際值'
+            });
+        };
+        const normalizeName = function(value) {
+            return String(value || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
         };
         const links = primary ? Array.from(primary.querySelectorAll('a')) : [];
         const locationLink = links.find(function(link) {
             return /\/(?:hotspot|location)\/L\d+(?:[/?#]|$)/.test(link.getAttribute('href') || '');
         });
         const actualLocationId = locationLink && (locationLink.getAttribute('href').match(/\/(L\d+)/) || [])[1];
-        add('location', '地點', content(locationLink), record.locationId
+        const locationNameNode = primary && (primary.querySelector('[data-locationname]')
+            || locationLink || primary.querySelector('.Heading--h3'));
+        const actualLocationName = content(locationNameNode);
+        const expectedLocationName = record.locationPageName || record.location;
+        const locationMatched = actualLocationId
             ? actualLocationId === record.locationId
-            : content(locationLink) === (record.locationPageName || record.location));
+            : Boolean(actualLocationName)
+                && normalizeName(actualLocationName) === normalizeName(expectedLocationName);
+        add('location', '地點', expectedLocationName, actualLocationName, locationMatched);
 
         const time = primary && primary.querySelector('time[datetime]');
         const timestamp = time && time.getAttribute('datetime');
         const parts = timestamp && timestamp.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
         const actualDate = parts && { year: Number(parts[1]), month: Number(parts[2]), day: Number(parts[3]) };
-        add('datetime', '日期時間', parts
+        const expectedDateTime = formatDateLabel(record.date) + ' '
+            + formatTime12(Number(expected.hour), Number(expected.minute));
+        add('datetime', '日期時間', expectedDateTime, parts
             ? formatDateLabel(actualDate) + ' ' + formatTime12(Number(parts[4]), Number(parts[5]))
             : content(time), Boolean(parts)
                 && actualDate.year === record.date.year && actualDate.month === record.date.month
@@ -1125,11 +1148,14 @@
         const protocolNode = effort && effort.querySelector('.Heading-main');
         const protocolText = content(protocolNode);
         const protocols = { P20: ['附帶紀錄', 'Incidental'], P21: ['定點計數', 'Stationary'], P22: ['行進計數', 'Traveling'] };
-        add('protocol', '努力量', protocolText, (protocols[expected.protocol] || []).includes(protocolText));
+        const protocolLabels = { P20: '附帶紀錄', P21: '定點計數', P22: '行進計數' };
+        add('protocol', '努力量', protocolLabels[expected.protocol] || expected.protocol,
+            protocolText, (protocols[expected.protocol] || []).includes(protocolText));
         const durationNode = effort && effort.querySelector('time[datetime]');
         const duration = durationNode && (durationNode.getAttribute('datetime') || '').match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
         const minutes = duration && (Number(duration[1] || 0) * 60 + Number(duration[2] || 0) + Number(duration[3] || 0) / 60);
-        add('duration', '耗時', duration ? minutes + ' 分鐘' : '', duration && minutes === Number(expected.durationMinutes));
+        add('duration', '耗時', expected.durationMinutes + ' 分鐘',
+            duration ? minutes + ' 分鐘' : '', duration && minutes === Number(expected.durationMinutes));
 
         const badgeForIcon = function(iconClass) {
             const icon = effort && effort.querySelector('.' + iconClass);
@@ -1138,16 +1164,23 @@
         const distanceText = content(badgeForIcon('Icon--track'));
         const distance = distanceText.match(/^(\d+(?:\.\d+)?)\s*(km|公里|mi|miles?)$/i);
         const distanceKm = distance && Number(distance[1]) * (/^(mi|mile)/i.test(distance[2]) ? 1.609344 : 1);
-        add('distance', '距離', expected.protocol === 'P22' ? distanceText : distanceText || '不適用',
-            expected.protocol === 'P22' ? distance && Math.abs(distanceKm - Number(expected.distanceKm)) < 0.000001 : !distanceText);
+        const expectedDistance = expected.protocol === 'P22' ? expected.distanceKm + ' 公里' : '不適用';
+        add('distance', '距離', expectedDistance,
+            expected.protocol === 'P22' ? distanceText : distanceText || '不適用',
+            expected.protocol === 'P22'
+                ? distance && Math.abs(distanceKm - Number(expected.distanceKm)) < 0.000001
+                : !distanceText);
         const party = content(badgeForIcon('Icon--user'));
-        add('party', '人數', party ? party + ' 人' : '', /^\d+$/.test(party) && Number(party) === Number(expected.partySize));
+        add('party', '人數', expected.partySize + ' 人', party ? party + ' 人' : '',
+            /^\d+$/.test(party) && Number(party) === Number(expected.partySize));
 
         const completeNode = effort && effort.querySelector('[aria-controls="status-info"] .Badge-label');
         const completeText = content(completeNode);
         const complete = ['Complete', '完整紀錄清單', '完整清單'].includes(completeText) ? true
             : ['Incomplete', '非完整紀錄清單', '非完整清單', '不完整紀錄清單', '不完整清單'].includes(completeText) ? false : null;
-        add('completeness', '完整清單', completeText, complete !== null && complete === (expected.protocol !== 'P20'));
+        const expectedComplete = expected.protocol !== 'P20';
+        add('completeness', '完整清單', expectedComplete ? '是完整清單' : '否（附帶紀錄）',
+            completeText, complete !== null && complete === expectedComplete);
         return checks;
     }
 
@@ -2531,7 +2564,8 @@
         const metadata = Array.isArray(result.metadata) ? result.metadata : [];
         metadata.forEach(function(item) {
             appendLine(
-                (item.matched ? '✓ ' : '✗ ') + item.label + '：' + item.value,
+                (item.matched ? '✓ ' : '✗ ') + item.label + '：' + item.value
+                    + (item.error ? ' — ' + item.error : ''),
                 item.matched ? 'tm-ebird-ok' : 'tm-ebird-error'
             );
         });
