@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-06_1.6.6
+// @version      2026-09-06_1.6.7
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -930,6 +930,77 @@
             + (hour >= 12 ? ' PM' : ' AM');
     }
 
+    function parseDisplayedDateTime(value) {
+        const text = String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim()
+            // Adjacent date/time spans may have no whitespace in textContent.
+            .replace(/(\d{4})(?=\d{1,2}:\d{2})/, '$1 ');
+        const englishMonths = {
+            jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
+            apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
+            aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10, october: 10,
+            nov: 11, november: 11, dec: 12, december: 12
+        };
+        const chineseMonths = {
+            一月: 1, 二月: 2, 三月: 3, 四月: 4, 五月: 5, 六月: 6,
+            七月: 7, 八月: 8, 九月: 9, 十月: 10, 十一月: 11, 十二月: 12
+        };
+        let date = null;
+        let match = text.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+        if (match) {
+            date = { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+        }
+        if (!date) {
+            match = text.match(/(?:週|周|星期)[日天一二三四五六]\s*[,，]?\s*(\d{1,2})月\s*(\d{1,2})日?\s*[,，]?\s*(\d{4})年?/);
+            if (match) {
+                date = { year: Number(match[3]), month: Number(match[1]), day: Number(match[2]) };
+            }
+        }
+        if (!date) {
+            match = text.match(/(\d{1,2})月\s*(\d{1,2})日?\s*[,，]\s*(\d{4})年?/);
+            if (match) {
+                date = { year: Number(match[3]), month: Number(match[1]), day: Number(match[2]) };
+            }
+        }
+        if (!date) {
+            match = text.match(/(\d{1,2})日?\s*(一月|二月|三月|四月|五月|六月|七月|八月|九月|十月|十一月|十二月|\d{1,2}月)\s*(\d{4})年?/);
+            if (match) {
+                date = {
+                    year: Number(match[3]),
+                    month: chineseMonths[match[2]] || Number(match[2].replace('月', '')),
+                    day: Number(match[1])
+                };
+            }
+        }
+        if (!date) {
+            match = text.match(/\b(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\b/);
+            if (match && englishMonths[match[2].toLowerCase()]) {
+                date = { year: Number(match[3]), month: englishMonths[match[2].toLowerCase()], day: Number(match[1]) };
+            }
+        }
+        if (!date) {
+            match = text.match(/\b([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})\b/);
+            if (match && englishMonths[match[1].toLowerCase()]) {
+                date = { year: Number(match[3]), month: englishMonths[match[1].toLowerCase()], day: Number(match[2]) };
+            }
+        }
+        if (date && !isSameDateParts(dateObject(date), date.year, date.month, date.day)) {
+            date = null;
+        }
+        const timeMatch = text.match(/(\d{1,2}):(\d{2})\s*(AM|PM|上午|下午)?/i);
+        let time = null;
+        if (timeMatch) {
+            let hour = Number(timeMatch[1]);
+            const minute = Number(timeMatch[2]);
+            const period = String(timeMatch[3] || '').toUpperCase();
+            if (period === 'PM' || period === '下午') hour = (hour % 12) + 12;
+            if (period === 'AM' || period === '上午') hour %= 12;
+            if (hour <= 23 && minute <= 59) {
+                time = { hour: hour, minute: minute };
+            }
+        }
+        return { date: date, time: time };
+    }
+
     function sameDate(left, right) {
         return Boolean(left && right
             && Number(left.year) === Number(right.year)
@@ -1132,18 +1203,24 @@
                 && normalizeName(actualLocationName) === normalizeName(expectedLocationName);
         add('location', '地點', expectedLocationName, actualLocationName, locationMatched);
 
-        const time = primary && primary.querySelector('time[datetime]');
+        const time = primary && (primary.querySelector('time[datetime]') || primary.querySelector('time'));
         const timestamp = time && time.getAttribute('datetime');
-        const parts = timestamp && timestamp.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
-        const actualDate = parts && { year: Number(parts[1]), month: Number(parts[2]), day: Number(parts[3]) };
+        const parts = timestamp && timestamp.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+        const displayed = parseDisplayedDateTime(content(time));
+        const actualDate = parts
+            ? { year: Number(parts[1]), month: Number(parts[2]), day: Number(parts[3]) }
+            : displayed.date;
+        const actualTime = parts
+            ? { hour: Number(parts[4]), minute: Number(parts[5]) }
+            : displayed.time;
         const expectedDateTime = formatDateLabel(record.date) + ' '
             + formatTime12(Number(expected.hour), Number(expected.minute));
-        add('datetime', '日期時間', expectedDateTime, parts
-            ? formatDateLabel(actualDate) + ' ' + formatTime12(Number(parts[4]), Number(parts[5]))
-            : content(time), Boolean(parts)
+        add('datetime', '日期時間', expectedDateTime, actualDate && actualTime
+            ? formatDateLabel(actualDate) + ' ' + formatTime12(actualTime.hour, actualTime.minute)
+            : content(time), Boolean(actualDate && actualTime)
                 && actualDate.year === record.date.year && actualDate.month === record.date.month
-                && actualDate.day === record.date.day && Number(parts[4]) === Number(expected.hour)
-                && Number(parts[5]) === Number(expected.minute));
+                && actualDate.day === record.date.day && actualTime.hour === Number(expected.hour)
+                && actualTime.minute === Number(expected.minute));
 
         const protocolNode = effort && effort.querySelector('.Heading-main');
         const protocolText = content(protocolNode);
@@ -1677,7 +1754,8 @@
 
     function formatDateLabel(value) {
         const date = dateObject(value);
-        return (date.getMonth() + 1) + '/' + date.getDate() + ' (' + weekdayNames[date.getDay()] + ')';
+        return date.getFullYear() + '/' + (date.getMonth() + 1) + '/' + date.getDate()
+            + ' (' + weekdayNames[date.getDay()] + ')';
     }
 
     function isoDateValue(value) {
@@ -2877,6 +2955,7 @@
         resultFullyVerified: resultFullyVerified,
         tryAutoSubmit: tryAutoSubmit,
         readSubmittedMetadata: readSubmittedMetadata,
+        parseDisplayedDateTime: parseDisplayedDateTime,
         verifySubmittedChecklist: verifySubmittedChecklist,
         revealAdditionalSpeciesSections: revealAdditionalSpeciesSections,
         setUnobservedVisibility: setUnobservedVisibility,

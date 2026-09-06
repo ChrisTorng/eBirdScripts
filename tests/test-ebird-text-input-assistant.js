@@ -431,7 +431,7 @@ describe('eBird species form safety', () => {
             plain(result.metadata.map((item) => [item.label, item.value])),
             [
                 ['地點', '測試河段正式名稱'],
-                ['日期時間', '1/5 (三) 7:15 AM'],
+                ['日期時間', '2000/1/5 (三) 7:15 AM'],
                 ['努力量', '行進計數'],
                 ['耗時', '6 分鐘'],
                 ['距離', '0.2 公里'],

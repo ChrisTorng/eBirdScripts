@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         eBird Scripts
-// @version      2026-08-20_1.2.0
+// @version      2026-09-06_1.3.0
 // @description  Enchance eBird pages.
 // @match        https://ebird.org/*
 // @author       ChrisTorng
@@ -11,10 +11,24 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
+// @run-at       document-start
 // ==/UserScript==
 
 (function() {
     'use strict';
+
+    function redirectBrokenMyEbirdUrl() {
+        if (window.location.pathname !== '/atlastw/myebird/TW'
+            || window.location.search !== '?continue') {
+            return false;
+        }
+        window.location.replace(window.location.origin + window.location.pathname + window.location.hash);
+        return true;
+    }
+
+    if (redirectBrokenMyEbirdUrl()) {
+        return;
+    }
 
     const monthMap = {
         '一月': '01',
@@ -31,35 +45,117 @@
         '十二月': '12'
     };
 
+    function formatTraditionalChineseDates(value) {
+        let text = String(value || '');
+
+        // 格式 1: 周三 9月 02, 2026 -> 2026/9/2 (三)
+        text = text.replace(/(?:週|周|星期)([日天一二三四五六])\s*[,，]?\s*(\d{1,2})月\s*(\d{1,2})日?\s*[,，]?\s*(\d{4})年?/g,
+            (match, weekday, month, day, year) => {
+                return `${year}/${Number(month)}/${Number(day)} (${weekday === '天' ? '日' : weekday})`;
+            });
+
+        // 格式 2: 9月 02, 2026 -> 2026/9/2
+        text = text.replace(/(\d{1,2})月\s*(\d{1,2})日?\s*[,，]\s*(\d{4})年?/g, (match, month, day, year) => {
+            return `${year}/${Number(month)}/${Number(day)}`;
+        });
+
+        // 格式 3: 2 十月 2024 -> 2024/10/2
+        text = text.replace(/(\d{1,2})\s(一月|二月|三月|四月|五月|六月|七月|八月|九月|十月|十一月|十二月)\s(\d{4})/g, (match, day, month, year) => {
+            return `${year}/${Number(monthMap[month])}/${Number(day)}`;
+        });
+
+        // 格式 4: 2日 10月 2024年 -> 2024/10/2
+        text = text.replace(/(\d{1,2})日\s(\d{1,2})月\s(\d{4})年/g, (match, day, month, year) => {
+            return `${year}/${Number(month)}/${Number(day)}`;
+        });
+
+        // 格式 5: 20 8月 2026 -> 2026/8/20
+        return text.replace(/(\d{1,2})\s+(\d{1,2})月\s+(\d{4})/g, (match, day, month, year) => {
+            return `${year}/${Number(month)}/${Number(day)}`;
+        });
+    }
+
     function replaceDates() {
+        if (!document.body || !isTraditionalChinesePage()) {
+            return;
+        }
         // 搜尋整個網頁中的文字節點
         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
         
         let node;
         while (node = walker.nextNode()) {
-            let text = node.nodeValue;
-
-            // 格式 1: 2 十月 2024 -> 2024/10/02
-            text = text.replace(/(\d{1,2})\s(一月|二月|三月|四月|五月|六月|七月|八月|九月|十月|十一月|十二月)\s(\d{4})/g, (match, day, month, year) => {
-                const monthNumber = monthMap[month];
-                return `${year}/${monthNumber}/${day.padStart(2, '0')}`;
-            });
-
-            // 格式 2: 2日 10月 2024年 -> 2024/10/02
-            text = text.replace(/(\d{1,2})日\s(\d{1,2})月\s(\d{4})年/g, (match, day, month, year) => {
-                return `${year}/${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
-            });
-
-            // 格式 3: 20 8月 2026 -> 2026/8/20
-            text = text.replace(/(\d{1,2})\s+(\d{1,2})月\s+(\d{4})/g, (match, day, month, year) => {
-                return `${year}/${Number(month)}/${Number(day)}`;
-            });
+            const parentTag = node.parentElement && node.parentElement.tagName;
+            if (['SCRIPT', 'STYLE', 'TEXTAREA', 'NOSCRIPT'].includes(parentTag)) {
+                continue;
+            }
+            const text = formatTraditionalChineseDates(node.nodeValue);
 
             // 如果文字有變化，則更新節點內容
             if (node.nodeValue !== text) {
                 node.nodeValue = text;
             }
         }
+    }
+
+    function isTraditionalChinesePage() {
+        const language = String(document.documentElement.lang || '').replace('_', '-').toLowerCase();
+        if (/^zh-(?:tw|hk|mo|hant)(?:-|$)/.test(language)) {
+            return true;
+        }
+        if (/^zh-(?:cn|sg|hans)(?:-|$)/.test(language) || (language && language !== 'zh')) {
+            return false;
+        }
+        const pageText = document.body ? document.body.textContent : '';
+        return /[觀鳥錄臺灣週與聽麼這裡]/.test(pageText);
+    }
+
+    function isTraditionalChineseDateForm(month) {
+        if (!isTraditionalChinesePage()) {
+            return false;
+        }
+        const selectedMonth = month.options && month.options[month.selectedIndex];
+        const monthText = selectedMonth ? selectedMonth.textContent : month.textContent;
+        const pageText = document.body ? document.body.textContent : '';
+        return /月/.test(monthText) || /觀鳥日期|日期和努力量|提交紀錄/.test(pageText);
+    }
+
+    function directChildUnder(ancestor, element) {
+        let current = element;
+        while (current && current.parentElement !== ancestor) {
+            current = current.parentElement;
+        }
+        return current;
+    }
+
+    function reorderDateFields() {
+        const month = document.getElementById('p-month');
+        const day = document.getElementById('p-day');
+        const year = document.getElementById('p-year');
+        if (!month || !day || !year || !isTraditionalChineseDateForm(month)) {
+            return false;
+        }
+        let ancestor = month.parentElement;
+        while (ancestor && !(ancestor.contains(day) && ancestor.contains(year))) {
+            ancestor = ancestor.parentElement;
+        }
+        if (!ancestor) {
+            return false;
+        }
+        const containers = [year, month, day].map(field => directChildUnder(ancestor, field));
+        if (containers.some(container => !container) || new Set(containers).size !== 3) {
+            return false;
+        }
+        const children = Array.from(ancestor.children);
+        const indexes = containers.map(container => children.indexOf(container));
+        if (indexes[0] < indexes[1] && indexes[1] < indexes[2]) {
+            return false;
+        }
+        const anchor = children[Math.min(...indexes)];
+        const marker = document.createTextNode('');
+        ancestor.insertBefore(marker, anchor);
+        containers.forEach(container => ancestor.insertBefore(container, marker));
+        marker.remove();
+        return true;
     }
 
     const defaultOffset = 0.05;
@@ -155,6 +251,7 @@
     window.addEventListener('load', () => {
         console.log('Page loaded, running addExtraLinks and updateHotspotsUrl');
         replaceDates();
+        reorderDateFields();
 
         // 只在 /hotspots 頁面啟用這些功能
         if (window.location.pathname.startsWith('/hotspots')) {
@@ -165,6 +262,7 @@
         // Set up a MutationObserver to watch for DOM changes
         const observer = new MutationObserver(() => {
             replaceDates();
+            reorderDateFields();
             if (window.location.pathname.startsWith('/hotspots')) {
                 console.log('DOM mutation detected, running addExtraLinks');
                 addExtraLinks();
@@ -174,4 +272,12 @@
         observer.observe(document.body, { childList: true, subtree: true });
         console.log('MutationObserver set up to watch for DOM changes');
     });
+
+    globalThis.__eBirdScripts = {
+        redirectBrokenMyEbirdUrl,
+        formatTraditionalChineseDates,
+        isTraditionalChinesePage,
+        replaceDates,
+        reorderDateFields
+    };
 })();

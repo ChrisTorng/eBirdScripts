@@ -47,6 +47,25 @@ describe('eBird assistant fast entry workflow', () => {
         assert.match(api.parseFlexibleDate('-7', reference).error, /無法辨識日期/);
     });
 
+    test('parses eBird original Chinese and English dates plus rewritten dates', () => {
+        const { api } = loadAssistant();
+        const cases = [
+            ['周六 9月 05, 20267:54 上午', 7],
+            ['週六 9月 05, 2026 7:54 下午', 19],
+            ['9月 05, 2026 7:54 上午', 7],
+            ['5 Sep 2026 7:54 AM', 7],
+            ['September 5, 2026 7:54 PM', 19],
+            ['5 九月 2026 07:54', 7],
+            ['5日 9月 2026年 07:54', 7],
+            ['2026/9/5 (六) 07:54', 7]
+        ];
+        cases.forEach(([value, hour]) => {
+            const parsed = plain(api.parseDisplayedDateTime(value));
+            assert.deepEqual(parsed.date, { year: 2026, month: 9, day: 5 }, value);
+            assert.deepEqual(parsed.time, { hour, minute: 54 }, value);
+        });
+    });
+
     test('keeps relative dates stable and returns unique newest-first date choices', () => {
         const { api } = loadAssistant();
         const reference = new Date(2026, 8, 3);
@@ -255,7 +274,7 @@ describe('eBird assistant fast entry workflow', () => {
 
         assert.equal(analysis.lines.length, 5);
         assert.equal(analysis.failureCount, 0);
-        assert.equal(analysis.lines[0].text, '9/2 (三)');
+        assert.equal(analysis.lines[0].text, '2026/9/2 (三)');
         assert.match(analysis.lines[1].text, /後港新公園完整名稱.*L1001/);
         assert.equal(analysis.lines[2].text, '08:38／28 分鐘');
         assert.equal(analysis.lines[3].text, '6 珠頸斑鳩; S 唱歌中鳥, Heard 1');
@@ -331,7 +350,7 @@ describe('eBird assistant fast entry workflow', () => {
         };
         const metadata = [
             { key: 'location', label: '地點', value: '測試公園正式名稱', matched: true },
-            { key: 'datetime', label: '日期時間', value: '9/2 (三) 8:38 AM', matched: true },
+            { key: 'datetime', label: '日期時間', value: '2026/9/2 (三) 8:38 AM', matched: true },
             { key: 'protocol', label: '努力量', value: '行進計數', matched: true },
             { key: 'duration', label: '耗時', value: '28 分鐘', matched: true },
             { key: 'distance', label: '距離', value: '1 公里', matched: true },
@@ -410,7 +429,7 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(panelTitle.className, 'tm-ebird-header-ok');
         assert.match(summaryText, /地點：測試公園正式名稱/);
         assert.doesNotMatch(summaryText, /L\d+/);
-        assert.match(summaryText, /日期時間：9\/2 \(三\) 8:38 AM/);
+        assert.match(summaryText, /日期時間：2026\/9\/2 \(三\) 8:38 AM/);
         assert.match(summaryText, /完整清單：完整紀錄清單/);
         assert.match(summaryText, /5 黑領椋鳥; S, Heard 2/);
         assert.match(summaryText, /送出前所有欄位均已重新讀取並符合預期/);
