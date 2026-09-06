@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-06_1.6.5
+// @version      2026-09-06_1.6.6
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -1164,7 +1164,7 @@
         const distanceText = content(badgeForIcon('Icon--track'));
         const distance = distanceText.match(/^(\d+(?:\.\d+)?)\s*(km|公里|mi|miles?)$/i);
         const distanceKm = distance && Number(distance[1]) * (/^(mi|mile)/i.test(distance[2]) ? 1.609344 : 1);
-        const expectedDistance = expected.protocol === 'P22' ? expected.distanceKm + ' 公里' : 'p;
+        const expectedDistance = expected.protocol === 'P22' ? expected.distanceKm + ' 公里' : '不適用';
         add('distance', '距離', expectedDistance,
             expected.protocol === 'P22' ? distanceText : distanceText || '不適用',
             expected.protocol === 'P22'
