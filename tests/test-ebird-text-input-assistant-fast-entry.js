@@ -416,6 +416,82 @@ describe('eBird assistant fast entry workflow', () => {
         assert.match(summaryText, /送出前所有欄位均已重新讀取並符合預期/);
     });
 
+    test('verifies a personal location rendered as text without a hotspot link', () => {
+        const { harness, api } = loadAssistant({ readyState: 'loading' });
+        const doc = harness.document;
+        const primary = doc.createElement('section');
+        primary.setAttribute('aria-labelledby', 'primary-details');
+        const primaryHeading = doc.createElement('h2');
+        primaryHeading.id = 'primary-details';
+        const location = doc.createElement('div');
+        location.setAttribute('data-locationname', '');
+        location.textContent = '新北--新莊後港一路週邊';
+        primary.append(primaryHeading, location);
+        doc.body.appendChild(primary);
+        const effort = doc.createElement('section');
+        effort.setAttribute('aria-labelledby', 'other-details-effort');
+        const effortHeading = doc.createElement('h3');
+        effortHeading.id = 'other-details-effort';
+        effort.appendChild(effortHeading);
+        doc.body.appendChild(effort);
+        const record = {
+            date: { year: 2026, month: 9, day: 6 },
+            location: '後港一路',
+            locationId: 'L2002',
+            locationPageName: '新北--新莊後港一路週邊',
+            effort: {
+                hour: 10,
+                minute: 16,
+                durationMinutes: 15,
+                protocol: 'P22',
+                distanceKm: 1,
+                partySize: 1
+            }
+        };
+
+        const result = api.readSubmittedMetadata(record);
+        const check = result.find((item) => item.key === 'location');
+        assert.equal(check.matched, true);
+        assert.equal(check.value, '新北--新莊後港一路週邊');
+    });
+
+    test('reports every missing metadata field with its expected value and a reason', () => {
+        const { harness, api } = loadAssistant({ readyState: 'loading' });
+        const doc = harness.document;
+        for (const [sectionId, headingTag] of [
+            ['primary-details', 'h2'],
+            ['other-details-effort', 'h3']
+        ]) {
+            const section = doc.createElement('section');
+            section.setAttribute('aria-labelledby', sectionId);
+            const heading = doc.createElement(headingTag);
+            heading.id = sectionId;
+            section.appendChild(heading);
+            doc.body.appendChild(section);
+        }
+        const record = {
+            date: { year: 2026, month: 9, day: 6 },
+            location: '後港一路',
+            locationId: 'L2002',
+            locationPageName: '新北--新莊後港一路週邊',
+            effort: {
+                hour: 10,
+                minute: 16,
+                durationMinutes: 15,
+                protocol: 'P22',
+                distanceKm: 1,
+                partySize: 1
+            }
+        };
+
+        const result = api.readSubmittedMetadata(record);
+        for (const item of result) {
+            assert.ok(item.value && item.value !== '找不到', item.key);
+            assert.equal(item.actualValue, null, item.key);
+            assert.equal(item.error, '完成頁找不到實際值', item.key);
+        }
+    });
+
     test('does not show the assistant while browsing unrelated completed checklists', () => {
         const confirmationKey = 'ebirdTextInputAssistant:lastConfirmation';
         const unrelated = loadAssistant({

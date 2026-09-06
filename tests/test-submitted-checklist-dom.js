@@ -135,37 +135,6 @@ test('verifies ISO hour/minute duration without relying on localized text', () =
     assert.equal(verify().allMatched, true);
 });
 
-test('verifies a personal location rendered as text without a hotspot link', () => {
-    const { document, api, record } = load(fixture('2026/9/6'));
-    const primary = document.getElementById('primary-details').closest('section');
-    primary.querySelector('a').remove();
-    const location = document.createElement('div');
-    location.setAttribute('data-locationname', '');
-    location.textContent = '新北--新莊後港一路週邊';
-    primary.appendChild(location);
-    record.location = '後港一路';
-    record.locationId = 'L2002';
-    record.locationPageName = '新北--新莊後港一路週邊';
-    const result = api.readSubmittedMetadata(record);
-    const check = result.find(item => item.key === 'location');
-    assert.equal(check.matched, true);
-    assert.equal(check.value, '新北--新莊後港一路週邊');
-});
-
-test('reports every missing metadata field with its expected value and a reason', () => {
-    const { document, api, record } = load(fixture('2026/9/5'));
-    const primary = document.getElementById('primary-details').closest('section');
-    const effort = document.getElementById('other-details-effort').closest('section');
-    primary.replaceChildren(Object.assign(document.createElement('h2'), { id: 'primary-details' }));
-    effort.replaceChildren(Object.assign(document.createElement('h3'), { id: 'other-details-effort' }));
-    const result = api.readSubmittedMetadata(record);
-    for (const item of result) {
-        assert.ok(item.value && item.value !== '找不到', item.key);
-        assert.equal(item.actualValue, null, item.key);
-        assert.equal(item.error, '完成頁找不到實際值', item.key);
-    }
-});
-
 // Optional local validation against downloaded public HTML; not a network CI test.
 if (process.env.EBIRD_CAPTURE_PATH) {
     test('reads the supplied live checklist capture', () => {
