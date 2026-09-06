@@ -61,9 +61,17 @@ for (const date of ['5 Sep 2026', 'September 5, 2026', '5 九月 2026', '5日 9�
         const result = verify();
         assert.equal(result.allMatched, true, JSON.stringify(result));
         assert.equal(result.metadata[0].value, 'Test Park (Official Name)');
-        assert.equal(result.metadata[1].value, '9/5 (六) 7:54 AM');
+        assert.equal(result.metadata[1].value, '2026/9/5 (六) 7:54 AM');
         assert.deepEqual(Array.from(result.items, item => item.code), ['bkcsta1', 'whiwag8']);
         assert.match(result.items[0].display, /S.*(?:Singing Bird|唱歌中鳥)/);
+    });
+}
+
+for (const date of ['5 Sep 2026', 'September 5, 2026', '周六 9月 05, 2026', '週六 9月 05, 2026', '2026/9/5 (六)']) {
+    test(`verifies visible original or rewritten date without a datetime attribute: ${date}`, () => {
+        const { document, verify } = load(fixture(date, /[A-Za-z]/.test(date)));
+        document.querySelector('time').removeAttribute('datetime');
+        assert.equal(verify().allMatched, true);
     });
 }
 

@@ -10,7 +10,8 @@
 
 eBird Scripts 是一個 [Tampermonkey](https://www.tampermonkey.net/) 使用者腳本，用於增強 [eBird](https://ebird.org) 網站的功能。
 
-- 日期格式由「21 十月 2024」、「21日 10月 2024年」或「20 8月 2026」改為「2024/10/21」或「2026/8/20」格式顯示。
+- 繁體中文介面的日期統一改為「年/月/日」；含星期時顯示為「2026/9/2 (三)」，提交頁日期欄位也依序排列為年、月、日。英文介面維持 eBird 原格式。
+- 開啟異常的 `/atlastw/myebird/TW?continue` 時，自動移除 `?continue` 並重新導向正常的「我的 eBird」頁面。
 - [eBird 熱門鳥點](https://ebird.org/hotspots)
   - 開啟地圖時自動定位到目前位置，時間範圍設為今年全年度。
   - 點出各別地點的彈跳畫面內，新增「最近鳥種」及「最近紀錄」連結。
@@ -29,7 +30,7 @@ Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally
 - 核對面板採窄版、限制為約半個視窗高度；行動裝置預設收合，並可由右上角按鈕展開或收合。
 - 填寫完成後及送出後，會分別重新讀取 eBird 頁面中的正式地點（含自建地點）、日期時間、努力量、完整清單及鳥種欄位；找不到或不符時同時顯示預期值與原因。
 - 完成頁核對結果只會顯示於剛由助手填寫的該筆鳥單；平時瀏覽其他鳥單不顯示助手面板。
-- Completed checklists use structured date/time and effort fields, supporting English, Chinese, and dates rewritten by eBird Scripts. Species follow page order, including subspecies displayed under a parent species link.
+- 完成頁優先使用結構化日期時間與努力量欄位，並可解析 eBird 原始中英文日期及 eBird Scripts 改寫後的日期。鳥種依頁面順序核對，包括顯示於親種連結下的亞種。
 - 「確認成功後自動儲存」預設開啟，但只有輸入無辨識失敗且提交頁全部讀回吻合時才會送出；任一項不符即禁止自動送出。
 
 ## 安裝
@@ -53,8 +54,11 @@ Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally
 
 - 在 [eBird 熱門鳥點](https://ebird.org/hotspots) 中點開任一熱點時，會看到新增的「最近鳥種」和「最近紀錄」的連結。
 
-- 在各 eBird 網頁中的中文日期，會代換為 2021/10/21 的格式，比如在 [我的 eBird](https://ebird.org/myebird)
- 中「最新紀錄清單」裡的日期
+- 在各 eBird 網頁的繁體中文介面中，日期會代換為 `2021/10/21`；含星期時則為 `2021/10/21 (四)`。英文介面不修改。
+
+- 「日期和努力量」頁面的日期選單會由月、日、年改排為年、月、日。
+
+- 若 [我的 eBird](https://ebird.org/atlastw/myebird/TW) 被導向帶有異常 `?continue` 的網址，會自動移除該參數。
 
 ### eBird 文字輸入助手
 
