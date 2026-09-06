@@ -424,7 +424,7 @@ describe('eBird assistant fast entry workflow', () => {
         const primaryHeading = doc.createElement('h2');
         primaryHeading.id = 'primary-details';
         const location = doc.createElement('div');
-        location.setAttribute('data-locationname', '');
+        location.setAttribute('data-locationname', 'true');
         location.textContent = '新北--新莊後港一路週邊';
         primary.append(primaryHeading, location);
         doc.body.appendChild(primary);
