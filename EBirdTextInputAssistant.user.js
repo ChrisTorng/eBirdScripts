@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-12_1.7.1
+// @version      2026-09-12_1.8.0
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -183,6 +183,8 @@
         '薑母鴨': { code: 'musduc', codes: ['musduc', 'musduc3', 'musduc2'], name: '疣鼻棲鴨' },
         '疣鼻棲鴨': { code: 'musduc', codes: ['musduc', 'musduc3', 'musduc2'], name: '疣鼻棲鴨' },
         '灰鶺鴒': { code: 'grywag', name: '灰鶺鴒' },
+        '灰頭紅尾伯勞': { code: 'brnshr3', name: '紅尾伯勞(灰頭)' },
+        '褐頭紅尾伯勞': { code: 'brnshr1', name: '紅尾伯勞(褐頭)' },
         '白面': { code: 'whiwag8', name: '白鶺鴒（白面）' },
         '白鶺鴒（白面）': { code: 'whiwag8', name: '白鶺鴒（白面）' }
     });
@@ -1335,6 +1337,8 @@
         };
         const names = [observation.name];
         if (observation.code === 'whiwag8') names.push('White Wagtail (Chinese)');
+        if (observation.code === 'brnshr3') names.push('Brown Shrike (Philippine)');
+        if (observation.code === 'brnshr1') names.push('Brown Shrike (Brown)');
         const anchors = Array.from(document.querySelectorAll('a'));
         const anchor = anchors.find(function(item) {
             if (item.closest('#' + panelId)) return false;
@@ -1727,7 +1731,13 @@
         input.type = 'search';
         input.autocomplete = 'off';
         input.placeholder = '每個字依序篩選；會造成零筆的字會忽略';
-        label.appendChild(input);
+        const count = document.createElement('span');
+        count.className = 'tm-ebird-location-count';
+        count.setAttribute('aria-live', 'polite');
+        const inputRow = document.createElement('div');
+        inputRow.className = 'tm-ebird-location-input-row';
+        inputRow.append(input, count);
+        label.appendChild(inputRow);
         wrapper.appendChild(label);
         if (select.parentElement) {
             select.parentElement.insertBefore(wrapper, select);
@@ -1736,6 +1746,7 @@
 
         function rebuild(query, preferredLocId) {
             const filtered = filterLocationItems(originals, query).items;
+            count.textContent = filtered.filter(item => !item.disabled && extractLocId(item.value)).length + ' 筆';
             const previousValue = select.value;
             select.textContent = '';
             filtered.forEach(function(item) {
@@ -1760,6 +1771,25 @@
             return getSelectedLocation(select);
         }
 
+        input.addEventListener('keydown', function(event) {
+            if (event.isComposing) return;
+            if (event.key === 'Escape' || event.key === 'Enter') {
+                if (select.size > 1) { event.preventDefault(); select.size = 1; }
+                return;
+            }
+            if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+            event.preventDefault();
+            const options = Array.from(select.options || []).filter(option => !option.disabled && extractLocId(option.value));
+            if (!options.length) return;
+            select.size = Math.min(8, Math.max(2, options.length));
+            const current = options.findIndex(option => String(option.value) === String(select.value));
+            const next = current < 0 ? (event.key === 'ArrowDown' ? 0 : options.length - 1)
+                : Math.max(0, Math.min(options.length - 1, current + (event.key === 'ArrowDown' ? 1 : -1)));
+            select.value = options[next].value;
+            if (options[next].scrollIntoView) options[next].scrollIntoView({ block: 'nearest' });
+            dispatchValueEvents(select);
+        });
+        count.textContent = originals.filter(item => !item.disabled && extractLocId(item.value)).length + ' 筆';
         input.addEventListener('input', function() {
             rebuild(input.value, '');
             dispatchValueEvents(select);
@@ -2036,8 +2066,8 @@
         const style = document.createElement('style');
         style.id = styleId;
         style.textContent = [
-            '#' + panelId + ' { box-sizing:border-box;position:fixed;z-index:2147483647;right:8px;top:8px;width:min(520px,calc(100vw - 16px));max-height:min(58dvh,560px);overflow-y:auto;overscroll-behavior:contain;padding:0;border:2px solid #2f7f45;border-radius:8px;background:#fff;color:#222;box-shadow:0 4px 18px #0004;font:13px/1.4 sans-serif; }',
-            '#' + panelId + '.tm-ebird-review-panel { width:min(380px,calc(100vw - 16px));max-height:min(52dvh,480px); }',
+            '#' + panelId + ' { box-sizing:border-box;position:fixed;z-index:2147483647;right:8px;top:8px;width:min(520px,calc(100vw - 16px));max-height:calc(100dvh - 16px);overflow-y:auto;overscroll-behavior:contain;padding:0;border:2px solid #2f7f45;border-radius:8px;background:#fff;color:#222;box-shadow:0 4px 18px #0004;font:13px/1.4 sans-serif; }',
+            '#' + panelId + '.tm-ebird-review-panel { width:min(380px,calc(100vw - 16px));max-height:calc(100dvh - 120px); }',
             '#' + panelId + ' .tm-ebird-header { position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:#fff;border-bottom:1px solid #ddd; }',
             '#' + panelId + ' .tm-ebird-collapse { min-width:36px;padding:5px 9px;font-size:16px; }',
             '#' + panelId + ' .tm-ebird-body { padding:7px 9px 9px; }',
@@ -2075,6 +2105,7 @@
             '#' + panelId + ' .tm-ebird-error { color:#a40000; }',
             '#' + panelId + ' .tm-ebird-ok { color:#176b2c; }',
             '.tm-ebird-location-filter,.tm-ebird-location-select { box-sizing:border-box!important;width:100%!important;max-width:none!important; }',
+            '.tm-ebird-location-input-row { display:flex;align-items:center;gap:8px; } .tm-ebird-location-count { flex:none;white-space:nowrap; } .tm-ebird-location-input-row input { min-width:0;flex:1; }',
             '.tm-ebird-location-filter input { box-sizing:border-box;width:100%;padding:8px; }',
             '.tm-ebird-unobserved-hidden { display:none!important; }',
             '@media (max-width:700px) { #' + panelId + ' { right:6px;top:6px;width:min(420px,calc(100vw - 12px));max-height:52dvh; } #' + panelId + '.tm-ebird-review-panel { width:min(360px,calc(100vw - 12px));max-height:48dvh; } #' + panelId + ' .tm-ebird-record-grid { grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px; } #' + panelId + ' .tm-ebird-body { padding:6px; } #' + panelId + ' textarea,#' + panelId + ' .tm-ebird-preview { min-height:34vh;padding:5px;font-size:11px; } #' + panelId + ' .tm-ebird-effort-override { grid-template-columns:1fr 1fr; } #' + panelId + ' .tm-ebird-effort-derived { grid-column:1/-1;padding:0; } }'
@@ -2841,9 +2872,45 @@
         status.className = 'tm-ebird-status';
         const mobile = (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) || window.innerWidth <= 700;
         let initialCollapsed = mobile;
+        const heightKey = 'ebirdTextInputAssistant:panelHeight:' + (isChecklistPage ? 'submit' : 'other');
+        let preferredHeight = typeof GM_getValue === 'function' ? Number(GM_getValue(heightKey, 0)) : 0;
+        const resizeHandle = document.createElement('div');
+        resizeHandle.textContent = '⋯';
+        resizeHandle.title = '拖曳下邊界調整高度；自動記住高度';
+        resizeHandle.style.cssText = 'position:sticky;bottom:0;text-align:center;cursor:ns-resize;touch-action:none;background:#e7eee8;color:#222;height:18px;flex-shrink:0';
+        function applyHeight() {
+            if (mobile) return;
+            const max = Math.max(120, window.innerHeight - (isChecklistPage ? 120 : 16));
+            panel.style.display = 'flex';
+            panel.style.flexDirection = 'column';
+            body.style.minHeight = '0';
+            body.style.overflowY = 'auto';
+            body.style.flex = '1';
+            header.style.flexShrink = '0';
+            panel.style.maxHeight = max + 'px';
+            panel.style.height = body.hidden ? 'auto' : Math.min(max, Math.max(120, Number.isFinite(preferredHeight) && preferredHeight > 0 ? preferredHeight : max)) + 'px';
+            resizeHandle.hidden = body.hidden;
+        }
+        resizeHandle.addEventListener('pointerdown', function(event) {
+            if (event.button !== 0 || mobile) return;
+            event.preventDefault();
+            const top = panel.getBoundingClientRect().top;
+            const move = function(e) { preferredHeight = e.clientY - top; applyHeight(); };
+            const stop = function() {
+                document.removeEventListener('pointermove', move);
+                document.removeEventListener('pointerup', stop);
+                document.removeEventListener('pointercancel', stop);
+                if (typeof GM_setValue === 'function') GM_setValue(heightKey, Math.max(120, preferredHeight));
+            };
+            document.addEventListener('pointermove', move);
+            document.addEventListener('pointerup', stop);
+            document.addEventListener('pointercancel', stop);
+        });
+        window.addEventListener('resize', applyHeight);
 
         function setCollapsed(collapsed) {
             body.hidden = collapsed;
+            applyHeight();
             collapse.textContent = collapsed ? '▼' : '▲';
             collapse.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         }
@@ -2984,6 +3051,7 @@
                 }, 0);
             }
         }
+        if (!mobile) panel.appendChild(resizeHandle);
         document.body.appendChild(panel);
         setCollapsed(initialCollapsed);
         return panel;
@@ -3007,6 +3075,7 @@
         analyzeRecordLines: analyzeRecordLines,
         extractLocationAlias: extractLocationAlias,
         filterLocationItems: filterLocationItems,
+        installLocationFilter: installLocationFilter,
         extractLocId: extractLocId,
         startRecord: startRecord,
         fillEffort: fillEffort,

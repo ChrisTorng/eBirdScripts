@@ -620,3 +620,44 @@ test('accepts screenshot input with default incidental location and implicit one
     assert.equal(api.parseObservationLine('黑領5聽到唱歌').value.count, 5);
     assert.ok(api.parseObservationLine('黑領不明鳥種').error);
 });
+
+test('recognizes the two Brown Shrike subspecies separately', () => {
+    const { api } = loadAssistant();
+    assert.equal(api.parseObservationLine('灰頭紅尾伯勞').value.code, 'brnshr3');
+    assert.equal(api.parseObservationLine('褐頭紅尾伯勞2').value.code, 'brnshr1');
+});
+
+test('location filter shows counts and supports keyboard selection', () => {
+    const { harness, api } = loadAssistant();
+    const select = harness.document.createElement('select');
+    select.options = [{ value: '', textContent: '選擇' }, { value: 'L1', textContent: '公園甲' }, { value: 'L2', textContent: '公園乙' }];
+    select.value = 'L1';
+    harness.appendToBody(select);
+    const filter = api.installLocationFilter(() => {});
+    const count = harness.document.querySelector('.tm-ebird-location-count');
+    assert.equal(count.textContent, '2 筆');
+    const key = key => filter.input.dispatchEvent({ type: 'keydown', key, preventDefault() {} });
+    key('ArrowDown');
+    assert.equal(select.value, 'L2');
+    assert.ok(select.size > 1);
+    key('ArrowUp');
+    assert.equal(select.value, 'L1');
+    key('Escape');
+    assert.equal(select.size, 1);
+    filter.filter('甲');
+    assert.equal(count.textContent, '1 筆');
+});
+
+test('desktop panel restores height and reserves space below the submit page', () => {
+    const { harness } = loadAssistant({ readyState: 'loading' });
+    harness.context.GM_getValue = (key, fallback) => key.includes('panelHeight') ? 450 : fallback;
+    harness.dispatchDocumentEvent('DOMContentLoaded');
+    const panel = harness.document.getElementById('tm-ebird-text-input-assistant');
+    assert.equal(panel.style.height, '450px');
+    assert.equal(panel.style.maxHeight, (harness.window.innerHeight - 120) + 'px');
+    const button = panel.querySelector('.tm-ebird-collapse');
+    button.click();
+    assert.equal(panel.style.height, 'auto');
+    button.click();
+    assert.equal(panel.style.height, '450px');
+});
