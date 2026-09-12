@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-12_1.7.0
+// @version      2026-09-12_1.7.1
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -268,15 +268,15 @@
     }
 
     function parseEffortLine(line) {
-        const match = String(line || '').trim().match(/^(\d{1,2})[：:](\d{1,2})\s*開始\s*(\d+)\s*分鐘$/);
+        const match = String(line || '').trim().match(/^(\d{1,2})[：:](\d{1,2})\s*(?:開始)?\s*(?:(\d+)\s*分鐘)?$/);
         if (!match) {
             return null;
         }
         return {
             hour: Number(match[1]),
             minute: Number(match[2]),
-            durationMinutes: Number(match[3]),
-            valid: Number(match[1]) <= 23 && Number(match[2]) <= 59 && Number(match[3]) > 0
+            durationMinutes: match[3] === undefined ? null : Number(match[3]),
+            valid: Number(match[1]) <= 23 && Number(match[2]) <= 59 && (match[3] === undefined || Number(match[3]) > 0)
         };
     }
 
@@ -320,7 +320,9 @@
                 continue;
             }
             const remainder = text.slice(candidate.length);
-            const candidateMatch = remainder.match(/^\s*(\d+)(?:\s*[；;]?\s*(.*))?$/);
+            const candidateMatch = remainder.match(/^\s*(\d+)(?:\s*[；;]?\s*(.*))?$/)
+                || (/^\s*(?:$|聽到|唱歌|求偶|一對|[;；])/.test(remainder)
+                    ? [remainder, '1', remainder.replace(/^\s*[;；]?\s*/, '')] : null);
             if (candidateMatch) {
                 alias = candidate;
                 match = candidateMatch;
@@ -495,6 +497,9 @@
     }
 
     function assertRecordReady(record) {
+        if (record.effort && record.effort.protocol !== 'P20' && !(record.effort.durationMinutes > 0)) {
+            throw new Error('定點或行進計數必須提供觀察分鐘數。');
+        }
         const errors = Array.isArray(record.blockingErrors) ? record.blockingErrors : record.errors;
         if (errors && errors.length > 0) {
             throw new Error(errors.join('\n'));
@@ -725,10 +730,10 @@
             isAfternoon ? ['PM', 'pm', 'P'] : ['AM', 'am', 'A'],
             isAfternoon ? ['PM', '下午'] : ['AM', '上午']
         );
-        if (document.getElementById('p-dur-hrs')) {
+        if (record.effort.durationMinutes !== null && document.getElementById('p-dur-hrs')) {
             setValue('p-dur-hrs', Math.floor(record.effort.durationMinutes / 60));
         }
-        if (document.getElementById('p-dur-min')) {
+        if (record.effort.durationMinutes !== null && document.getElementById('p-dur-min')) {
             setValue('p-dur-min', record.effort.durationMinutes % 60);
         }
         if (record.effort.protocol === 'P22' && document.getElementById('p-dist')) {
@@ -1109,8 +1114,8 @@
         add(
             'duration',
             '耗時',
-            actual.durationMinutes === null ? '找不到' : actual.durationMinutes + ' 分鐘',
-            Number(actual.durationMinutes) === Number(expected.durationMinutes)
+            expected.protocol === 'P20' ? '不適用' : actual.durationMinutes === null ? '找不到' : actual.durationMinutes + ' 分鐘',
+            expected.protocol === 'P20' || (actual.durationMinutes !== null && Number(actual.durationMinutes) === Number(expected.durationMinutes))
         );
 
         const distanceRequired = expected.protocol === 'P22';
@@ -1279,8 +1284,9 @@
         const durationNode = effort && effort.querySelector('time[datetime]');
         const duration = durationNode && (durationNode.getAttribute('datetime') || '').match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
         const minutes = duration && (Number(duration[1] || 0) * 60 + Number(duration[2] || 0) + Number(duration[3] || 0) / 60);
-        add('duration', '耗時', expected.durationMinutes + ' 分鐘',
-            duration ? minutes + ' 分鐘' : '', duration && minutes === Number(expected.durationMinutes));
+        add('duration', '耗時', expected.protocol === 'P20' ? '不適用' : expected.durationMinutes + ' 分鐘',
+            expected.protocol === 'P20' ? '不適用' : duration ? minutes + ' 分鐘' : '',
+            expected.protocol === 'P20' || (duration && minutes === Number(expected.durationMinutes)));
 
         const badgeForIcon = function(iconClass) {
             const icon = effort && effort.querySelector('.' + iconClass);
@@ -1966,8 +1972,8 @@
             results[effortIndex] = valid ? {
                 text: locationPrefix
                     + String(parsedEffort.hour).padStart(2, '0') + ':'
-                    + String(parsedEffort.minute).padStart(2, '0') + '／'
-                    + parsedEffort.durationMinutes + ' 分鐘',
+                    + String(parsedEffort.minute).padStart(2, '0')
+                    + (parsedEffort.durationMinutes === null ? '' : '／' + parsedEffort.durationMinutes + ' 分鐘'),
                 error: locationFailure
             } : {
                 text: locationPrefix + '無法辨識開始時間與分鐘',

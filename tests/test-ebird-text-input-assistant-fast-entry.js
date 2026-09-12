@@ -597,3 +597,26 @@ test('courtship is explicit; text suggestions always require confirmation', asyn
     assert.equal(clicks, 2);
     assert.equal(select.value, '');
 });
+
+test('accepts screenshot input with default incidental location and implicit one bird', () => {
+    const { api } = loadAssistant();
+    const presets = { 附近: { locId: 'L1001', pageName: '附近正式名稱', isDefault: true, distanceKm: null, partySize: 1 } };
+    const source = '-2\n6:51\n黑領聽到唱歌';
+    const reference = new Date(2026, 8, 12);
+    const record = api.parseRecord(source, reference, presets);
+    assert.deepEqual(plain(record.blockingErrors), []);
+    assert.equal(record.location, '附近');
+    assert.equal(record.effort.protocol, 'P20');
+    assert.equal(record.effort.durationMinutes, null);
+    assert.equal(record.effort.hour, 6);
+    assert.equal(record.effort.minute, 51);
+    assert.equal(record.observations[0].count, 1);
+    assert.equal(record.observations[0].comments, 'Heard 1');
+    assert.equal(record.observations[0].breedingCode, 'S');
+    const preview = api.analyzeRecordLines(source, reference, presets.附近, { locId: 'L1001', pageName: '附近正式名稱' }, presets);
+    assert.equal(preview.failureCount, 0);
+    assert.equal(api.extractLocationAlias(source, reference, presets), '附近');
+    assert.equal(api.parseEffortLine('25:61').valid, false);
+    assert.equal(api.parseObservationLine('黑領5聽到唱歌').value.count, 5);
+    assert.ok(api.parseObservationLine('黑領不明鳥種').error);
+});
