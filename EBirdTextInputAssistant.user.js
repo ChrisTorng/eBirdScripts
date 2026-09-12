@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-06_1.6.7
+// @version      2026-09-12_1.7.0
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -280,6 +280,34 @@
         };
     }
 
+    // Search the site's actual option labels when available. The fallback labels
+    // allow previewing before the species form (and its selects) exists.
+    const breedingLabels = ['C 求偶、展示或交配 Courtship Display Copulation',
+        'S 唱歌中鳥 Singing Bird', 'P 一對 Pair', 'H 適合的棲地 Appropriate Habitat',
+        'T 領域防衛 Territorial Defense', 'N 造訪可能的巢位 Visiting Probable Nest Site',
+        'A 焦躁行為 Agitated Behavior', 'B 築巢 Woodpecker Wren Nest Building',
+        'PE 生理證據 Physiological Evidence', 'CN 攜帶巢材 Carrying Nesting Material',
+        'NB 築巢 Nest Building', 'DD 分散注意力展示 Distraction Display',
+        'UN 使用過的巢 Used Nest', 'FL 剛離巢幼鳥 Recently Fledged Young',
+        'ON 佔用巢位 Occupied Nest', 'CF 攜帶食物 Carrying Food',
+        'FY 餵食幼鳥 Feeding Young', 'NE 巢中有蛋 Nest with Eggs',
+        'NY 巢中有幼鳥 Nest with Young'];
+
+    function suggestBreedingCode(text, options) {
+        const normalize = value => String(value).normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+        const query = normalize(text);
+        if (!query) return null;
+        const labels = options ? Array.from(options, item => item.textContent)
+            : breedingLabels.concat(Array.from(document.querySelectorAll('select'), select =>
+                /_bcode$/.test(select.id) ? Array.from(select.options || [], option => option.textContent) : []).flat());
+        const matches = new Map();
+        labels.forEach(label => {
+            const code = String(label).match(/^([A-Z]{1,2}\d?)(?=\s|[^A-Za-z]|$)/);
+            if (code && normalize(label).includes(query)) matches.set(code[1], String(label).trim());
+        });
+        return matches.size === 1 ? { code: matches.keys().next().value, label: matches.values().next().value } : null;
+    }
+
     function parseObservationLine(line) {
         const text = String(line || '').trim();
         const aliases = Object.keys(speciesAliases).sort(function(left, right) {
@@ -319,15 +347,23 @@
             ? explicitHeardBefore ? Number(explicitHeardBefore[1])
                 : explicitHeardAfter ? Number(explicitHeardAfter[1]) : count
             : null;
-        const breedingCode = details.includes('一對') ? 'P' : (details.includes('唱歌') ? 'S' : null);
+        let breedingCode = details.includes('求偶') ? 'C' : details.includes('一對') ? 'P' : (details.includes('唱歌') ? 'S' : null);
         const unknownDetails = details
-            .replace(/唱歌/g, '')
+            .replace(/求偶|唱歌/g, '')
             .replace(/一對/g, '')
             .replace(/(?:^|,)\s*\d*\s*聽到(?:\s*\d+)?/g, '')
             .replace(/聽到\s*\d+/g, '')
             .replace(/^[,\s]+|[,\s]+$/g, '');
+        const suggestion = !breedingCode && unknownDetails ? suggestBreedingCode(unknownDetails) : null;
+        if (suggestion) breedingCode = suggestion.code;
+        const detailWarning = suggestion
+            ? '! 推測繁殖代碼「' + suggestion.label + '」，請自行確認無誤後手動送出'
+            : unknownDetails ? '未套用的細節「' + unknownDetails + '」' : '';
         return {
             value: {
+                unknownDetails: unknownDetails,
+                requiresConfirmation: Boolean(unknownDetails),
+                breedingSuggestion: suggestion,
                 alias: alias,
                 code: species.code,
                 codes: species.codes || [species.code],
@@ -336,9 +372,9 @@
                 breedingCode: breedingCode,
                 comments: heardCount === null ? '' : 'Heard ' + heardCount,
                 sourceLine: String(line || ''),
-                warning: unknownDetails ? '未套用的細節「' + unknownDetails + '」' : ''
+                warning: detailWarning
             },
-            warning: unknownDetails ? '未套用的細節「' + unknownDetails + '」：' + line : ''
+            warning: detailWarning ? detailWarning + '：' + line : ''
         };
     }
 
@@ -740,6 +776,7 @@
     }
 
     function fallbackBreedingLabel(code) {
+        if (code === 'C') return 'C 求偶、展示或交配';
         if (code === 'S') {
             return 'S 唱歌中鳥';
         }
@@ -753,7 +790,7 @@
         const extra = [];
         const breedingText = details && details.breedingText
             ? details.breedingText
-            : fallbackBreedingLabel(observation.breedingCode);
+            : observation.breedingSuggestion ? observation.breedingSuggestion.label : fallbackBreedingLabel(observation.breedingCode);
         const comments = details && Object.prototype.hasOwnProperty.call(details, 'comments')
             ? details.comments
             : observation.comments;
@@ -769,16 +806,25 @@
 
     async function applyObservationDetails(observation) {
         let breedingText = '';
-        if (!observation.breedingCode && !observation.comments) {
+        if (!observation.breedingCode && !observation.comments && !observation.unknownDetails) {
             return { breedingText: '', comments: '' };
         }
         const detailLink = await waitForElement('add_' + observation.code);
         detailLink.click();
+        if (observation.unknownDetails && !observation.breedingCode) {
+            const select = await waitForElement('p-' + observation.code + '_bcode');
+            const suggestion = suggestBreedingCode(observation.unknownDetails, select.options);
+            if (suggestion) {
+                observation.breedingCode = suggestion.code;
+                observation.breedingSuggestion = suggestion;
+                observation.warning = '! 推測繁殖代碼「' + suggestion.label + '」，請自行確認無誤後手動送出';
+            }
+        }
         if (observation.breedingCode) {
             const breedingSelect = await waitForElement('p-' + observation.code + '_bcode');
             const option = Array.from(breedingSelect.options || []).find(function(item) {
                 const text = item.textContent.trim();
-                return text === observation.breedingCode || text.startsWith(observation.breedingCode + ' ');
+                return (text.match(/^([A-Z]{1,2}\d?)(?=\s|[^A-Za-z]|$)/) || [])[1] === observation.breedingCode;
             });
             if (!option) {
                 throw new Error('找不到 ' + observation.name + ' 的繁殖代碼 ' + observation.breedingCode + '。');
@@ -790,7 +836,8 @@
         if (observation.comments) {
             setValue('p-' + observation.code + '_comments', observation.comments);
         }
-        return { breedingText: breedingText, comments: observation.comments };
+        return { breedingText: breedingText, comments: observation.comments,
+            breedingCode: observation.breedingCode, breedingSuggestion: observation.breedingSuggestion, warning: observation.warning };
     }
 
     function revealAdditionalSpeciesSections() {
@@ -1135,6 +1182,7 @@
         return Boolean(
             record
             && result
+            && !record.observations.some(item => item.requiresConfirmation || item.warning)
             && (!record.blockingErrors || record.blockingErrors.length === 0)
             && (!record.unresolvedObservations || record.unresolvedObservations.length === 0)
             && (!result.formErrors || result.formErrors.length === 0)
@@ -1505,6 +1553,10 @@
                     Object.assign({}, outcome.observation, { code: outcome.code })
                 );
                 outcome.breedingText = details.breedingText;
+                if (outcome.observation.requiresConfirmation) {
+                    Object.assign(outcome.observation, { breedingCode: details.breedingCode,
+                        breedingSuggestion: details.breedingSuggestion, warning: details.warning });
+                }
             } catch (error) {
                 outcome.status = 'failed';
                 outcome.error = error.message;
@@ -1953,6 +2005,7 @@
                         ? '（與前一筆同鳥種紀錄不同）'
                         : '（重複的相同鳥種紀錄）')
                     : parsed.warning ? display + '（' + parsed.warning + '）' : display,
+                warning: Boolean(!duplicate && observation.breedingSuggestion),
                 error: Boolean(duplicate || parsed.warning)
             };
             failureCount += duplicate || parsed.warning ? 1 : 0;
@@ -2012,6 +2065,7 @@
             '#' + panelId + ' .tm-ebird-check-summary > div { margin:1px 0; }',
             '.tm-ebird-actual-effort { margin:4px 0;padding:5px 7px;border-left:3px solid #2f7f45;background:#f4faf5;font:12px/1.35 sans-serif; }',
             '#' + panelId + ' .tm-ebird-summary-heading { margin-top:9px;font-weight:700; }',
+            '#' + panelId + ' .tm-ebird-warning { color:#b45309; font-weight:600; }',
             '#' + panelId + ' .tm-ebird-error { color:#a40000; }',
             '#' + panelId + ' .tm-ebird-ok { color:#176b2c; }',
             '.tm-ebird-location-filter,.tm-ebird-location-select { box-sizing:border-box!important;width:100%!important;max-width:none!important; }',
@@ -2421,7 +2475,7 @@
             preview.textContent = '';
             analysis.lines.forEach(function(item) {
                 const row = document.createElement('div');
-                row.className = 'tm-ebird-preview-line' + (item.error ? ' tm-ebird-error' : '');
+                row.className = 'tm-ebird-preview-line' + (item.warning ? ' tm-ebird-warning' : item.error ? ' tm-ebird-error' : '');
                 row.textContent = item.text || '\u00a0';
                 preview.appendChild(row);
             });
@@ -2661,7 +2715,7 @@
             const prefix = successful ? '✓ ' : item.status === 'warning' ? '⚠ ' : '✗ ';
             appendLine(
                 prefix + item.display + (item.error ? ' — ' + item.error : ''),
-                successful ? 'tm-ebird-ok' : 'tm-ebird-error'
+                successful ? 'tm-ebird-ok' : item.status === 'warning' ? 'tm-ebird-warning' : 'tm-ebird-error'
             );
         });
         result.unresolved.forEach(function(item) {
@@ -2941,6 +2995,8 @@
         parseEffortLine: parseEffortLine,
         parseRecord: parseRecord,
         parseObservationLine: parseObservationLine,
+        suggestBreedingCode: suggestBreedingCode,
+        applyObservationDetails: applyObservationDetails,
         formatObservationForEbird: formatObservationForEbird,
         analyzeRecordLines: analyzeRecordLines,
         extractLocationAlias: extractLocationAlias,

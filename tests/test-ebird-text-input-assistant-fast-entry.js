@@ -568,3 +568,32 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(desktop.document.querySelector('.tm-ebird-collapse').textContent, '▲');
     });
 });
+
+test('courtship is explicit; text suggestions always require confirmation', async () => {
+    const { harness, api } = loadAssistant();
+    assert.equal(api.parseObservationLine('麻雀2求偶').value.breedingCode, 'C');
+    assert.equal(api.parseObservationLine('麻雀2求偶').warning, '');
+    const guessed = api.parseObservationLine('麻雀2攜帶食物').value;
+    assert.equal(guessed.breedingCode, 'CF');
+    assert.equal(guessed.requiresConfirmation, true);
+    assert.match(guessed.warning, /!.*自行確認/);
+    assert.equal(api.suggestBreedingCode('築巢'), null);
+    const link = harness.document.createElement('button');
+    link.id = 'add_eutspa';
+    let clicks = 0;
+    link.addEventListener('click', () => { clicks++; });
+    harness.appendToBody(link);
+    const select = harness.document.createElement('select');
+    select.id = 'p-eutspa_bcode';
+    select.options = [{ value: '', textContent: '請選擇' }, { value: 'CF', textContent: 'CF 攜帶食物' }];
+    harness.appendToBody(select);
+    await api.applyObservationDetails(guessed);
+    assert.equal(select.value, 'CF');
+    const result = { items: [{ status: 'filled' }], metadata: [{ matched: true }] };
+    assert.equal(api.resultFullyVerified({ observations: [guessed] }, result), false);
+    const unknown = api.parseObservationLine('麻雀2無法辨識行為').value;
+    select.value = '';
+    await api.applyObservationDetails(unknown);
+    assert.equal(clicks, 2);
+    assert.equal(select.value, '');
+});
