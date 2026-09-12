@@ -597,3 +597,67 @@ test('courtship is explicit; text suggestions always require confirmation', asyn
     assert.equal(clicks, 2);
     assert.equal(select.value, '');
 });
+
+test('accepts screenshot input with default incidental location and implicit one bird', () => {
+    const { api } = loadAssistant();
+    const presets = { 附近: { locId: 'L1001', pageName: '附近正式名稱', isDefault: true, distanceKm: null, partySize: 1 } };
+    const source = '-2\n6:51\n黑領聽到唱歌';
+    const reference = new Date(2026, 8, 12);
+    const record = api.parseRecord(source, reference, presets);
+    assert.deepEqual(plain(record.blockingErrors), []);
+    assert.equal(record.location, '附近');
+    assert.equal(record.effort.protocol, 'P20');
+    assert.equal(record.effort.durationMinutes, null);
+    assert.equal(record.effort.hour, 6);
+    assert.equal(record.effort.minute, 51);
+    assert.equal(record.observations[0].count, 1);
+    assert.equal(record.observations[0].comments, 'Heard 1');
+    assert.equal(record.observations[0].breedingCode, 'S');
+    const preview = api.analyzeRecordLines(source, reference, presets.附近, { locId: 'L1001', pageName: '附近正式名稱' }, presets);
+    assert.equal(preview.failureCount, 0);
+    assert.equal(api.extractLocationAlias(source, reference, presets), '附近');
+    assert.equal(api.parseEffortLine('25:61').valid, false);
+    assert.equal(api.parseObservationLine('黑領5聽到唱歌').value.count, 5);
+    assert.ok(api.parseObservationLine('黑領不明鳥種').error);
+});
+
+test('recognizes the two Brown Shrike subspecies separately', () => {
+    const { api } = loadAssistant();
+    assert.equal(api.parseObservationLine('灰頭紅尾伯勞').value.code, 'brnshr3');
+    assert.equal(api.parseObservationLine('褐頭紅尾伯勞2').value.code, 'brnshr1');
+});
+
+test('location filter shows counts and supports keyboard selection', () => {
+    const { harness, api } = loadAssistant();
+    const select = harness.document.createElement('select');
+    select.options = [{ value: '', textContent: '選擇' }, { value: 'L1', textContent: '公園甲' }, { value: 'L2', textContent: '公園乙' }];
+    select.value = 'L1';
+    harness.appendToBody(select);
+    const filter = api.installLocationFilter(() => {});
+    const count = harness.document.querySelector('.tm-ebird-location-count');
+    assert.equal(count.textContent, '2 筆');
+    const key = key => filter.input.dispatchEvent({ type: 'keydown', key, preventDefault() {} });
+    key('ArrowDown');
+    assert.equal(select.value, 'L2');
+    assert.ok(select.size > 1);
+    key('ArrowUp');
+    assert.equal(select.value, 'L1');
+    key('Escape');
+    assert.equal(select.size, 1);
+    filter.filter('甲');
+    assert.equal(count.textContent, '1 筆');
+});
+
+test('desktop panel restores height and reserves space below the submit page', () => {
+    const { harness } = loadAssistant({ readyState: 'loading' });
+    harness.context.GM_getValue = (key, fallback) => key.includes('panelHeight') ? 450 : fallback;
+    harness.dispatchDocumentEvent('DOMContentLoaded');
+    const panel = harness.document.getElementById('tm-ebird-text-input-assistant');
+    assert.equal(panel.style.height, '450px');
+    assert.equal(panel.style.maxHeight, (harness.window.innerHeight - 120) + 'px');
+    const button = panel.querySelector('.tm-ebird-collapse');
+    button.click();
+    assert.equal(panel.style.height, 'auto');
+    button.click();
+    assert.equal(panel.style.height, '450px');
+});

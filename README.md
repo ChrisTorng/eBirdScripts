@@ -27,7 +27,7 @@ Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally
 - 貼上後立即逐行顯示日期、地點、時間及鳥種的辨識結果，無法辨識的項目會以紅字標示。
 - 可直接篩選及選取 eBird 地點，並在 Tampermonkey 本機設定地名簡稱、預設地點、努力量與人數。
 - 支援多種日期簡寫、常用鳥種簡稱、鳥名與數字相連的寫法，以及「唱歌」、「聽到」與「一對」等細節。
-- 核對面板採窄版、限制為約半個視窗高度；行動裝置預設收合，並可由右上角按鈕展開或收合。
+- 桌面面板預設接近全高；提交頁底部預留操作空間。可拖曳下邊界調整高度並記住設定；行動裝置預設收合。
 - 填寫完成後及送出後，會分別重新讀取 eBird 頁面中的正式地點（含自建地點）、日期時間、努力量、完整清單及鳥種欄位；找不到或不符時同時顯示預期值與原因。
 - 完成頁核對結果只會顯示於剛由助手填寫的該筆鳥單；平時瀏覽其他鳥單不顯示助手面板。
 - 完成頁優先使用結構化日期時間與努力量欄位，並可解析 eBird 原始中英文日期及 eBird Scripts 改寫後的日期。鳥種依頁面順序核對，包括顯示於親種連結下的亞種。
@@ -91,7 +91,7 @@ Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally
 
 #### 地點篩選
 
-篩選欄位支援中英文。每個輸入字元會依序篩選所有地點名稱及 ID；若某個字元會使結果變成零筆，該字元會被忽略，因此清單絕不會完全消失。
+篩選欄位支援中英文，右側顯示剩餘地點筆數。輸入欄內按上下鍵會展開清單並切換地點，Enter 或 Escape 收合清單。每個輸入字元會依序篩選所有地點名稱及 ID；若某個字元會使結果變成零筆，該字元會被忽略，因此清單絕不會完全消失。
 
 ## 設定
 
@@ -117,3 +117,5 @@ Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally
 ## 問題與建議
 
 如果遇到任何問題或功能建議，請至 [GitHub 頁面](https://github.com/ChrisTorng/eBirdScripts/) 提交 [issue](https://github.com/ChrisTorng/eBirdScripts/issues)。
+
+支援「灰頭紅尾伯勞」與「褐頭紅尾伯勞」，分別對應紅尾伯勞的灰頭、褐頭亞種。

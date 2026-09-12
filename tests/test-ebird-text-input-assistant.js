@@ -707,7 +707,7 @@ describe('eBird species form safety', () => {
 
         assert.ok(panel);
         assert.match(style.textContent, /width:min\(520px/);
-        assert.match(style.textContent, /max-height:min\(58dvh,560px\)/);
+        assert.match(style.textContent, /max-height:calc\(100dvh - 16px\)/);
         assert.match(style.textContent, /tm-ebird-review-panel.*width:min\(380px/);
         assert.match(style.textContent, /max-height:48dvh/);
         assert.match(style.textContent, /overflow-y:\s*auto/);
