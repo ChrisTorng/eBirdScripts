@@ -661,3 +661,18 @@ test('desktop panel restores height and reserves space below the submit page', (
     button.click();
     assert.equal(panel.style.height, '450px');
 });
+
+test('unresolved summary preserves original input and defaults to showing species', () => {
+    const { harness, api } = loadAssistant();
+    const container = harness.document.createElement('div');
+    const result = { items: [], totalCount: 1, unresolved: [{ sourceLine: '神秘鳥2 聽到', error: '不確定的物種：神秘鳥' }], formErrors: [], metadata: [] };
+    api.renderChecklistSummary(container, {}, result);
+    assert.match(container.children.map(item => item.textContent).join('\n'), /未寫入：神秘鳥2 聽到/);
+    const visibility = api.addSpeciesVisibilityButton(container);
+    visibility.apply(result);
+    assert.equal(visibility.button.textContent, '隱藏未觀察到的鳥種項目');
+    visibility.button.click();
+    assert.equal(visibility.button.textContent, '顯示未觀察到的鳥種項目');
+    visibility.apply(result);
+    assert.equal(visibility.button.textContent, '隱藏未觀察到的鳥種項目');
+});

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-12_1.8.0
+// @version      2026-09-12_1.8.1
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -2704,7 +2704,10 @@
         button.type = 'button';
         button.className = 'tm-ebird-secondary';
         let hidden = true;
-        function apply() {
+        function apply(result) {
+            // Keep the full species list available whenever manual entry is needed.
+            if (!result || (result.unresolved || []).length
+                || (result.items || []).some(item => item.status === 'failed')) hidden = false;
             setUnobservedVisibility(hidden);
             button.textContent = hidden
                 ? '顯示未觀察到的鳥種項目'
@@ -2712,7 +2715,7 @@
         }
         button.addEventListener('click', function() {
             hidden = !hidden;
-            apply();
+            apply({ items: [], unresolved: [] });
         });
         parent.appendChild(button);
         return { button: button, apply: apply };
@@ -2758,7 +2761,7 @@
         result.unresolved.forEach(function(item) {
             const reason = String(item.error || '無法辨識').split('：')[0];
             appendLine(
-                '✗ 未寫入：無可比對的 eBird 鳥種（' + reason + '）',
+                '✗ 未寫入：' + (item.sourceLine || item.error || '原始輸入未保存') + '（' + reason + '）',
                 'tm-ebird-error'
             );
         });
@@ -2995,7 +2998,7 @@
                     try {
                         setUnobservedVisibility(false);
                         const result = await fillSpecies(record);
-                        visibility.apply();
+                        visibility.apply(result);
                         renderChecklistSummary(status, record, result);
                         saveChecklistConfirmation(record, result, {
                             awaitingSubmittedPage: false,
@@ -3069,6 +3072,8 @@
         parseEffortLine: parseEffortLine,
         parseRecord: parseRecord,
         parseObservationLine: parseObservationLine,
+        renderChecklistSummary: renderChecklistSummary,
+        addSpeciesVisibilityButton: addSpeciesVisibilityButton,
         suggestBreedingCode: suggestBreedingCode,
         applyObservationDetails: applyObservationDetails,
         formatObservationForEbird: formatObservationForEbird,
