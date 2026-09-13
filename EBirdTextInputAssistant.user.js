@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-12_1.8.1
+// @version      2026-09-13_1.8.2
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -131,6 +131,8 @@
         '小環': { code: 'lirplo', name: '小環頸鴴' },
         '小環頸鴴': { code: 'lirplo', name: '小環頸鴴' },
         '磯鷸': { code: 'comsan', name: '磯鷸' },
+        '白腰': { code: 'grnsan', name: '白腰草鷸' },
+        '白腰鵲鴝': { code: 'whrsha', name: '白腰鵲鴝' },
         '白腰草鷸': { code: 'grnsan', name: '白腰草鷸' },
         '夜鷺': { code: 'bcnher', name: '夜鷺' },
         '白腹': { code: 'whbwat1', name: '白腹秧雞' },
