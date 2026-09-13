@@ -676,3 +676,15 @@ test('unresolved summary preserves original input and defaults to showing specie
     visibility.apply(result);
     assert.equal(visibility.button.textContent, '隱藏未觀察到的鳥種項目');
 });
+
+test('white-rumped alias keeps full bird names distinct', () => {
+    const { api } = loadAssistant();
+    for (const [name, code] of [['白腰', 'grnsan'], ['白腰草鷸', 'grnsan'], ['白腰鵲鴝', 'whrsha']]) {
+        for (const [suffix, count] of [['', 1], ['2', 2], ['聽到', 1]]) {
+            const parsed = api.parseObservationLine(name + suffix);
+            assert.equal(parsed.error, undefined);
+            assert.equal(parsed.value.code, code);
+            assert.equal(parsed.value.count, count);
+        }
+    }
+});
