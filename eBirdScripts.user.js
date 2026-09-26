@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         eBird Scripts
-// @version      2026-09-26_1.3.1
+// @version      2026-09-26_1.4.0
 // @description  Enchance eBird pages.
 // @match        https://ebird.org/*
 // @author       ChrisTorng
@@ -185,6 +185,64 @@
         return match ? match[1] : pathname;
     }
 
+    function isAtlasTaiwanPath(pathname) {
+        return pathname === '/atlastw' || pathname.startsWith('/atlastw/');
+    }
+
+    function removeSelectedNavigationState(element) {
+        element.querySelectorAll('[aria-current], [id]').forEach(child => {
+            child.removeAttribute('aria-current');
+            child.removeAttribute('id');
+        });
+        if (element.matches('[aria-current], [id]')) {
+            element.removeAttribute('aria-current');
+            element.removeAttribute('id');
+        }
+        [element, ...element.querySelectorAll('*')].forEach(child => {
+            child.classList.remove('active', 'is-active', 'selected', 'is-selected');
+        });
+    }
+
+    function createNavigationItem(sourceLink, href, label) {
+        const sourceItem = sourceLink.closest('li') || sourceLink;
+        const item = sourceItem.cloneNode(true);
+        const link = item.matches('a') ? item : item.querySelector('a');
+        link.href = href;
+        link.textContent = label;
+        item.dataset.ebirdScriptsExploreLink = href;
+        removeSelectedNavigationState(item);
+        return item;
+    }
+
+    function updateExploreNavigation() {
+        const atlasTaiwan = isAtlasTaiwanPath(window.location.pathname);
+        const sourcePath = atlasTaiwan ? '/atlastw/explore' : '/explore';
+        const navigationLinks = document.querySelectorAll('header a[href], [role="banner"] a[href]');
+
+        navigationLinks.forEach(link => {
+            let linkPath;
+            try {
+                linkPath = new URL(link.href, window.location.origin).pathname.replace(/\/$/, '') || '/';
+            } catch {
+                return;
+            }
+            if (linkPath !== sourcePath || link.dataset.ebirdScriptsExploreProcessed) {
+                return;
+            }
+
+            const sourceItem = link.closest('li') || link;
+            if (atlasTaiwan) {
+                link.textContent = 'TW 資料探索';
+                const item = createNavigationItem(link, '/explore', '資料探索');
+                sourceItem.parentElement.insertBefore(item, sourceItem);
+            } else {
+                const item = createNavigationItem(link, '/atlastw/explore', 'TW 資料探索');
+                sourceItem.insertAdjacentElement('afterend', item);
+            }
+            link.dataset.ebirdScriptsExploreProcessed = 'true';
+        });
+    }
+
     function addExtraLinks() {
         if (!window.location.pathname.startsWith('/hotspots')) {
             return; // 只有 /hotspots 頁面會啟用這個功能
@@ -259,6 +317,7 @@
         console.log('Page loaded, running addExtraLinks and updateHotspotsUrl');
         replaceDates();
         reorderDateFields();
+        updateExploreNavigation();
 
         // 只在 /hotspots 頁面啟用這些功能
         if (window.location.pathname.startsWith('/hotspots')) {
@@ -270,6 +329,7 @@
         const observer = new MutationObserver(() => {
             replaceDates();
             reorderDateFields();
+            updateExploreNavigation();
             if (window.location.pathname.startsWith('/hotspots')) {
                 console.log('DOM mutation detected, running addExtraLinks');
                 addExtraLinks();
@@ -286,6 +346,8 @@
         isTraditionalChinesePage,
         replaceDates,
         reorderDateFields,
-        getHotspotPath
+        getHotspotPath,
+        isAtlasTaiwanPath,
+        updateExploreNavigation
     };
 })();

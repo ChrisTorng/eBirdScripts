@@ -3,6 +3,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
+const { parseHTML } = require('linkedom');
 
 const source = fs.readFileSync(path.join(__dirname, '../eBirdScripts.user.js'), 'utf8');
 
@@ -166,4 +167,85 @@ test('builds extra-link paths from the hotspot root', () => {
     assert.equal(hotspotPath, '/hotspot/L36737363');
     assert.equal(`${hotspotPath}/bird-list`, '/hotspot/L36737363/bird-list');
     assert.equal(`${hotspotPath}/recent-checklists`, '/hotspot/L36737363/recent-checklists');
+});
+
+function loadNavigation(url, markup) {
+    const parsed = new URL(url);
+    const { document, window: domWindow } = parseHTML(markup);
+    const loadCallbacks = [];
+    const location = {
+        origin: parsed.origin,
+        pathname: parsed.pathname,
+        search: parsed.search,
+        hash: parsed.hash,
+        replace() {}
+    };
+    const window = {
+        location,
+        addEventListener(type, callback) {
+            if (type === 'load') loadCallbacks.push(callback);
+        }
+    };
+    const context = {
+        document,
+        window,
+        location,
+        URL,
+        NodeFilter: domWindow.NodeFilter || { SHOW_TEXT: 4 },
+        MutationObserver: domWindow.MutationObserver,
+        GM_getValue: (key, fallback) => fallback,
+        GM_setValue() {},
+        GM_registerMenuCommand() {},
+        navigator: {},
+        console
+    };
+    vm.runInNewContext(source, context);
+    return { api: context.__eBirdScripts, document };
+}
+
+test('adds TW data exploration after every regular eBird navigation link', () => {
+    const loaded = loadNavigation('https://ebird.org/explore', `
+        <header><nav><ul>
+            <li><a class="active" aria-current="page" href="/explore">資料探索</a></li>
+        </ul></nav></header>
+        <main><a href="/explore">內容中的資料探索</a></main>
+    `);
+
+    loaded.api.updateExploreNavigation();
+    const links = loaded.document.querySelectorAll('header a');
+    assert.deepEqual(Array.from(links, link => [link.textContent, link.getAttribute('href')]), [
+        ['資料探索', '/explore'],
+        ['TW 資料探索', '/atlastw/explore']
+    ]);
+    assert.equal(links[1].classList.contains('active'), false);
+    assert.equal(links[1].hasAttribute('aria-current'), false);
+    assert.equal(loaded.document.querySelectorAll('main a').length, 1, 'content links must not be changed');
+
+    loaded.api.updateExploreNavigation();
+    assert.equal(loaded.document.querySelectorAll('header a').length, 2, 'the update must be idempotent');
+});
+
+test('renames Atlas Taiwan exploration and inserts regular exploration before it', () => {
+    const loaded = loadNavigation('https://ebird.org/atlastw/explore', `
+        <div role="banner"><nav><ul>
+            <li><a class="is-selected" href="/atlastw/explore">資料探索</a></li>
+        </ul></nav></div>
+    `);
+
+    loaded.api.updateExploreNavigation();
+    const links = loaded.document.querySelectorAll('[role="banner"] a');
+    assert.deepEqual(Array.from(links, link => [link.textContent, link.getAttribute('href')]), [
+        ['資料探索', '/explore'],
+        ['TW 資料探索', '/atlastw/explore']
+    ]);
+    assert.equal(links[0].classList.contains('is-selected'), false);
+    assert.equal(links[1].classList.contains('is-selected'), true);
+});
+
+test('recognizes only the Atlas Taiwan path segment', () => {
+    const { api } = load();
+    assert.equal(api.isAtlasTaiwanPath('/atlastw'), true);
+    assert.equal(api.isAtlasTaiwanPath('/atlastw/explore'), true);
+    assert.equal(api.isAtlasTaiwanPath('/atlastwo'), false);
+    assert.equal(api.isAtlasTaiwanPath('/explore'), false);
 });
