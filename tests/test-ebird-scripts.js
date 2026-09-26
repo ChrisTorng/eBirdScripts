@@ -157,3 +157,13 @@ test('recognizes only a Traditional Chinese page for DOM changes', () => {
     assert.equal(load(undefined, 'zh-CN').api.isTraditionalChinesePage(), false);
     assert.equal(load(undefined, 'en').api.isTraditionalChinesePage(), false);
 });
+
+test('builds extra-link paths from the hotspot root', () => {
+    const { api } = load();
+    const currentBirdListPath = '/hotspot/L36737363/bird-list';
+    const hotspotPath = api.getHotspotPath(currentBirdListPath);
+
+    assert.equal(hotspotPath, '/hotspot/L36737363');
+    assert.equal(`${hotspotPath}/bird-list`, '/hotspot/L36737363/bird-list');
+    assert.equal(`${hotspotPath}/recent-checklists`, '/hotspot/L36737363/recent-checklists');
+});

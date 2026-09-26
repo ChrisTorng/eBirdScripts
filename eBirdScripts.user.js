@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         eBird Scripts
-// @version      2026-09-06_1.3.0
+// @version      2026-09-26_1.3.1
 // @description  Enchance eBird pages.
 // @match        https://ebird.org/*
 // @author       ChrisTorng
@@ -180,6 +180,11 @@
 
     GM_registerMenuCommand('設定經緯度增量範圍', setUserSetting);
 
+    function getHotspotPath(pathname) {
+        const match = pathname.match(/^(\/hotspot\/L[^/]+)/);
+        return match ? match[1] : pathname;
+    }
+
     function addExtraLinks() {
         if (!window.location.pathname.startsWith('/hotspots')) {
             return; // 只有 /hotspots 頁面會啟用這個功能
@@ -201,7 +206,9 @@
                 }
 
                 console.log('Adding extra links for:', link.href);
-                const basePath = link.pathname;
+                // eBird now points this item at /bird-list, so first reduce it
+                // to the hotspot root to avoid generating /bird-list/bird-list.
+                const basePath = getHotspotPath(link.pathname);
 
                 // Create "最近鳥種" link
                 const birdListLi = document.createElement('li');
@@ -278,6 +285,7 @@
         formatTraditionalChineseDates,
         isTraditionalChinesePage,
         replaceDates,
-        reorderDateFields
+        reorderDateFields,
+        getHotspotPath
     };
 })();
