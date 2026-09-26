@@ -12,6 +12,7 @@ eBird Scripts 是一個 [Tampermonkey](https://www.tampermonkey.net/) 使用者�
 
 - 繁體中文介面的日期統一改為「年/月/日」；含星期時顯示為「2026/9/2 (三)」，提交頁日期欄位也依序排列為年、月、日。英文介面維持 eBird 原格式。
 - 開啟異常的 `/atlastw/myebird/TW?continue` 時，自動移除 `?continue` 並重新導向正常的「我的 eBird」頁面。
+- 在全站瀏覽列同時提供「資料探索」與「TW 資料探索」，可直接切換一般 eBird 與臺灣繁殖鳥類大調查的探索頁面。
 - [eBird 熱門鳥點](https://ebird.org/hotspots)
   - 開啟地圖時自動定位到目前位置，時間範圍設為今年全年度。
   - 點出各別地點的彈跳畫面內，新增「最近鳥種」及「最近紀錄」連結。
@@ -59,6 +60,8 @@ Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally
 - 「日期和努力量」頁面的日期選單會由月、日、年改排為年、月、日。
 
 - 若 [我的 eBird](https://ebird.org/atlastw/myebird/TW) 被導向帶有異常 `?continue` 的網址，會自動移除該參數。
+
+- 全站瀏覽列會同時顯示「資料探索」與「TW 資料探索」；兩者分別連至一般 eBird 與臺灣繁殖鳥類大調查的資料探索頁面。
 
 ### eBird 文字輸入助手
 
