@@ -115,7 +115,7 @@ Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally
 
 ## 相關作品
 
-請參考我製作的 [eBird 鳥訊快報整理](https://christorng.github.io/InfoProcess/eBird/)，幫助快速瀏覽 [eBird 鳥訊快報](https://ebird.org/alerts)郵件內容。
+請參考我製作的 [eBird 鳥訊快報整理](https://christorng.idv.tw/InfoProcess/eBird/)，幫助快速瀏覽 [eBird 鳥訊快報](https://ebird.org/alerts)郵件內容。
 
 ## 問題與建議
 
