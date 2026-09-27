@@ -6,6 +6,14 @@
 
 ## 功能
 
+### 手機計鳥網頁（不需 Tampermonkey）
+
+[開啟計鳥網頁](counter/) · [完整說明](counter/README.md)
+
+獨立的靜態網頁，可放在 GitHub Pages。預置後港新公園、建國二路、市場的全年頻率資料，支援新增／改名／刪除地點、匯入 eBird 官方 Histogram TXT、月份預覽、手機計數、GPS 距離、本機自動保存與相容文字匯出。文字格式參考本專案的文字輸入助手；計鳥頁本身不需要安裝腳本。
+
+既有自訂網域下的預期位置是 `https://christorng.idv.tw/eBirdScripts/counter/`。功能分支 push 不會更新正式網站；合併到 `main` 並由 GitHub Pages 發布後才会上線。不要把專案的 CNAME 改成網域根目錄。
+
 ### eBird Scripts
 
 eBird Scripts 是一個 [Tampermonkey](https://www.tampermonkey.net/) 使用者腳本，用於增強 [eBird](https://ebird.org) 網站的功能。
