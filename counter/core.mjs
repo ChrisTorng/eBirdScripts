@@ -1,3 +1,4 @@
+import historicalNames from "./historical-names.mjs";
 import aliases from "./aliases.mjs";
 
 // Percentage points. Bands are anchored at the highest remaining frequency,
@@ -38,7 +39,7 @@ export const BREEDING = [
   ["餵食幼鳥", "餵雛"],
   ["巢中有蛋", "巢蛋"],
   ["巢中有幼鳥", "巢雛"],
-  ["[B]", "築巢"],
+  ["[B]", "啄鷦築巢"],
   ["[NB]", "築巢"],
 ];
 const BREEDING_CODES = [
@@ -116,8 +117,11 @@ export function catalog() {
   return [...result.values()];
 }
 export function compatibleAlias(spec, local = {}) {
-  const matches = Object.entries(aliases).filter(([, a]) =>
-    (a.codes || [a.code]).includes(spec.code),
+  const matches = Object.entries(aliases).filter(
+    ([, a]) =>
+      (a.codes || [a.code]).includes(spec.code) ||
+      a.name.normalize("NFKC").replace(/\s/g, "") ===
+        spec.name.normalize("NFKC").replace(/\s/g, ""),
   );
   const custom = local[spec.code];
   if (custom && matches.some(([name]) => name === custom)) return custom;
@@ -198,13 +202,17 @@ export function validateCache(data, id) {
       typeof s.name !== "string" ||
       s.name.length > 200 ||
       seen.has(s.code) ||
-      !Array.isArray(s.months) ||
-      s.months.length !== 12 ||
-      s.months.some(
-        (n) =>
-          n !== null &&
-          (typeof n !== "number" || !Number.isFinite(n) || n < 0 || n > 100),
-      ) ||
+      (s.months !== undefined &&
+        (!Array.isArray(s.months) ||
+          s.months.length !== 12 ||
+          s.months.some(
+            (n) =>
+              n !== null &&
+              (typeof n !== "number" ||
+                !Number.isFinite(n) ||
+                n < 0 ||
+                n > 100),
+          ))) ||
       (s.annual != null &&
         (!Number.isFinite(s.annual) || s.annual < 0 || s.annual > 100))
     )
@@ -219,6 +227,10 @@ export function validateCache(data, id) {
 export function identityForName(name) {
   const normalized = (text) =>
     text.normalize("NFKC").replace(/台/g, "臺").replace(/\s/g, "");
+  const historical = Object.entries(historicalNames).find(
+    ([key]) => normalized(key) === normalized(name),
+  );
+  if (historical) return { ...historical[1] };
   const loose = (text) => normalized(text).replace(/\([^)]*\)/g, "");
   const entries = Object.entries(aliases);
   const exact = entries.filter(
@@ -572,15 +584,11 @@ export function exportText(session, local = {}) {
   for (const s of session.species) {
     const c = session.counts[s.code];
     if (!hasInformation(c)) continue;
-    const alias = compatibleAlias(s, local);
-    if (!alias) {
-      unmapped.push({ ...s, ...c });
-      continue;
-    }
+    const alias = s.name;
     const breedingCode =
       BREEDING_CODES[BREEDING.findIndex(([value]) => value === c.breeding)];
     const details = [
-      breedingCode ? `[${breedingCode}]` : "",
+      breedingCode ? BREEDING.find(([value]) => value === c.breeding)[1] : "",
       c.heard ? `${c.heard} 聽到` : "",
     ]
       .filter(Boolean)
@@ -772,5 +780,63 @@ export function readState(storage) {
   return data;
 }
 export function saveState(storage, state) {
-  storage.setItem(STORAGE_KEY, JSON.stringify(state));
+  storage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(state, (key, value) =>
+      key === "months" ? undefined : value,
+    ),
+  );
+}
+
+// Manual backups carry preferences only; automatic trip recovery remains separate.
+export function settingsBackup(state) {
+  return {
+    type: "ebird-counter-settings",
+    version: 1,
+    locations: state.locations.map(({ id, alias, lat, lon }) => ({
+      id,
+      alias,
+      lat,
+      lon,
+    })),
+    aliases: structuredClone(state.aliases),
+    profiles: structuredClone(state.profiles),
+    activeProfile: "global",
+  };
+}
+export function restoreSettings(state, text) {
+  const raw = JSON.parse(text);
+  if (
+    !(raw.type === "ebird-counter-settings" && raw.version === 1) &&
+    !([1, 2].includes(raw.version) && !raw.type)
+  )
+    throw new Error("不是計鳥設定備份");
+  const checked = readState({
+    getItem: () =>
+      JSON.stringify({
+        ...initialState(),
+        version: 2,
+        locations: raw.locations,
+        aliases: raw.aliases,
+        profiles: raw.profiles,
+        activeProfile: raw.activeProfile || "global",
+      }),
+  });
+  const next = {
+    ...state,
+    locations: checked.locations.map(({ id, alias, lat, lon }) => ({
+      id,
+      alias,
+      lat,
+      lon,
+    })),
+    aliases: checked.aliases,
+    profiles: checked.profiles,
+  };
+  // Keep locally cached data for matching locations, never import trip/history data.
+  for (const l of next.locations) {
+    const old = state.locations.find((x) => x.id === l.id);
+    if (old?.cache) l.cache = old.cache;
+  }
+  return next;
 }

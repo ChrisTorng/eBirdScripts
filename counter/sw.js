@@ -1,5 +1,5 @@
 // Scope is counter/ only; no caching of eBird responses or other projects.
-const CACHE = "ebird-counter-shell-v4";
+const CACHE = "ebird-counter-shell-v5";
 const FILES = [
   "./",
   "./index.html",
@@ -9,8 +9,13 @@ const FILES = [
   "./organization.mjs",
   "./personal.mjs",
   "./aliases.mjs",
+  "./historical-names.mjs",
   "./manifest.webmanifest",
   "./icon.svg",
+  "./icon-192.png",
+  "./icon-512.png",
+  "./icon-maskable-512.png",
+  "./navigation.mjs",
   "./data/taiwan-index.json",
 ];
 self.addEventListener("install", (event) =>

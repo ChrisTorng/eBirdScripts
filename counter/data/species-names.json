@@ -1,0 +1,4182 @@
+{
+  "source": "https://ebird.org/barchart?byr=1900&eyr=2026&bmo=1&emo=12&r=TW",
+  "retrievedAt": "2026-09-28",
+  "species": [
+    {
+      "code": "lewduc1",
+      "name": "樹鴨"
+    },
+    {
+      "code": "bahgoo",
+      "name": "斑頭雁"
+    },
+    {
+      "code": "gragoo",
+      "name": "灰雁"
+    },
+    {
+      "code": "swagoo1",
+      "name": "鴻雁"
+    },
+    {
+      "code": "x00776",
+      "name": "灰雁x鴻雁(雜交)"
+    },
+    {
+      "code": "gwfgoo",
+      "name": "白額雁"
+    },
+    {
+      "code": "lwfgoo",
+      "name": "小白額雁"
+    },
+    {
+      "code": "y00707",
+      "name": "白額雁/小白額雁"
+    },
+    {
+      "code": "taibeg1",
+      "name": "寒林豆雁"
+    },
+    {
+      "code": "tunbeg1",
+      "name": "凍原豆雁"
+    },
+    {
+      "code": "y00468",
+      "name": "寒林豆雁/凍原豆雁"
+    },
+    {
+      "code": "domgoo1",
+      "name": "家鵝(馴化)"
+    },
+    {
+      "code": "anser1",
+      "name": "Anser sp."
+    },
+    {
+      "code": "x00759",
+      "name": "Domestic goose sp. x Canada Goose (hybrid)"
+    },
+    {
+      "code": "mutswa",
+      "name": "疣鼻天鵝"
+    },
+    {
+      "code": "blkswa",
+      "name": "黑天鵝"
+    },
+    {
+      "code": "tunswa",
+      "name": "小天鵝"
+    },
+    {
+      "code": "whoswa",
+      "name": "黃嘴天鵝"
+    },
+    {
+      "code": "y00708",
+      "name": "小天鵝/黃嘴天鵝"
+    },
+    {
+      "code": "swan1",
+      "name": "天鵝屬"
+    },
+    {
+      "code": "goose1",
+      "name": "雁類"
+    },
+    {
+      "code": "egygoo",
+      "name": "埃及雁"
+    },
+    {
+      "code": "rudshe",
+      "name": "瀆鳧"
+    },
+    {
+      "code": "comshe",
+      "name": "花鳧"
+    },
+    {
+      "code": "musduc",
+      "name": "疣鼻棲鴨"
+    },
+    {
+      "code": "copgoo1",
+      "name": "棉鴨"
+    },
+    {
+      "code": "wooduc",
+      "name": "美洲鴛鴦"
+    },
+    {
+      "code": "manduc",
+      "name": "鴛鴦"
+    },
+    {
+      "code": "baitea",
+      "name": "巴鴨"
+    },
+    {
+      "code": "gargan",
+      "name": "白眉鴨"
+    },
+    {
+      "code": "norsho",
+      "name": "琵嘴鴨"
+    },
+    {
+      "code": "x00629",
+      "name": "Blue-winged Teal x Northern Shoveler (hybrid)"
+    },
+    {
+      "code": "gadwal",
+      "name": "赤膀鴨"
+    },
+    {
+      "code": "x00457",
+      "name": "琵嘴鴨x赤膀鴨(雜交)"
+    },
+    {
+      "code": "falduc",
+      "name": "羅文鴨"
+    },
+    {
+      "code": "eurwig",
+      "name": "赤頸鴨"
+    },
+    {
+      "code": "amewig",
+      "name": "葡萄胸鴨"
+    },
+    {
+      "code": "x00421",
+      "name": "赤頸鴨x葡萄胸鴨(雜交)"
+    },
+    {
+      "code": "y00670",
+      "name": "赤頸鴨/葡萄胸鴨"
+    },
+    {
+      "code": "phiduc1",
+      "name": "呂宋鴨"
+    },
+    {
+      "code": "spbduc",
+      "name": "花嘴鴨"
+    },
+    {
+      "code": "mallar3",
+      "name": "綠頭鴨"
+    },
+    {
+      "code": "mdxmal1",
+      "name": "疣鼻棲鴨x綠頭鴨(雜交)"
+    },
+    {
+      "code": "x00835",
+      "name": "花嘴鴨x綠頭鴨(雜交)"
+    },
+    {
+      "code": "norpin",
+      "name": "尖尾鴨"
+    },
+    {
+      "code": "gnwtea",
+      "name": "小水鴨"
+    },
+    {
+      "code": "y00766",
+      "name": "白眉鴨/小水鴨"
+    },
+    {
+      "code": "anas1",
+      "name": "Anas sp."
+    },
+    {
+      "code": "teal",
+      "name": "雁鴨科(小型水鴨類)"
+    },
+    {
+      "code": "dabduc1",
+      "name": "雁鴨科(浮水鴨類)"
+    },
+    {
+      "code": "recpoc",
+      "name": "赤嘴潛鴨"
+    },
+    {
+      "code": "compoc",
+      "name": "紅頭潛鴨"
+    },
+    {
+      "code": "rinduc",
+      "name": "環頸潛鴨"
+    },
+    {
+      "code": "ferduc",
+      "name": "白眼潛鴨"
+    },
+    {
+      "code": "x00764",
+      "name": "紅頭潛鴨x白眼潛鴨(雜交)"
+    },
+    {
+      "code": "baepoc1",
+      "name": "青頭潛鴨"
+    },
+    {
+      "code": "x00838",
+      "name": "白眼潛鴨x青頭潛鴨(雜交)"
+    },
+    {
+      "code": "y00709",
+      "name": "白眼潛鴨/青頭潛鴨"
+    },
+    {
+      "code": "tufduc",
+      "name": "鳳頭潛鴨"
+    },
+    {
+      "code": "x00839",
+      "name": "白眼潛鴨x鳳頭潛鴨(雜交)"
+    },
+    {
+      "code": "gresca",
+      "name": "斑背潛鴨"
+    },
+    {
+      "code": "x00654",
+      "name": "鳳頭潛鴨x斑背潛鴨(雜交)"
+    },
+    {
+      "code": "lessca",
+      "name": "小斑背潛鴨"
+    },
+    {
+      "code": "aythya1",
+      "name": "潛鴨屬"
+    },
+    {
+      "code": "whwsco1",
+      "name": "Stejneger's Scoter"
+    },
+    {
+      "code": "lotduc",
+      "name": "長尾鴨"
+    },
+    {
+      "code": "comgol",
+      "name": "鵲鴨"
+    },
+    {
+      "code": "smew",
+      "name": "白秋沙"
+    },
+    {
+      "code": "commer",
+      "name": "川秋沙"
+    },
+    {
+      "code": "rebmer",
+      "name": "紅胸秋沙"
+    },
+    {
+      "code": "scsmer1",
+      "name": "唐秋沙"
+    },
+    {
+      "code": "mergan1",
+      "name": "秋沙類"
+    },
+    {
+      "code": "duck1",
+      "name": "鴨亞科(鴨類)"
+    },
+    {
+      "code": "waterf1",
+      "name": "雁鴨科(雁鴨類)"
+    },
+    {
+      "code": "helgui",
+      "name": "普通珠雞"
+    },
+    {
+      "code": "taipar1",
+      "name": "臺灣山鷓鴣"
+    },
+    {
+      "code": "wiltur",
+      "name": "火雞"
+    },
+    {
+      "code": "mikphe1",
+      "name": "黑長尾雉"
+    },
+    {
+      "code": "golphe",
+      "name": "紅腹錦雞"
+    },
+    {
+      "code": "rinphe1",
+      "name": "環頸雉"
+    },
+    {
+      "code": "swiphe1",
+      "name": "藍腹鷴"
+    },
+    {
+      "code": "silphe",
+      "name": "白鷴"
+    },
+    {
+      "code": "compea",
+      "name": "藍孔雀"
+    },
+    {
+      "code": "pheasa1",
+      "name": "雉亞科(雉類)"
+    },
+    {
+      "code": "taibap1",
+      "name": "臺灣竹雞"
+    },
+    {
+      "code": "y01257",
+      "name": "灰胸竹雞/臺灣竹雞"
+    },
+    {
+      "code": "redjun",
+      "name": "紅原雞"
+    },
+    {
+      "code": "blbqua1",
+      "name": "小鵪鶉"
+    },
+    {
+      "code": "japqua",
+      "name": "鵪鶉"
+    },
+    {
+      "code": "rocpig",
+      "name": "原鴿"
+    },
+    {
+      "code": "aswpig1",
+      "name": "灰林鴿"
+    },
+    {
+      "code": "jawpig1",
+      "name": "黑林鴿"
+    },
+    {
+      "code": "metpig1",
+      "name": "白喉林鴿"
+    },
+    {
+      "code": "columb1",
+      "name": "鴿屬"
+    },
+    {
+      "code": "ortdov",
+      "name": "金背鳩"
+    },
+    {
+      "code": "eucdov",
+      "name": "灰斑鳩"
+    },
+    {
+      "code": "recdov1",
+      "name": "紅鳩"
+    },
+    {
+      "code": "y01078",
+      "name": "灰斑鳩/紅鳩"
+    },
+    {
+      "code": "strept1",
+      "name": "Streptopelia sp."
+    },
+    {
+      "code": "spodov",
+      "name": "珠頸斑鳩"
+    },
+    {
+      "code": "bacdov1",
+      "name": "斑尾鵑鳩"
+    },
+    {
+      "code": "phcdov1",
+      "name": "長尾鳩"
+    },
+    {
+      "code": "emedov2",
+      "name": "翠翼鳩"
+    },
+    {
+      "code": "diadov1",
+      "name": "雪花姬地鳩"
+    },
+    {
+      "code": "zebdov",
+      "name": "斑馬鳩"
+    },
+    {
+      "code": "orbpig1",
+      "name": "橙胸綠鳩"
+    },
+    {
+      "code": "whbpig1",
+      "name": "綠鳩"
+    },
+    {
+      "code": "whgpig1",
+      "name": "紅頭綠鳩"
+    },
+    {
+      "code": "treron1",
+      "name": "綠鳩屬"
+    },
+    {
+      "code": "bcfdov1",
+      "name": "小綠鳩"
+    },
+    {
+      "code": "dove1",
+      "name": "鳩鴿科"
+    },
+    {
+      "code": "grecou1",
+      "name": "褐翅鴉鵑"
+    },
+    {
+      "code": "lescou1",
+      "name": "番鵑"
+    },
+    {
+      "code": "y01087",
+      "name": "褐翅鴉鵑/番鵑"
+    },
+    {
+      "code": "coucal1",
+      "name": "coucal sp."
+    },
+    {
+      "code": "chwcuc1",
+      "name": "冠郭公"
+    },
+    {
+      "code": "piecuc1",
+      "name": "斑翅鳳頭鵑"
+    },
+    {
+      "code": "asikoe2",
+      "name": "噪鵑"
+    },
+    {
+      "code": "placuc1",
+      "name": "八聲杜鵑"
+    },
+    {
+      "code": "asidrc3",
+      "name": "方尾烏鵑"
+    },
+    {
+      "code": "larhac2",
+      "name": "鷹鵑"
+    },
+    {
+      "code": "nohcuc1",
+      "name": "北方鷹鵑"
+    },
+    {
+      "code": "hodhac1",
+      "name": "棕腹鷹鵑"
+    },
+    {
+      "code": "hawkcu1",
+      "name": "鷹鵑屬"
+    },
+    {
+      "code": "lescuc1",
+      "name": "小杜鵑"
+    },
+    {
+      "code": "indcuc1",
+      "name": "四聲杜鵑"
+    },
+    {
+      "code": "comcuc",
+      "name": "大杜鵑"
+    },
+    {
+      "code": "oricuc2",
+      "name": "北方中杜鵑"
+    },
+    {
+      "code": "y01094",
+      "name": "小杜鵑/北方中杜鵑"
+    },
+    {
+      "code": "y00730",
+      "name": "喜瑪拉雅中杜鵑/北方中杜鵑"
+    },
+    {
+      "code": "y00729",
+      "name": "大杜鵑/北方中杜鵑"
+    },
+    {
+      "code": "cuculu1",
+      "name": "杜鵑屬"
+    },
+    {
+      "code": "cuckoo3",
+      "name": "杜鵑科"
+    },
+    {
+      "code": "grynig1",
+      "name": "普通夜鷹"
+    },
+    {
+      "code": "savnig1",
+      "name": "南亞夜鷹"
+    },
+    {
+      "code": "caprim1",
+      "name": "夜鷹屬"
+    },
+    {
+      "code": "nightj1",
+      "name": "夜鷹科"
+    },
+    {
+      "code": "whtnee",
+      "name": "白喉針尾雨燕"
+    },
+    {
+      "code": "sibnee1",
+      "name": "灰喉針尾雨燕"
+    },
+    {
+      "code": "purnee1",
+      "name": "紫針尾雨燕"
+    },
+    {
+      "code": "hirund1",
+      "name": "針尾雨燕屬"
+    },
+    {
+      "code": "y00731",
+      "name": "白燕窩金絲燕"
+    },
+    {
+      "code": "aerodr1",
+      "name": "暗色金絲燕類(Aerodramus)"
+    },
+    {
+      "code": "swiftl1",
+      "name": "swiftlet sp."
+    },
+    {
+      "code": "fotswi",
+      "name": "叉尾雨燕"
+    },
+    {
+      "code": "houswi1",
+      "name": "小雨燕"
+    },
+    {
+      "code": "apus1",
+      "name": "Apus/Tachymarptis sp."
+    },
+    {
+      "code": "larswi1",
+      "name": "雨燕科(大型)"
+    },
+    {
+      "code": "smaswi1",
+      "name": "雨燕科(小型)"
+    },
+    {
+      "code": "swift1",
+      "name": "雨燕科"
+    },
+    {
+      "code": "watrai1",
+      "name": "西方秧雞"
+    },
+    {
+      "code": "bncrai1",
+      "name": "東亞秧雞"
+    },
+    {
+      "code": "y00949",
+      "name": "西方秧雞/東亞秧雞"
+    },
+    {
+      "code": "slbrai1",
+      "name": "灰胸秧雞"
+    },
+    {
+      "code": "spocra1",
+      "name": "斑胸秧雞"
+    },
+    {
+      "code": "commoo3",
+      "name": "紅冠水雞"
+    },
+    {
+      "code": "eurcoo",
+      "name": "白冠雞"
+    },
+    {
+      "code": "purswa3",
+      "name": "灰頭紫水雞"
+    },
+    {
+      "code": "purswa",
+      "name": "紫水雞屬"
+    },
+    {
+      "code": "y00614",
+      "name": "moorhen/coot/gallinule sp."
+    },
+    {
+      "code": "whbcra1",
+      "name": "白眉秧雞"
+    },
+    {
+      "code": "waterc1",
+      "name": "董雞"
+    },
+    {
+      "code": "plabuh1",
+      "name": "Plain Bush-hen"
+    },
+    {
+      "code": "whbwat1",
+      "name": "白腹秧雞"
+    },
+    {
+      "code": "sllcra1",
+      "name": "灰腳秧雞"
+    },
+    {
+      "code": "rallin1",
+      "name": "Rallina sp."
+    },
+    {
+      "code": "rubcra1",
+      "name": "緋秧雞"
+    },
+    {
+      "code": "babcra1",
+      "name": "斑脇秧雞"
+    },
+    {
+      "code": "brocra1",
+      "name": "紅腳苦惡鳥"
+    },
+    {
+      "code": "baicra1",
+      "name": "小秧雞"
+    },
+    {
+      "code": "rail1",
+      "name": "秧雞科"
+    },
+    {
+      "code": "sibcra1",
+      "name": "白鶴"
+    },
+    {
+      "code": "sancra",
+      "name": "沙丘鶴"
+    },
+    {
+      "code": "whncra1",
+      "name": "白枕鶴"
+    },
+    {
+      "code": "demcra1",
+      "name": "簑羽鶴"
+    },
+    {
+      "code": "reccra1",
+      "name": "丹頂鶴"
+    },
+    {
+      "code": "comcra",
+      "name": "灰鶴"
+    },
+    {
+      "code": "hoocra1",
+      "name": "白頭鶴"
+    },
+    {
+      "code": "crane1",
+      "name": "鶴科"
+    },
+    {
+      "code": "bkwsti",
+      "name": "高蹺鴴"
+    },
+    {
+      "code": "piesti1",
+      "name": "黑領高蹺鴴"
+    },
+    {
+      "code": "y00932",
+      "name": "高蹺鴴/黑領高蹺鴴"
+    },
+    {
+      "code": "pieavo1",
+      "name": "反嘴鴴"
+    },
+    {
+      "code": "y00722",
+      "name": "長腳鷸科"
+    },
+    {
+      "code": "euroys1",
+      "name": "蠣鴴"
+    },
+    {
+      "code": "bkbplo",
+      "name": "灰斑鴴"
+    },
+    {
+      "code": "eugplo",
+      "name": "European Golden-Plover"
+    },
+    {
+      "code": "pagplo",
+      "name": "太平洋金斑鴴"
+    },
+    {
+      "code": "y00222",
+      "name": "American/Pacific Golden-Plover (Lesser Golden-Plover)"
+    },
+    {
+      "code": "y00494",
+      "name": "Black-bellied Plover/golden-plover sp."
+    },
+    {
+      "code": "corplo",
+      "name": "環頸鴴"
+    },
+    {
+      "code": "y00845",
+      "name": "Common Ringed/Semipalmated Plover"
+    },
+    {
+      "code": "lirplo",
+      "name": "小環頸鴴"
+    },
+    {
+      "code": "lobplo1",
+      "name": "劍鴴"
+    },
+    {
+      "code": "norlap",
+      "name": "小辮鴴"
+    },
+    {
+      "code": "gyhlap1",
+      "name": "跳鴴"
+    },
+    {
+      "code": "oriplo1",
+      "name": "東方紅胸鴴"
+    },
+    {
+      "code": "lessap2",
+      "name": "蒙古鴴"
+    },
+    {
+      "code": "lessap1",
+      "name": "青藏鴴"
+    },
+    {
+      "code": "lesplo",
+      "name": "蒙古鴴/青藏鴴"
+    },
+    {
+      "code": "grsplo",
+      "name": "鐵嘴鴴"
+    },
+    {
+      "code": "y00648",
+      "name": "蒙古鴴/青藏鴴/鐵嘴鴴"
+    },
+    {
+      "code": "kenplo1",
+      "name": "東方環頸鴴"
+    },
+    {
+      "code": "whfplo2",
+      "name": "白臉鴴"
+    },
+    {
+      "code": "y00378",
+      "name": "東方環頸鴴/白臉鴴"
+    },
+    {
+      "code": "anarhy1",
+      "name": "Anarhynchus sp."
+    },
+    {
+      "code": "smaplo1",
+      "name": "小型鴴類"
+    },
+    {
+      "code": "plover2",
+      "name": "鴴科"
+    },
+    {
+      "code": "grpsni1",
+      "name": "彩鷸"
+    },
+    {
+      "code": "phtjac1",
+      "name": "水雉"
+    },
+    {
+      "code": "jacana1",
+      "name": "jacana sp."
+    },
+    {
+      "code": "whimbr3",
+      "name": "美洲中杓鷸"
+    },
+    {
+      "code": "whimbr5",
+      "name": "中杓鷸"
+    },
+    {
+      "code": "litcur",
+      "name": "小杓鷸"
+    },
+    {
+      "code": "faecur",
+      "name": "黦鷸"
+    },
+    {
+      "code": "eurcur",
+      "name": "大杓鷸"
+    },
+    {
+      "code": "y00774",
+      "name": "中杓鷸/大杓鷸"
+    },
+    {
+      "code": "y00952",
+      "name": "黦鷸/大杓鷸"
+    },
+    {
+      "code": "curlew1",
+      "name": "杓鷸屬"
+    },
+    {
+      "code": "batgod",
+      "name": "斑尾鷸"
+    },
+    {
+      "code": "bktgod",
+      "name": "黑尾鷸"
+    },
+    {
+      "code": "godwit1",
+      "name": "godwit sp."
+    },
+    {
+      "code": "asidow1",
+      "name": "半蹼鷸"
+    },
+    {
+      "code": "shbdow",
+      "name": "短嘴半蹼鷸"
+    },
+    {
+      "code": "lobdow",
+      "name": "長嘴半蹼鷸"
+    },
+    {
+      "code": "jacsni",
+      "name": "小鷸"
+    },
+    {
+      "code": "eurwoo",
+      "name": "山鷸"
+    },
+    {
+      "code": "solsni1",
+      "name": "孤田鷸"
+    },
+    {
+      "code": "swisni1",
+      "name": "中地鷸"
+    },
+    {
+      "code": "pitsni",
+      "name": "針尾鷸"
+    },
+    {
+      "code": "y00723",
+      "name": "中地鷸/針尾鷸"
+    },
+    {
+      "code": "comsni",
+      "name": "田鷸"
+    },
+    {
+      "code": "y00847",
+      "name": "田鷸/針尾鷸"
+    },
+    {
+      "code": "snipe2",
+      "name": "田鷸屬"
+    },
+    {
+      "code": "redpha1",
+      "name": "灰瓣足鷸"
+    },
+    {
+      "code": "renpha",
+      "name": "紅領瓣足鷸"
+    },
+    {
+      "code": "y00635",
+      "name": "灰瓣足鷸/紅領瓣足鷸"
+    },
+    {
+      "code": "phalar",
+      "name": "瓣足鷸屬"
+    },
+    {
+      "code": "tersan",
+      "name": "反嘴鷸"
+    },
+    {
+      "code": "comsan",
+      "name": "磯鷸"
+    },
+    {
+      "code": "grnsan",
+      "name": "白腰草鷸"
+    },
+    {
+      "code": "gyttat1",
+      "name": "黃足鷸"
+    },
+    {
+      "code": "wantat1",
+      "name": "美洲黃足鷸"
+    },
+    {
+      "code": "y00495",
+      "name": "黃足鷸/美洲黃足鷸"
+    },
+    {
+      "code": "marsan",
+      "name": "小青足鷸"
+    },
+    {
+      "code": "woosan",
+      "name": "鷹斑鷸"
+    },
+    {
+      "code": "comred1",
+      "name": "赤足鷸"
+    },
+    {
+      "code": "norgre1",
+      "name": "諾氏鷸"
+    },
+    {
+      "code": "spored",
+      "name": "鶴鷸"
+    },
+    {
+      "code": "comgre",
+      "name": "青足鷸"
+    },
+    {
+      "code": "y00954",
+      "name": "諾氏鷸/青足鷸"
+    },
+    {
+      "code": "tringa1",
+      "name": "Tringa sp."
+    },
+    {
+      "code": "rudtur",
+      "name": "翻石鷸"
+    },
+    {
+      "code": "grekno",
+      "name": "大濱鷸"
+    },
+    {
+      "code": "redkno",
+      "name": "紅腹濱鷸"
+    },
+    {
+      "code": "ruff",
+      "name": "流蘇鷸"
+    },
+    {
+      "code": "brbsan",
+      "name": "寬嘴鷸"
+    },
+    {
+      "code": "shtsan",
+      "name": "尖尾濱鷸"
+    },
+    {
+      "code": "cursan",
+      "name": "彎嘴濱鷸"
+    },
+    {
+      "code": "temsti",
+      "name": "丹氏濱鷸"
+    },
+    {
+      "code": "lotsti",
+      "name": "長趾濱鷸"
+    },
+    {
+      "code": "rensti",
+      "name": "紅胸濱鷸"
+    },
+    {
+      "code": "spbsan1",
+      "name": "琵嘴鷸"
+    },
+    {
+      "code": "bubsan",
+      "name": "黃胸鷸"
+    },
+    {
+      "code": "sander",
+      "name": "三趾濱鷸"
+    },
+    {
+      "code": "dunlin",
+      "name": "黑腹濱鷸"
+    },
+    {
+      "code": "y01074",
+      "name": "彎嘴濱鷸/黑腹濱鷸"
+    },
+    {
+      "code": "litsti",
+      "name": "小濱鷸"
+    },
+    {
+      "code": "y00497",
+      "name": "紅胸濱鷸/小濱鷸"
+    },
+    {
+      "code": "pecsan",
+      "name": "美洲尖尾濱鷸"
+    },
+    {
+      "code": "y00705",
+      "name": "尖尾濱鷸/美洲尖尾濱鷸"
+    },
+    {
+      "code": "calidr",
+      "name": "濱鷸屬(小型)"
+    },
+    {
+      "code": "calidr1",
+      "name": "濱鷸屬"
+    },
+    {
+      "code": "scolop1",
+      "name": "鷸科"
+    },
+    {
+      "code": "larsho1",
+      "name": "鴴形目(大型水鳥)"
+    },
+    {
+      "code": "yelbut1",
+      "name": "黃腳三趾鶉"
+    },
+    {
+      "code": "barbut1",
+      "name": "棕三趾鶉"
+    },
+    {
+      "code": "button1",
+      "name": "三趾鶉屬"
+    },
+    {
+      "code": "oripra",
+      "name": "燕鴴"
+    },
+    {
+      "code": "shoreb1",
+      "name": "鴴形目(水鳥)"
+    },
+    {
+      "code": "lotjae",
+      "name": "長尾賊鷗"
+    },
+    {
+      "code": "parjae",
+      "name": "短尾賊鷗"
+    },
+    {
+      "code": "y00481",
+      "name": "短尾賊鷗/長尾賊鷗"
+    },
+    {
+      "code": "pomjae",
+      "name": "中賊鷗"
+    },
+    {
+      "code": "y00480",
+      "name": "中賊鷗/長尾賊鷗"
+    },
+    {
+      "code": "y00479",
+      "name": "中賊鷗/短尾賊鷗"
+    },
+    {
+      "code": "sopsku1",
+      "name": "灰賊鷗"
+    },
+    {
+      "code": "jaeger",
+      "name": "賊鷗科(jaeger sp.)"
+    },
+    {
+      "code": "y00615",
+      "name": "賊鷗科"
+    },
+    {
+      "code": "commur",
+      "name": "崖海鴉"
+    },
+    {
+      "code": "ancmur",
+      "name": "扁嘴海雀"
+    },
+    {
+      "code": "japmur1",
+      "name": "冠海雀"
+    },
+    {
+      "code": "murrel",
+      "name": "murrelet sp."
+    },
+    {
+      "code": "litgul",
+      "name": "小鷗"
+    },
+    {
+      "code": "rosgul",
+      "name": "楔尾鷗"
+    },
+    {
+      "code": "bklkit",
+      "name": "三趾鷗"
+    },
+    {
+      "code": "sabgul",
+      "name": "叉尾鷗"
+    },
+    {
+      "code": "saugul2",
+      "name": "黑嘴鷗"
+    },
+    {
+      "code": "slbgul1",
+      "name": "細嘴鷗"
+    },
+    {
+      "code": "silgul2",
+      "name": "紐澳紅嘴鷗"
+    },
+    {
+      "code": "bkhgul",
+      "name": "紅嘴鷗"
+    },
+    {
+      "code": "y00778",
+      "name": "細嘴鷗/紅嘴鷗"
+    },
+    {
+      "code": "bnhgul1",
+      "name": "棕頭鷗"
+    },
+    {
+      "code": "y00955",
+      "name": "紅嘴鷗/棕頭鷗"
+    },
+    {
+      "code": "laugul",
+      "name": "笑鷗"
+    },
+    {
+      "code": "fragul",
+      "name": "弗氏鷗"
+    },
+    {
+      "code": "gbhgul2",
+      "name": "漁鷗"
+    },
+    {
+      "code": "relgul2",
+      "name": "遺鷗"
+    },
+    {
+      "code": "bktgul",
+      "name": "黑尾鷗"
+    },
+    {
+      "code": "mewgul",
+      "name": "歐亞海鷗"
+    },
+    {
+      "code": "veggul1",
+      "name": "西伯利亞銀鷗"
+    },
+    {
+      "code": "casgul4",
+      "name": "蒙古銀鷗"
+    },
+    {
+      "code": "y01295",
+      "name": "西伯利亞銀鷗/蒙古銀鷗"
+    },
+    {
+      "code": "glagul",
+      "name": "北極鷗"
+    },
+    {
+      "code": "lbbgul",
+      "name": "小黑背鷗"
+    },
+    {
+      "code": "y00726",
+      "name": "銀鷗複合群/小黑背鷗"
+    },
+    {
+      "code": "slbgul",
+      "name": "灰背鷗"
+    },
+    {
+      "code": "larus1",
+      "name": "Larus sp."
+    },
+    {
+      "code": "larus",
+      "name": "鷗亞科"
+    },
+    {
+      "code": "whiter4",
+      "name": "白燕鷗"
+    },
+    {
+      "code": "brnnod",
+      "name": "玄燕鷗"
+    },
+    {
+      "code": "blknod",
+      "name": "黑玄燕鷗"
+    },
+    {
+      "code": "noddy",
+      "name": "玄燕鷗/黑玄燕鷗"
+    },
+    {
+      "code": "aleter1",
+      "name": "白腰燕鷗"
+    },
+    {
+      "code": "sooter1",
+      "name": "烏領燕鷗"
+    },
+    {
+      "code": "briter1",
+      "name": "白眉燕鷗"
+    },
+    {
+      "code": "y00318",
+      "name": "烏領燕鷗/白眉燕鷗"
+    },
+    {
+      "code": "litter1",
+      "name": "小燕鷗"
+    },
+    {
+      "code": "gubter2",
+      "name": "鷗嘴燕鷗"
+    },
+    {
+      "code": "caster1",
+      "name": "裏海燕鷗"
+    },
+    {
+      "code": "whiter2",
+      "name": "黑腹燕鷗"
+    },
+    {
+      "code": "blkter",
+      "name": "黑浮鷗"
+    },
+    {
+      "code": "whwter",
+      "name": "白翅黑燕鷗"
+    },
+    {
+      "code": "chlido1",
+      "name": "浮鷗屬"
+    },
+    {
+      "code": "comter",
+      "name": "燕鷗"
+    },
+    {
+      "code": "blnter1",
+      "name": "蒼燕鷗"
+    },
+    {
+      "code": "roster",
+      "name": "紅燕鷗"
+    },
+    {
+      "code": "sterna",
+      "name": "燕鷗屬"
+    },
+    {
+      "code": "santer1",
+      "name": "白嘴端燕鷗"
+    },
+    {
+      "code": "lecter2",
+      "name": "小鳳頭燕鷗"
+    },
+    {
+      "code": "grcter1",
+      "name": "鳳頭燕鷗"
+    },
+    {
+      "code": "chcter2",
+      "name": "黑嘴端鳳頭燕鷗"
+    },
+    {
+      "code": "x00848",
+      "name": "鳳頭燕鷗x黑嘴端鳳頭燕鷗(雜交)"
+    },
+    {
+      "code": "thalas1",
+      "name": "鳳頭燕鷗屬"
+    },
+    {
+      "code": "larter1",
+      "name": "大型燕鷗類(Hydroprogne/Thalasseus)"
+    },
+    {
+      "code": "tern1",
+      "name": "燕鷗亞科"
+    },
+    {
+      "code": "y00728",
+      "name": "鷗科(鷗或燕鷗類)"
+    },
+    {
+      "code": "grefla3",
+      "name": "大紅鸛"
+    },
+    {
+      "code": "litgre1",
+      "name": "小鸊鷉"
+    },
+    {
+      "code": "horgre",
+      "name": "角鸊鷉"
+    },
+    {
+      "code": "rengre",
+      "name": "赤頸鸊鷉"
+    },
+    {
+      "code": "grcgre1",
+      "name": "冠鸊鷉"
+    },
+    {
+      "code": "eargre",
+      "name": "黑頸鸊鷉"
+    },
+    {
+      "code": "y00229",
+      "name": "角鸊鷉/黑頸鸊鷉"
+    },
+    {
+      "code": "podice1",
+      "name": "鸊鷉屬"
+    },
+    {
+      "code": "grebe1",
+      "name": "鸊鷉科"
+    },
+    {
+      "code": "whttro",
+      "name": "白尾熱帶鳥"
+    },
+    {
+      "code": "rebtro",
+      "name": "紅嘴熱帶鳥"
+    },
+    {
+      "code": "rettro",
+      "name": "紅尾熱帶鳥"
+    },
+    {
+      "code": "tropic1",
+      "name": "熱帶鳥屬"
+    },
+    {
+      "code": "retloo",
+      "name": "紅喉潛鳥"
+    },
+    {
+      "code": "arcloo",
+      "name": "黑喉潛鳥"
+    },
+    {
+      "code": "layalb",
+      "name": "黑背信天翁"
+    },
+    {
+      "code": "bkfalb",
+      "name": "黑腳信天翁"
+    },
+    {
+      "code": "shtalb",
+      "name": "短尾信天翁"
+    },
+    {
+      "code": "albatr1",
+      "name": "信天翁科"
+    },
+    {
+      "code": "wispet",
+      "name": "黃蹼洋海燕"
+    },
+    {
+      "code": "lcspet",
+      "name": "白腰叉尾海燕"
+    },
+    {
+      "code": "swspet",
+      "name": "黑叉尾海燕"
+    },
+    {
+      "code": "trspet",
+      "name": "褐翅叉尾海燕"
+    },
+    {
+      "code": "oceano1",
+      "name": "叉尾海燕屬"
+    },
+    {
+      "code": "stormp1",
+      "name": "洋海燕屬/叉尾海燕屬(暗腰)"
+    },
+    {
+      "code": "stormp2",
+      "name": "洋海燕屬/叉尾海燕屬(白腰)"
+    },
+    {
+      "code": "stopet",
+      "name": "洋海燕屬/叉尾海燕屬"
+    },
+    {
+      "code": "norful",
+      "name": "暴風鸌"
+    },
+    {
+      "code": "kerpet",
+      "name": "克島圓尾鸌"
+    },
+    {
+      "code": "solpet1",
+      "name": "索氏圓尾鸌"
+    },
+    {
+      "code": "bonpet",
+      "name": "白腹穴鳥"
+    },
+    {
+      "code": "coopet1",
+      "name": "Cookilaria petrel sp."
+    },
+    {
+      "code": "pterod",
+      "name": "Pterodroma sp."
+    },
+    {
+      "code": "bulpet",
+      "name": "穴鳥"
+    },
+    {
+      "code": "tahpet1",
+      "name": "黑背白腹穴鳥"
+    },
+    {
+      "code": "strshe",
+      "name": "大水薙鳥"
+    },
+    {
+      "code": "flfshe",
+      "name": "肉足水薙鳥"
+    },
+    {
+      "code": "wetshe",
+      "name": "長尾水薙鳥"
+    },
+    {
+      "code": "sooshe",
+      "name": "灰水薙鳥"
+    },
+    {
+      "code": "shtshe",
+      "name": "短尾水薙鳥"
+    },
+    {
+      "code": "y00020",
+      "name": "灰水薙鳥/短尾水薙鳥"
+    },
+    {
+      "code": "chrshe",
+      "name": "黑細鸌"
+    },
+    {
+      "code": "troshe5",
+      "name": "熱帶細鸌"
+    },
+    {
+      "code": "bawshe1",
+      "name": "small shearwater sp."
+    },
+    {
+      "code": "shearw",
+      "name": "水薙鳥類"
+    },
+    {
+      "code": "procel2",
+      "name": "鸌科"
+    },
+    {
+      "code": "blasto1",
+      "name": "黑鸛"
+    },
+    {
+      "code": "oristo1",
+      "name": "東方白鸛"
+    },
+    {
+      "code": "lesfri",
+      "name": "白斑軍艦鳥"
+    },
+    {
+      "code": "grefri",
+      "name": "軍艦鳥"
+    },
+    {
+      "code": "chifri1",
+      "name": "聖誕島軍艦鳥"
+    },
+    {
+      "code": "frigat",
+      "name": "軍艦鳥屬"
+    },
+    {
+      "code": "refboo",
+      "name": "紅腳鰹鳥"
+    },
+    {
+      "code": "brnboo",
+      "name": "白腹鰹鳥"
+    },
+    {
+      "code": "masboo",
+      "name": "藍臉鰹鳥"
+    },
+    {
+      "code": "nazboo1",
+      "name": "Nazca Booby"
+    },
+    {
+      "code": "booby1",
+      "name": "鰹鳥屬"
+    },
+    {
+      "code": "pelcor",
+      "name": "海鸕鷀"
+    },
+    {
+      "code": "grecor",
+      "name": "鸕鷀"
+    },
+    {
+      "code": "japcor1",
+      "name": "丹氏鸕鷀"
+    },
+    {
+      "code": "y01020",
+      "name": "鸕鷀/丹氏鸕鷀"
+    },
+    {
+      "code": "cormor1",
+      "name": "鸕鷀科"
+    },
+    {
+      "code": "gloibi",
+      "name": "彩䴉"
+    },
+    {
+      "code": "sacibi2",
+      "name": "埃及聖䴉"
+    },
+    {
+      "code": "blhibi1",
+      "name": "黑頭白䴉"
+    },
+    {
+      "code": "eurspo1",
+      "name": "白琵鷺"
+    },
+    {
+      "code": "blfspo1",
+      "name": "黑面琵鷺"
+    },
+    {
+      "code": "x00883",
+      "name": "白琵鷺x黑面琵鷺(雜交)"
+    },
+    {
+      "code": "spoonb1",
+      "name": "琵鷺屬"
+    },
+    {
+      "code": "grebit1",
+      "name": "大麻鷺"
+    },
+    {
+      "code": "blabit1",
+      "name": "黃頸黑鷺"
+    },
+    {
+      "code": "cinbit1",
+      "name": "栗小鷺"
+    },
+    {
+      "code": "schbit1",
+      "name": "秋小鷺"
+    },
+    {
+      "code": "y01116",
+      "name": "栗小鷺/秋小鷺"
+    },
+    {
+      "code": "yelbit",
+      "name": "黃小鷺"
+    },
+    {
+      "code": "smabit1",
+      "name": "small bittern sp."
+    },
+    {
+      "code": "bcnher",
+      "name": "夜鷺"
+    },
+    {
+      "code": "runher1",
+      "name": "棕夜鷺"
+    },
+    {
+      "code": "x01041",
+      "name": "夜鷺x棕夜鷺(雜交)"
+    },
+    {
+      "code": "y00940",
+      "name": "夜鷺/棕夜鷺"
+    },
+    {
+      "code": "manher1",
+      "name": "黑冠麻鷺"
+    },
+    {
+      "code": "janher1",
+      "name": "麻鷺"
+    },
+    {
+      "code": "y00941",
+      "name": "黑冠麻鷺/麻鷺"
+    },
+    {
+      "code": "pacreh1",
+      "name": "岩鷺"
+    },
+    {
+      "code": "chiegr",
+      "name": "唐白鷺"
+    },
+    {
+      "code": "litegr",
+      "name": "小白鷺"
+    },
+    {
+      "code": "pieher2",
+      "name": "白頸黑鷺"
+    },
+    {
+      "code": "strher1",
+      "name": "綠簑鷺"
+    },
+    {
+      "code": "inpher1",
+      "name": "印度池鷺"
+    },
+    {
+      "code": "chpher1",
+      "name": "池鷺"
+    },
+    {
+      "code": "japher1",
+      "name": "爪哇池鷺"
+    },
+    {
+      "code": "pondhe1",
+      "name": "池鷺屬"
+    },
+    {
+      "code": "categr2",
+      "name": "黃頭鷺"
+    },
+    {
+      "code": "greegr",
+      "name": "大白鷺"
+    },
+    {
+      "code": "integr1",
+      "name": "中白鷺"
+    },
+    {
+      "code": "y01238",
+      "name": "大白鷺/中白鷺"
+    },
+    {
+      "code": "graher1",
+      "name": "蒼鷺"
+    },
+    {
+      "code": "purher1",
+      "name": "紫鷺"
+    },
+    {
+      "code": "y01021",
+      "name": "蒼鷺/紫鷺"
+    },
+    {
+      "code": "heron1",
+      "name": "鷺科"
+    },
+    {
+      "code": "whiegr1",
+      "name": "白鷺類"
+    },
+    {
+      "code": "grwpel1",
+      "name": "白鵜鶘"
+    },
+    {
+      "code": "dalpel1",
+      "name": "卷羽鵜鶘"
+    },
+    {
+      "code": "osprey",
+      "name": "魚鷹"
+    },
+    {
+      "code": "bkskit1",
+      "name": "黑翅鳶"
+    },
+    {
+      "code": "blabaz1",
+      "name": "黑冠鵑隼"
+    },
+    {
+      "code": "orihob2",
+      "name": "東方蜂鷹"
+    },
+    {
+      "code": "cinvul1",
+      "name": "禿鷲"
+    },
+    {
+      "code": "crseag1",
+      "name": "大冠鷲"
+    },
+    {
+      "code": "mouhae1",
+      "name": "熊鷹"
+    },
+    {
+      "code": "blaeag1",
+      "name": "林鵰"
+    },
+    {
+      "code": "grseag1",
+      "name": "花鵰"
+    },
+    {
+      "code": "booeag1",
+      "name": "靴隼鵰"
+    },
+    {
+      "code": "impeag1",
+      "name": "白肩鵰"
+    },
+    {
+      "code": "goleag",
+      "name": "金鵰"
+    },
+    {
+      "code": "boneag2",
+      "name": "白腹鵰"
+    },
+    {
+      "code": "aquila1",
+      "name": "真鵰屬"
+    },
+    {
+      "code": "cregos1",
+      "name": "鳳頭蒼鷹"
+    },
+    {
+      "code": "besra1",
+      "name": "松雀鷹"
+    },
+    {
+      "code": "y01073",
+      "name": "鳳頭蒼鷹/松雀鷹"
+    },
+    {
+      "code": "japspa1",
+      "name": "日本松雀鷹"
+    },
+    {
+      "code": "y00943",
+      "name": "松雀鷹/日本松雀鷹"
+    },
+    {
+      "code": "shikra1",
+      "name": "褐耳鷹"
+    },
+    {
+      "code": "grfhaw1",
+      "name": "赤腹鷹"
+    },
+    {
+      "code": "eurspa1",
+      "name": "北雀鷹"
+    },
+    {
+      "code": "norgos1",
+      "name": "蒼鷹"
+    },
+    {
+      "code": "accipi",
+      "name": "雀鷹類(原雀鷹屬)"
+    },
+    {
+      "code": "wemhar1",
+      "name": "西方澤鵟"
+    },
+    {
+      "code": "easmah1",
+      "name": "東方澤鵟"
+    },
+    {
+      "code": "norhar1",
+      "name": "灰澤鵟"
+    },
+    {
+      "code": "piehar1",
+      "name": "花澤鵟"
+    },
+    {
+      "code": "harrie1",
+      "name": "澤鵟屬"
+    },
+    {
+      "code": "blakit1",
+      "name": "黑鳶"
+    },
+    {
+      "code": "brakit1",
+      "name": "栗鳶"
+    },
+    {
+      "code": "whteag",
+      "name": "白尾海鵰"
+    },
+    {
+      "code": "wbseag1",
+      "name": "白腹海鵰"
+    },
+    {
+      "code": "gyfbuz1",
+      "name": "灰面鵟鷹"
+    },
+    {
+      "code": "hrshaw",
+      "name": "栗翅鷹"
+    },
+    {
+      "code": "rolhaw",
+      "name": "毛足鵟"
+    },
+    {
+      "code": "uplbuz1",
+      "name": "大鵟"
+    },
+    {
+      "code": "combuz6",
+      "name": "東方鵟"
+    },
+    {
+      "code": "y00947",
+      "name": "Common/Himalayan/Eastern Buzzard"
+    },
+    {
+      "code": "buteo",
+      "name": "鵟屬"
+    },
+    {
+      "code": "y00221",
+      "name": "鵟屬/鵰類"
+    },
+    {
+      "code": "hawk",
+      "name": "鷹科(中、小型)"
+    },
+    {
+      "code": "eagle1",
+      "name": "鷹科(中、大型)"
+    },
+    {
+      "code": "ausgro1",
+      "name": "草鴞"
+    },
+    {
+      "code": "mosowl2",
+      "name": "黃嘴角鴞"
+    },
+    {
+      "code": "cosowl1",
+      "name": "領角鴞"
+    },
+    {
+      "code": "ryusco1",
+      "name": "蘭嶼角鴞"
+    },
+    {
+      "code": "orsowl",
+      "name": "東方角鴞"
+    },
+    {
+      "code": "otus1",
+      "name": "角鴞屬"
+    },
+    {
+      "code": "eueowl1",
+      "name": "鵰鴞"
+    },
+    {
+      "code": "tafowl1",
+      "name": "黃魚鴞"
+    },
+    {
+      "code": "colowl1",
+      "name": "鵂鶹"
+    },
+    {
+      "code": "brwowl1",
+      "name": "褐林鴞"
+    },
+    {
+      "code": "himowl1",
+      "name": "東方灰林鴞"
+    },
+    {
+      "code": "loeowl",
+      "name": "長耳鴞"
+    },
+    {
+      "code": "sheowl",
+      "name": "短耳鴞"
+    },
+    {
+      "code": "y00673",
+      "name": "長耳鴞/短耳鴞"
+    },
+    {
+      "code": "norboo1",
+      "name": "褐鷹鴞"
+    },
+    {
+      "code": "owl1",
+      "name": "鴞形目"
+    },
+    {
+      "code": "hoopoe",
+      "name": "戴勝"
+    },
+    {
+      "code": "truhor1",
+      "name": "Trumpeter Hornbill"
+    },
+    {
+      "code": "grnbee3",
+      "name": "Asian Green Bee-eater"
+    },
+    {
+      "code": "btbeat2",
+      "name": "藍喉蜂虎"
+    },
+    {
+      "code": "bcbeat1",
+      "name": "藍頰蜂虎"
+    },
+    {
+      "code": "btbeat1",
+      "name": "栗喉蜂虎"
+    },
+    {
+      "code": "rabeat1",
+      "name": "彩虹蜂虎"
+    },
+    {
+      "code": "comkin1",
+      "name": "翠鳥"
+    },
+    {
+      "code": "bkbkin1",
+      "name": "黑背三趾翠鳥"
+    },
+    {
+      "code": "laukoo1",
+      "name": "Laughing Kookaburra"
+    },
+    {
+      "code": "rudkin1",
+      "name": "赤翡翠"
+    },
+    {
+      "code": "whtkin2",
+      "name": "蒼翡翠"
+    },
+    {
+      "code": "blckin1",
+      "name": "黑頭翡翠"
+    },
+    {
+      "code": "colkin1",
+      "name": "白領翡翠"
+    },
+    {
+      "code": "piekin1",
+      "name": "斑翡翠"
+    },
+    {
+      "code": "kingfi1",
+      "name": "翠鳥科"
+    },
+    {
+      "code": "dollar1",
+      "name": "佛法僧"
+    },
+    {
+      "code": "taibar2",
+      "name": "五色鳥"
+    },
+    {
+      "code": "eurwry",
+      "name": "地啄木"
+    },
+    {
+      "code": "gycwoo1",
+      "name": "小啄木"
+    },
+    {
+      "code": "rubwoo1",
+      "name": "棕腹啄木"
+    },
+    {
+      "code": "whbwoo1",
+      "name": "大赤啄木"
+    },
+    {
+      "code": "gyfwoo1",
+      "name": "綠啄木"
+    },
+    {
+      "code": "picus1",
+      "name": "綠啄木屬"
+    },
+    {
+      "code": "woodpe1",
+      "name": "啄木鳥科"
+    },
+    {
+      "code": "eurkes",
+      "name": "紅隼"
+    },
+    {
+      "code": "amufal1",
+      "name": "紅腳隼"
+    },
+    {
+      "code": "merlin",
+      "name": "灰背隼"
+    },
+    {
+      "code": "eurhob",
+      "name": "燕隼"
+    },
+    {
+      "code": "perfal",
+      "name": "遊隼"
+    },
+    {
+      "code": "larfal",
+      "name": "大型隼"
+    },
+    {
+      "code": "smafal",
+      "name": "小型隼"
+    },
+    {
+      "code": "falcon",
+      "name": "隼屬"
+    },
+    {
+      "code": "diurap1",
+      "name": "日行性猛禽類"
+    },
+    {
+      "code": "cockat",
+      "name": "雞尾鸚鵡"
+    },
+    {
+      "code": "tancoc1",
+      "name": "戈芬氏鳳頭鸚鵡"
+    },
+    {
+      "code": "duccoc1",
+      "name": "Solomons Corella"
+    },
+    {
+      "code": "whicoc1",
+      "name": "白鳳頭鸚鵡"
+    },
+    {
+      "code": "succoc",
+      "name": "葵花鳳頭鸚鵡"
+    },
+    {
+      "code": "cacatu1",
+      "name": "鳳頭鸚鵡屬"
+    },
+    {
+      "code": "eclpar",
+      "name": "折衷鸚鵡屬"
+    },
+    {
+      "code": "alepar2",
+      "name": "亞歷山大鸚鵡"
+    },
+    {
+      "code": "rorpar",
+      "name": "紅領綠鸚鵡"
+    },
+    {
+      "code": "y01061",
+      "name": "Alexandrine/Rose-ringed Parakeet"
+    },
+    {
+      "code": "budger",
+      "name": "虎皮鸚鵡"
+    },
+    {
+      "code": "redlor1",
+      "name": "紅色吸蜜鸚鵡"
+    },
+    {
+      "code": "railor4",
+      "name": "新幾內亞彩虹吸蜜鸚鵡"
+    },
+    {
+      "code": "railor5",
+      "name": "彩虹吸蜜鸚鵡"
+    },
+    {
+      "code": "railor7",
+      "name": "紅領吸蜜鸚鵡"
+    },
+    {
+      "code": "railor1",
+      "name": "彩虹吸蜜鸚鵡複合群"
+    },
+    {
+      "code": "peflov",
+      "name": "桃臉愛情鳥"
+    },
+    {
+      "code": "fislov1",
+      "name": "費氏愛情鳥"
+    },
+    {
+      "code": "yeclov",
+      "name": "黃領愛情鳥"
+    },
+    {
+      "code": "grepar",
+      "name": "灰鸚鵡"
+    },
+    {
+      "code": "senpar",
+      "name": "塞內加爾鸚鵡"
+    },
+    {
+      "code": "monpar",
+      "name": "和尚鸚鵡"
+    },
+    {
+      "code": "sunpar1",
+      "name": "太陽鸚鵡"
+    },
+    {
+      "code": "yecmac",
+      "name": "黃領金剛鸚鵡"
+    },
+    {
+      "code": "baymac",
+      "name": "藍黃金剛鸚鵡"
+    },
+    {
+      "code": "scamac1",
+      "name": "緋紅金剛鸚鵡"
+    },
+    {
+      "code": "ragmac1",
+      "name": "紅綠金剛鸚鵡"
+    },
+    {
+      "code": "larmac1",
+      "name": "大型金剛鸚鵡類"
+    },
+    {
+      "code": "resmac2",
+      "name": "紅肩金剛鸚鵡"
+    },
+    {
+      "code": "rempar",
+      "name": "紅臉鸚鵡"
+    },
+    {
+      "code": "parake",
+      "name": "鸚鵡目(parakeet sp.)"
+    },
+    {
+      "code": "parrot",
+      "name": "鸚鵡目(parrot sp.)"
+    },
+    {
+      "code": "blwpit1",
+      "name": "藍翅八色鳥"
+    },
+    {
+      "code": "faipit1",
+      "name": "八色鳥"
+    },
+    {
+      "code": "wehpit1",
+      "name": "綠胸八色鳥"
+    },
+    {
+      "code": "pitta2",
+      "name": "Pitta sp. (genus Pitta)"
+    },
+    {
+      "code": "gycmin1",
+      "name": "灰喉山椒鳥"
+    },
+    {
+      "code": "scamin1",
+      "name": "赤紅山椒鳥"
+    },
+    {
+      "code": "ryumin1",
+      "name": "琉球山椒鳥"
+    },
+    {
+      "code": "ashmin1",
+      "name": "灰山椒鳥"
+    },
+    {
+      "code": "y01115",
+      "name": "琉球山椒鳥/灰山椒鳥"
+    },
+    {
+      "code": "brrmin1",
+      "name": "小灰山椒鳥"
+    },
+    {
+      "code": "y00974",
+      "name": "灰山椒鳥/小灰山椒鳥"
+    },
+    {
+      "code": "rosmin1",
+      "name": "粉紅山椒鳥"
+    },
+    {
+      "code": "minive2",
+      "name": "紅黃色系山椒鳥類"
+    },
+    {
+      "code": "minive3",
+      "name": "灰色系山椒鳥類"
+    },
+    {
+      "code": "minive1",
+      "name": "山椒鳥屬(Pericrocotus)"
+    },
+    {
+      "code": "larcuc11",
+      "name": "花翅山椒鳥"
+    },
+    {
+      "code": "bkwcus1",
+      "name": "黑翅山椒鳥"
+    },
+    {
+      "code": "whbyuh1",
+      "name": "綠畫眉"
+    },
+    {
+      "code": "blnori1",
+      "name": "黃鸝"
+    },
+    {
+      "code": "marori2",
+      "name": "朱鸝"
+    },
+    {
+      "code": "phipif1",
+      "name": "菲律賓扇尾鶲"
+    },
+    {
+      "code": "bladro1",
+      "name": "大卷尾"
+    },
+    {
+      "code": "ashdro1",
+      "name": "灰卷尾"
+    },
+    {
+      "code": "y00638",
+      "name": "大卷尾/灰卷尾"
+    },
+    {
+      "code": "brodro1",
+      "name": "小卷尾"
+    },
+    {
+      "code": "hacdro1",
+      "name": "髮冠卷尾"
+    },
+    {
+      "code": "drongo1",
+      "name": "卷尾屬"
+    },
+    {
+      "code": "blnmon1",
+      "name": "黑枕藍鶲"
+    },
+    {
+      "code": "japfly1",
+      "name": "紫綬帶"
+    },
+    {
+      "code": "amupaf1",
+      "name": "阿穆爾綬帶"
+    },
+    {
+      "code": "y00976",
+      "name": "紫綬帶/阿穆爾綬帶"
+    },
+    {
+      "code": "y00742",
+      "name": "Amur/Blyth's/Indian Paradise-Flycatcher"
+    },
+    {
+      "code": "paradi1",
+      "name": "綬帶屬"
+    },
+    {
+      "code": "tigshr1",
+      "name": "虎紋伯勞"
+    },
+    {
+      "code": "buhshr1",
+      "name": "紅頭伯勞"
+    },
+    {
+      "code": "rebshr1",
+      "name": "紅背伯勞"
+    },
+    {
+      "code": "isashr1",
+      "name": "荒漠伯勞"
+    },
+    {
+      "code": "brnshr",
+      "name": "紅尾伯勞"
+    },
+    {
+      "code": "burshr1",
+      "name": "栗背伯勞"
+    },
+    {
+      "code": "lotshr1",
+      "name": "棕背伯勞"
+    },
+    {
+      "code": "gybshr1",
+      "name": "灰背伯勞"
+    },
+    {
+      "code": "norshr1",
+      "name": "西方灰伯勞"
+    },
+    {
+      "code": "chgshr1",
+      "name": "楔尾伯勞"
+    },
+    {
+      "code": "shrike",
+      "name": "伯勞屬"
+    },
+    {
+      "code": "eurjay1",
+      "name": "松鴉"
+    },
+    {
+      "code": "azwmag2",
+      "name": "灰喜鵲"
+    },
+    {
+      "code": "formag1",
+      "name": "臺灣藍鵲"
+    },
+    {
+      "code": "rbbmag",
+      "name": "紅嘴藍鵲"
+    },
+    {
+      "code": "grytre1",
+      "name": "樹鵲"
+    },
+    {
+      "code": "orimag1",
+      "name": "喜鵲"
+    },
+    {
+      "code": "eurnut4",
+      "name": "星鴉"
+    },
+    {
+      "code": "rebcho1",
+      "name": "紅嘴山鴉"
+    },
+    {
+      "code": "daujac1",
+      "name": "東方寒鴉"
+    },
+    {
+      "code": "houcro1",
+      "name": "家烏鴉"
+    },
+    {
+      "code": "rook1",
+      "name": "禿鼻鴉"
+    },
+    {
+      "code": "carcro1",
+      "name": "小嘴烏鴉"
+    },
+    {
+      "code": "labcro1",
+      "name": "巨嘴鴉"
+    },
+    {
+      "code": "y01259",
+      "name": "小嘴烏鴉/巨嘴鴉"
+    },
+    {
+      "code": "colcro1",
+      "name": "玉頸鴉"
+    },
+    {
+      "code": "crow",
+      "name": "鴉屬"
+    },
+    {
+      "code": "y00639",
+      "name": "crow/raven sp."
+    },
+    {
+      "code": "corvid2",
+      "name": "鴉科"
+    },
+    {
+      "code": "gyhcaf1",
+      "name": "方尾鶲"
+    },
+    {
+      "code": "coatit2",
+      "name": "煤山雀"
+    },
+    {
+      "code": "yebtit4",
+      "name": "黃腹山雀"
+    },
+    {
+      "code": "vartit3",
+      "name": "赤腹山雀"
+    },
+    {
+      "code": "vartit1",
+      "name": "雜色山雀"
+    },
+    {
+      "code": "y00982",
+      "name": "赤腹山雀/雜色山雀"
+    },
+    {
+      "code": "chicka1",
+      "name": "chickadee sp."
+    },
+    {
+      "code": "grbtit1",
+      "name": "青背山雀"
+    },
+    {
+      "code": "cintit13",
+      "name": "白頰山雀"
+    },
+    {
+      "code": "yeltit2",
+      "name": "黃山雀"
+    },
+    {
+      "code": "yectit1",
+      "name": "Yellow-cheeked Tit"
+    },
+    {
+      "code": "parid1",
+      "name": "山雀科"
+    },
+    {
+      "code": "chptit1",
+      "name": "攀雀"
+    },
+    {
+      "code": "skylar",
+      "name": "歐亞雲雀"
+    },
+    {
+      "code": "orisky1",
+      "name": "小雲雀"
+    },
+    {
+      "code": "y00652",
+      "name": "歐亞雲雀/小雲雀"
+    },
+    {
+      "code": "y01042",
+      "name": "大短趾百靈/賽氏短趾百靈"
+    },
+    {
+      "code": "lstlar2",
+      "name": "亞洲短趾百靈"
+    },
+    {
+      "code": "y00979",
+      "name": "短趾百靈類(Calandrella/Alaudala)"
+    },
+    {
+      "code": "lark1",
+      "name": "百靈科"
+    },
+    {
+      "code": "comtai1",
+      "name": "長尾縫葉鶯"
+    },
+    {
+      "code": "strpri8",
+      "name": "斑紋鷦鶯"
+    },
+    {
+      "code": "yebpri1",
+      "name": "灰頭鷦鶯"
+    },
+    {
+      "code": "plapri1",
+      "name": "褐頭鷦鶯"
+    },
+    {
+      "code": "prinia1",
+      "name": "鷦鶯屬"
+    },
+    {
+      "code": "zitcis1",
+      "name": "棕扇尾鶯"
+    },
+    {
+      "code": "gohcis1",
+      "name": "黃頭扇尾鶯"
+    },
+    {
+      "code": "y01127",
+      "name": "棕扇尾鶯/黃頭扇尾鶯"
+    },
+    {
+      "code": "cistic1",
+      "name": "扇尾鶯屬"
+    },
+    {
+      "code": "thbwar1",
+      "name": "厚嘴葦鶯"
+    },
+    {
+      "code": "boowar1",
+      "name": "靴籬鶯"
+    },
+    {
+      "code": "bbrwar1",
+      "name": "雙眉葦鶯"
+    },
+    {
+      "code": "strwar1",
+      "name": "細紋葦鶯"
+    },
+    {
+      "code": "blwwar1",
+      "name": "鈍翅葦鶯"
+    },
+    {
+      "code": "manrew1",
+      "name": "遠東葦鶯"
+    },
+    {
+      "code": "blrwar1",
+      "name": "布氏葦鶯"
+    },
+    {
+      "code": "orrwar1",
+      "name": "東方大葦鶯"
+    },
+    {
+      "code": "y00996",
+      "name": "Great/Oriental/Clamorous Reed Warbler"
+    },
+    {
+      "code": "acroce1",
+      "name": "葦鶯屬"
+    },
+    {
+      "code": "grgwar1",
+      "name": "蒼眉蝗鶯"
+    },
+    {
+      "code": "y00997",
+      "name": "蒼眉蝗鶯/庫頁島蝗鶯"
+    },
+    {
+      "code": "pagwar1",
+      "name": "小蝗鶯"
+    },
+    {
+      "code": "migwar",
+      "name": "北蝗鶯"
+    },
+    {
+      "code": "y01100",
+      "name": "北蝗鶯/史氏蝗鶯"
+    },
+    {
+      "code": "lanwar",
+      "name": "矛斑蝗鶯"
+    },
+    {
+      "code": "taibuw1",
+      "name": "臺灣叢樹鶯"
+    },
+    {
+      "code": "rubwar1",
+      "name": "赤褐蝗鶯"
+    },
+    {
+      "code": "locust6",
+      "name": "Locustella sp."
+    },
+    {
+      "code": "locust2",
+      "name": "蝗鶯類"
+    },
+    {
+      "code": "taiwrb1",
+      "name": "臺灣鷦眉"
+    },
+    {
+      "code": "pywbab1",
+      "name": "小鷦眉"
+    },
+    {
+      "code": "gytmar1",
+      "name": "棕沙燕"
+    },
+    {
+      "code": "banswa",
+      "name": "灰沙燕"
+    },
+    {
+      "code": "y01086",
+      "name": "棕沙燕/灰沙燕"
+    },
+    {
+      "code": "y00808",
+      "name": "灰沙燕/淺灰沙燕"
+    },
+    {
+      "code": "ripari1",
+      "name": "沙燕屬"
+    },
+    {
+      "code": "eurcrm1",
+      "name": "岩燕"
+    },
+    {
+      "code": "pacswa1",
+      "name": "洋燕"
+    },
+    {
+      "code": "barswa",
+      "name": "家燕"
+    },
+    {
+      "code": "y00746",
+      "name": "洋燕/家燕"
+    },
+    {
+      "code": "comhom2",
+      "name": "白腹毛腳燕"
+    },
+    {
+      "code": "ashmar1",
+      "name": "東方毛腳燕"
+    },
+    {
+      "code": "y00649",
+      "name": "白腹毛腳燕/東方毛腳燕"
+    },
+    {
+      "code": "y00621",
+      "name": "東方金腰燕"
+    },
+    {
+      "code": "swallo",
+      "name": "燕科"
+    },
+    {
+      "code": "chebul1",
+      "name": "栗背短腳鵯"
+    },
+    {
+      "code": "brebul1",
+      "name": "棕耳鵯"
+    },
+    {
+      "code": "blabul1",
+      "name": "紅嘴黑鵯"
+    },
+    {
+      "code": "colfin1",
+      "name": "白環鸚嘴鵯"
+    },
+    {
+      "code": "livbul1",
+      "name": "白頭翁"
+    },
+    {
+      "code": "stybul1",
+      "name": "烏頭翁"
+    },
+    {
+      "code": "x00744",
+      "name": "白頭翁x烏頭翁(雜交)"
+    },
+    {
+      "code": "y00987",
+      "name": "白頭翁/烏頭翁"
+    },
+    {
+      "code": "rewbul",
+      "name": "紅耳鵯"
+    },
+    {
+      "code": "sohbul1",
+      "name": "白喉紅臀鵯"
+    },
+    {
+      "code": "pycnon3",
+      "name": "Pycnonotus sp."
+    },
+    {
+      "code": "pycnon1",
+      "name": "Microtarsus/Rubigula/Pycnonotus sp."
+    },
+    {
+      "code": "pycnon2",
+      "name": "鵯科"
+    },
+    {
+      "code": "woowar",
+      "name": "林柳鶯"
+    },
+    {
+      "code": "yebwar3",
+      "name": "黃眉柳鶯"
+    },
+    {
+      "code": "humwar1",
+      "name": "淡眉柳鶯"
+    },
+    {
+      "code": "y00641",
+      "name": "黃眉柳鶯/淡眉柳鶯"
+    },
+    {
+      "code": "chilew1",
+      "name": "雲南柳鶯"
+    },
+    {
+      "code": "palwar5",
+      "name": "黃腰柳鶯"
+    },
+    {
+      "code": "radwar1",
+      "name": "巨嘴柳鶯"
+    },
+    {
+      "code": "y00989",
+      "name": "黃腹柳鶯"
+    },
+    {
+      "code": "duswar",
+      "name": "褐色柳鶯"
+    },
+    {
+      "code": "y00749",
+      "name": "巨嘴柳鶯/褐色柳鶯"
+    },
+    {
+      "code": "y00990",
+      "name": "巨嘴柳鶯/棕眉柳鶯/褐色柳鶯"
+    },
+    {
+      "code": "wlwwar",
+      "name": "歐亞柳鶯"
+    },
+    {
+      "code": "comchi1",
+      "name": "嘰喳柳鶯"
+    },
+    {
+      "code": "y00812",
+      "name": "歐亞柳鶯/嘰喳柳鶯"
+    },
+    {
+      "code": "eacwar1",
+      "name": "冠羽柳鶯"
+    },
+    {
+      "code": "ijlwar1",
+      "name": "飯島柳鶯"
+    },
+    {
+      "code": "whswar1",
+      "name": "白眶鶲鶯"
+    },
+    {
+      "code": "biawar1",
+      "name": "比氏鶲鶯"
+    },
+    {
+      "code": "marwar4",
+      "name": "峨眉鶲鶯"
+    },
+    {
+      "code": "pltwar1",
+      "name": "淡尾鶲鶯"
+    },
+    {
+      "code": "seicer2",
+      "name": "金眶鶲鶯複合群"
+    },
+    {
+      "code": "grewar3",
+      "name": "暗綠柳鶯"
+    },
+    {
+      "code": "grewar2",
+      "name": "雙斑綠柳鶯"
+    },
+    {
+      "code": "grewar1",
+      "name": "暗綠柳鶯/雙斑綠柳鶯"
+    },
+    {
+      "code": "pllwar1",
+      "name": "淡腳柳鶯"
+    },
+    {
+      "code": "salwar1",
+      "name": "庫頁島柳鶯"
+    },
+    {
+      "code": "y00750",
+      "name": "淡腳柳鶯/庫頁島柳鶯"
+    },
+    {
+      "code": "arcwar3",
+      "name": "日本柳鶯"
+    },
+    {
+      "code": "arcwar1",
+      "name": "極北柳鶯"
+    },
+    {
+      "code": "y00907",
+      "name": "日本柳鶯/極北柳鶯"
+    },
+    {
+      "code": "arcwar2",
+      "name": "勘察加柳鶯"
+    },
+    {
+      "code": "y00815",
+      "name": "極北柳鶯/勘察加柳鶯"
+    },
+    {
+      "code": "arcwar",
+      "name": "日本柳鶯/極北柳鶯/勘察加柳鶯"
+    },
+    {
+      "code": "chcwar2",
+      "name": "栗頭鶲鶯"
+    },
+    {
+      "code": "subwar3",
+      "name": "黑眉柳鶯"
+    },
+    {
+      "code": "harlew1",
+      "name": "哈氏冠紋柳鶯"
+    },
+    {
+      "code": "bllwar1",
+      "name": "布氏冠紋柳鶯/克氏冠紋柳鶯/哈氏冠紋柳鶯"
+    },
+    {
+      "code": "phyllo1",
+      "name": "柳鶯/鶲鶯類(Phylloscopus)"
+    },
+    {
+      "code": "asistu1",
+      "name": "短尾鶯"
+    },
+    {
+      "code": "rufwar1",
+      "name": "棕面鶯"
+    },
+    {
+      "code": "jabwar",
+      "name": "日本樹鶯"
+    },
+    {
+      "code": "manbuw1",
+      "name": "遠東樹鶯"
+    },
+    {
+      "code": "y00747",
+      "name": "日本樹鶯/遠東樹鶯"
+    },
+    {
+      "code": "bfbwar1",
+      "name": "小鶯"
+    },
+    {
+      "code": "ybbwar1",
+      "name": "深山鶯"
+    },
+    {
+      "code": "y00748",
+      "name": "小鶯/深山鶯"
+    },
+    {
+      "code": "buswar1",
+      "name": "樹鶯屬"
+    },
+    {
+      "code": "blttit2",
+      "name": "紅頭山雀"
+    },
+    {
+      "code": "leswhi4",
+      "name": "白喉林鶯"
+    },
+    {
+      "code": "asdwar1",
+      "name": "漠地林鶯"
+    },
+    {
+      "code": "sylvia1",
+      "name": "Sylvia/Curruca sp."
+    },
+    {
+      "code": "olwwar1",
+      "name": "old world warbler sp."
+    },
+    {
+      "code": "taiful1",
+      "name": "褐頭花翼"
+    },
+    {
+      "code": "golpar2",
+      "name": "黃羽鸚嘴"
+    },
+    {
+      "code": "vitpar1",
+      "name": "粉紅鸚嘴"
+    },
+    {
+      "code": "indyuh1",
+      "name": "栗耳鳳眉"
+    },
+    {
+      "code": "taiyuh1",
+      "name": "冠羽畫眉"
+    },
+    {
+      "code": "cfweye1",
+      "name": "紅脇繡眼"
+    },
+    {
+      "code": "swiwhe1",
+      "name": "斯氏繡眼(綠繡眼)"
+    },
+    {
+      "code": "warwhe1",
+      "name": "日菲繡眼"
+    },
+    {
+      "code": "y00424",
+      "name": "斯氏繡眼/日菲繡眼"
+    },
+    {
+      "code": "loweye2",
+      "name": "低地繡眼"
+    },
+    {
+      "code": "zoster1",
+      "name": "繡眼屬"
+    },
+    {
+      "code": "whitee1",
+      "name": "繡眼科"
+    },
+    {
+      "code": "rucbab1",
+      "name": "山紅頭"
+    },
+    {
+      "code": "taiscb1",
+      "name": "小彎嘴"
+    },
+    {
+      "code": "sbsbab2",
+      "name": "大彎嘴"
+    },
+    {
+      "code": "dusful1",
+      "name": "頭烏線"
+    },
+    {
+      "code": "gycful1",
+      "name": "繡眼畫眉"
+    },
+    {
+      "code": "whwlau1",
+      "name": "臺灣噪眉"
+    },
+    {
+      "code": "rewlau1",
+      "name": "Red-winged Laughingthrush"
+    },
+    {
+      "code": "trocha1",
+      "name": "Trochalopteron sp."
+    },
+    {
+      "code": "whesib1",
+      "name": "白耳畫眉"
+    },
+    {
+      "code": "taibar1",
+      "name": "紋翼畫眉"
+    },
+    {
+      "code": "reblei",
+      "name": "紅嘴相思鳥"
+    },
+    {
+      "code": "siemes1",
+      "name": "Silver-eared Mesia"
+    },
+    {
+      "code": "stelio1",
+      "name": "黃胸藪眉"
+    },
+    {
+      "code": "melthr",
+      "name": "大陸畫眉"
+    },
+    {
+      "code": "taihwa1",
+      "name": "臺灣畫眉"
+    },
+    {
+      "code": "x00816",
+      "name": "大陸畫眉x臺灣畫眉(雜交)"
+    },
+    {
+      "code": "y00910",
+      "name": "大陸畫眉/臺灣畫眉"
+    },
+    {
+      "code": "bltlau1",
+      "name": "黑喉噪眉"
+    },
+    {
+      "code": "whblau1",
+      "name": "白頰噪眉"
+    },
+    {
+      "code": "ruclau2",
+      "name": "臺灣白喉噪眉"
+    },
+    {
+      "code": "ruslau1",
+      "name": "棕噪眉"
+    },
+    {
+      "code": "iantho1",
+      "name": "Ianthocincla/Pterorhinus sp."
+    },
+    {
+      "code": "laughi1",
+      "name": "噪眉科"
+    },
+    {
+      "code": "goldcr1",
+      "name": "戴菊鳥"
+    },
+    {
+      "code": "flamec1",
+      "name": "火冠戴菊鳥"
+    },
+    {
+      "code": "eurnut2",
+      "name": "茶腹鳾"
+    },
+    {
+      "code": "winwre4",
+      "name": "鷦鷯"
+    },
+    {
+      "code": "brodip1",
+      "name": "河烏"
+    },
+    {
+      "code": "asgsta1",
+      "name": "亞洲輝椋鳥"
+    },
+    {
+      "code": "hilmyn",
+      "name": "九官鳥"
+    },
+    {
+      "code": "eursta",
+      "name": "歐洲椋鳥"
+    },
+    {
+      "code": "rossta2",
+      "name": "粉紅椋鳥"
+    },
+    {
+      "code": "dausta1",
+      "name": "北椋鳥"
+    },
+    {
+      "code": "chcsta1",
+      "name": "小椋鳥"
+    },
+    {
+      "code": "y00756",
+      "name": "北椋鳥/小椋鳥"
+    },
+    {
+      "code": "bkcsta1",
+      "name": "黑領椋鳥"
+    },
+    {
+      "code": "aspsta2",
+      "name": "印度鵲椋鳥"
+    },
+    {
+      "code": "whssta2",
+      "name": "灰背椋鳥"
+    },
+    {
+      "code": "brasta1",
+      "name": "黑冠椋鳥"
+    },
+    {
+      "code": "chtsta2",
+      "name": "灰頭椋鳥"
+    },
+    {
+      "code": "rebsta1",
+      "name": "絲光椋鳥"
+    },
+    {
+      "code": "whcsta1",
+      "name": "灰椋鳥"
+    },
+    {
+      "code": "commyn",
+      "name": "家八哥"
+    },
+    {
+      "code": "banmyn1",
+      "name": "岸八哥"
+    },
+    {
+      "code": "vibsta4",
+      "name": "葡萄胸椋鳥"
+    },
+    {
+      "code": "bkwsta1",
+      "name": "Black-winged Myna"
+    },
+    {
+      "code": "junmyn1",
+      "name": "林八哥"
+    },
+    {
+      "code": "y00823",
+      "name": "Common/Jungle Myna"
+    },
+    {
+      "code": "whvmyn",
+      "name": "白尾八哥"
+    },
+    {
+      "code": "whvmyn1",
+      "name": "大八哥(叢八哥)"
+    },
+    {
+      "code": "cremyn",
+      "name": "八哥(冠八哥)"
+    },
+    {
+      "code": "blkmyn1",
+      "name": "黑色八哥類"
+    },
+    {
+      "code": "acrido1",
+      "name": "八哥屬"
+    },
+    {
+      "code": "ltgsta1",
+      "name": "長尾麗椋鳥"
+    },
+    {
+      "code": "supsta1",
+      "name": "栗頭麗椋鳥"
+    },
+    {
+      "code": "y00757",
+      "name": "椋鳥科"
+    },
+    {
+      "code": "scathr2",
+      "name": "白氏地鶇"
+    },
+    {
+      "code": "scathr8",
+      "name": "虎斑地鶇"
+    },
+    {
+      "code": "scathr1",
+      "name": "白氏地鶇/虎斑地鶇"
+    },
+    {
+      "code": "sibthr1",
+      "name": "白眉地鶇"
+    },
+    {
+      "code": "chbthr1",
+      "name": "Chestnut-backed Thrush"
+    },
+    {
+      "code": "orhthr1",
+      "name": "橙頭地鶇"
+    },
+    {
+      "code": "chithr2",
+      "name": "寶興歌鶇"
+    },
+    {
+      "code": "misthr1",
+      "name": "槲鶇"
+    },
+    {
+      "code": "chibla1",
+      "name": "中國黑鶇"
+    },
+    {
+      "code": "islthr24",
+      "name": "白頭鶇"
+    },
+    {
+      "code": "gybthr1",
+      "name": "灰背鶇"
+    },
+    {
+      "code": "japthr1",
+      "name": "烏灰鶇"
+    },
+    {
+      "code": "palthr1",
+      "name": "白腹鶇"
+    },
+    {
+      "code": "eyethr",
+      "name": "白眉鶇"
+    },
+    {
+      "code": "brhthr1",
+      "name": "赤腹鶇"
+    },
+    {
+      "code": "retthr1",
+      "name": "赤頸鶇"
+    },
+    {
+      "code": "x00644",
+      "name": "黑頸鶇x赤頸鶇(雜交)"
+    },
+    {
+      "code": "dusthr2",
+      "name": "斑點鶇"
+    },
+    {
+      "code": "dusthr1",
+      "name": "紅尾鶇"
+    },
+    {
+      "code": "x00973",
+      "name": "斑點鶇x紅尾鶇(雜交)"
+    },
+    {
+      "code": "dusthr",
+      "name": "斑點鶇/紅尾鶇"
+    },
+    {
+      "code": "turdus1",
+      "name": "Turdus sp."
+    },
+    {
+      "code": "thrush1",
+      "name": "鶇科"
+    },
+    {
+      "code": "gysfly1",
+      "name": "灰斑鶲"
+    },
+    {
+      "code": "dasfly",
+      "name": "烏鶲"
+    },
+    {
+      "code": "y01085",
+      "name": "灰斑鶲/烏鶲"
+    },
+    {
+      "code": "ferfly1",
+      "name": "紅尾鶲"
+    },
+    {
+      "code": "asbfly",
+      "name": "寬嘴鶲"
+    },
+    {
+      "code": "brbfly2",
+      "name": "褐胸鶲"
+    },
+    {
+      "code": "spofly1",
+      "name": "斑鶲"
+    },
+    {
+      "code": "muscic1",
+      "name": "Muscicapa sp."
+    },
+    {
+      "code": "magrob",
+      "name": "鵲鴝"
+    },
+    {
+      "code": "whrsha",
+      "name": "白腰鵲鴝"
+    },
+    {
+      "code": "fujnil1",
+      "name": "棕腹大仙鶲"
+    },
+    {
+      "code": "rubnil1",
+      "name": "棕腹仙鶲"
+    },
+    {
+      "code": "vivnil3",
+      "name": "黃腹琉璃"
+    },
+    {
+      "code": "niltav1",
+      "name": "niltava sp."
+    },
+    {
+      "code": "bawfly2",
+      "name": "白腹琉璃"
+    },
+    {
+      "code": "y00911",
+      "name": "白腹琉璃/琉璃藍鶲"
+    },
+    {
+      "code": "verfly4",
+      "name": "銅藍鶲"
+    },
+    {
+      "code": "habfly1",
+      "name": "海南藍仙鶲"
+    },
+    {
+      "code": "butfly2",
+      "name": "中華藍仙鶲"
+    },
+    {
+      "code": "hibfly1",
+      "name": "山藍仙鶲"
+    },
+    {
+      "code": "bncjuf1",
+      "name": "白喉林鶲"
+    },
+    {
+      "code": "blufly1",
+      "name": "Cyornis sp."
+    },
+    {
+      "code": "lessho1",
+      "name": "白喉短翅鶇"
+    },
+    {
+      "code": "whbsho6",
+      "name": "小翼鶇"
+    },
+    {
+      "code": "rutrob1",
+      "name": "紅尾歌鴝"
+    },
+    {
+      "code": "japrob2",
+      "name": "日本歌鴝"
+    },
+    {
+      "code": "ryurob2",
+      "name": "琉球歌鴝"
+    },
+    {
+      "code": "sibrob",
+      "name": "藍歌鴝"
+    },
+    {
+      "code": "blueth",
+      "name": "藍喉鴝"
+    },
+    {
+      "code": "fowthr1",
+      "name": "臺灣紫嘯鶇"
+    },
+    {
+      "code": "blwthr1",
+      "name": "白斑紫嘯鶇"
+    },
+    {
+      "code": "whistl2",
+      "name": "紫嘯鶇屬"
+    },
+    {
+      "code": "litfor1",
+      "name": "小剪尾"
+    },
+    {
+      "code": "sibrub",
+      "name": "野鴝"
+    },
+    {
+      "code": "whtrob2",
+      "name": "白尾鴝"
+    },
+    {
+      "code": "refblu1",
+      "name": "藍尾鴝"
+    },
+    {
+      "code": "refblu",
+      "name": "Red-flanked/Qilian Bluetail"
+    },
+    {
+      "code": "whbbur3",
+      "name": "臺灣白眉林鴝"
+    },
+    {
+      "code": "cobrob1",
+      "name": "栗背林鴝"
+    },
+    {
+      "code": "y01124",
+      "name": "臺灣白眉林鴝/栗背林鴝"
+    },
+    {
+      "code": "korfly1",
+      "name": "白眉鶲"
+    },
+    {
+      "code": "narfly1",
+      "name": "綠背姬鶲"
+    },
+    {
+      "code": "narfly2",
+      "name": "黃眉黃鶲"
+    },
+    {
+      "code": "narfly3",
+      "name": "琉球姬鶲"
+    },
+    {
+      "code": "y00913",
+      "name": "白眉鶲/綠背姬鶲/黃眉黃鶲/琉球姬鶲"
+    },
+    {
+      "code": "mugfly",
+      "name": "白眉黃鶲"
+    },
+    {
+      "code": "snbfly1",
+      "name": "黃胸青鶲"
+    },
+    {
+      "code": "rugfly1",
+      "name": "橙胸姬鶲"
+    },
+    {
+      "code": "taifly1",
+      "name": "紅喉鶲"
+    },
+    {
+      "code": "rebfly",
+      "name": "紅胸鶲"
+    },
+    {
+      "code": "y00821",
+      "name": "紅喉鶲/紅胸鶲"
+    },
+    {
+      "code": "ficedu1",
+      "name": "Ficedula sp."
+    },
+    {
+      "code": "blfred1",
+      "name": "藍額紅尾鴝"
+    },
+    {
+      "code": "plured1",
+      "name": "鉛色水鶇"
+    },
+    {
+      "code": "whcred1",
+      "name": "白頂溪鴝"
+    },
+    {
+      "code": "blared1",
+      "name": "赭紅尾鴝"
+    },
+    {
+      "code": "daured1",
+      "name": "黃尾鴝"
+    },
+    {
+      "code": "redsta1",
+      "name": "紅尾鴝屬"
+    },
+    {
+      "code": "wtrthr1",
+      "name": "白喉磯鶇"
+    },
+    {
+      "code": "burthr",
+      "name": "藍磯鶇"
+    },
+    {
+      "code": "rockth1",
+      "name": "rock-thrush sp."
+    },
+    {
+      "code": "stonec7",
+      "name": "黑喉鴝"
+    },
+    {
+      "code": "y00427",
+      "name": "Siberian/Amur Stonechat"
+    },
+    {
+      "code": "piebus1",
+      "name": "白斑黑石䳭"
+    },
+    {
+      "code": "grybus1",
+      "name": "灰叢鴝"
+    },
+    {
+      "code": "saxico1",
+      "name": "石䳭屬"
+    },
+    {
+      "code": "norwhe",
+      "name": "穗䳭"
+    },
+    {
+      "code": "isawhe1",
+      "name": "沙䳭"
+    },
+    {
+      "code": "deswhe1",
+      "name": "漠䳭"
+    },
+    {
+      "code": "piewhe1",
+      "name": "白頂䳭"
+    },
+    {
+      "code": "muscic2",
+      "name": "鶲科"
+    },
+    {
+      "code": "bohwax",
+      "name": "黃連雀"
+    },
+    {
+      "code": "japwax1",
+      "name": "朱連雀"
+    },
+    {
+      "code": "y00428",
+      "name": "黃連雀/朱連雀"
+    },
+    {
+      "code": "plaflo2",
+      "name": "綠啄花"
+    },
+    {
+      "code": "fibflo1",
+      "name": "紅胸啄花"
+    },
+    {
+      "code": "dicaeu1",
+      "name": "Pachyglossa/Dicaeum sp."
+    },
+    {
+      "code": "flower2",
+      "name": "啄花科"
+    },
+    {
+      "code": "olbsun4",
+      "name": "黃腹花蜜鳥"
+    },
+    {
+      "code": "gousun1",
+      "name": "藍喉太陽鳥"
+    },
+    {
+      "code": "fotsun1",
+      "name": "叉尾太陽鳥"
+    },
+    {
+      "code": "blwlea1",
+      "name": "Blue-winged Leafbird"
+    },
+    {
+      "code": "orblea1",
+      "name": "橙腹葉鵯"
+    },
+    {
+      "code": "vilwea1",
+      "name": "黑頭織雀"
+    },
+    {
+      "code": "gobwea1",
+      "name": "Golden-backed Weaver"
+    },
+    {
+      "code": "ploceu1",
+      "name": "Ploceus sp."
+    },
+    {
+      "code": "redbis",
+      "name": "Southern Red Bishop"
+    },
+    {
+      "code": "zebfin2",
+      "name": "Zebra Finch"
+    },
+    {
+      "code": "indsil",
+      "name": "白喉文鳥"
+    },
+    {
+      "code": "javspa",
+      "name": "爪哇雀"
+    },
+    {
+      "code": "nutman",
+      "name": "斑文鳥"
+    },
+    {
+      "code": "whrmun",
+      "name": "白腰文鳥"
+    },
+    {
+      "code": "chemun",
+      "name": "黑頭文鳥"
+    },
+    {
+      "code": "whhmun1",
+      "name": "白頭文鳥"
+    },
+    {
+      "code": "lonchu1",
+      "name": "文鳥屬"
+    },
+    {
+      "code": "orcwax",
+      "name": "橙頰梅花雀"
+    },
+    {
+      "code": "comwax",
+      "name": "橫斑梅花雀"
+    },
+    {
+      "code": "zebwax2",
+      "name": "Zebra Waxbill"
+    },
+    {
+      "code": "redava",
+      "name": "Red Avadavat"
+    },
+    {
+      "code": "pitwhy",
+      "name": "針尾維達雀"
+    },
+    {
+      "code": "btpwhy1",
+      "name": "Broad-tailed Paradise-Whydah"
+    },
+    {
+      "code": "vilind",
+      "name": "靛藍維達雀"
+    },
+    {
+      "code": "alpacc1",
+      "name": "岩鷚"
+    },
+    {
+      "code": "sibacc",
+      "name": "棕眉山岩鷚"
+    },
+    {
+      "code": "houspa",
+      "name": "家麻雀"
+    },
+    {
+      "code": "russpa2",
+      "name": "山麻雀"
+    },
+    {
+      "code": "eutspa",
+      "name": "麻雀"
+    },
+    {
+      "code": "passer2",
+      "name": "麻雀屬"
+    },
+    {
+      "code": "forwag1",
+      "name": "山鶺鴒"
+    },
+    {
+      "code": "grywag",
+      "name": "灰鶺鴒"
+    },
+    {
+      "code": "eaywag",
+      "name": "東方黃鶺鴒"
+    },
+    {
+      "code": "y00597",
+      "name": "西方黃鶺鴒/東方黃鶺鴒"
+    },
+    {
+      "code": "citwag",
+      "name": "黃頭鶺鴒"
+    },
+    {
+      "code": "y00429",
+      "name": "東方黃鶺鴒/黃頭鶺鴒"
+    },
+    {
+      "code": "japwag1",
+      "name": "日本鶺鴒"
+    },
+    {
+      "code": "whiwag",
+      "name": "白鶺鴒"
+    },
+    {
+      "code": "wagtai1",
+      "name": "鶺鴒屬"
+    },
+    {
+      "code": "ricpip1",
+      "name": "大花鷚"
+    },
+    {
+      "code": "oripip1",
+      "name": "稻田鷚"
+    },
+    {
+      "code": "y00918",
+      "name": "大花鷚/稻田鷚"
+    },
+    {
+      "code": "blypip1",
+      "name": "布萊氏鷚"
+    },
+    {
+      "code": "y01013",
+      "name": "大花鷚/布萊氏鷚"
+    },
+    {
+      "code": "meapip1",
+      "name": "草地鷚"
+    },
+    {
+      "code": "rospip1",
+      "name": "粉紅胸鷚"
+    },
+    {
+      "code": "trepip",
+      "name": "林鷚"
+    },
+    {
+      "code": "olbpip",
+      "name": "樹鷚"
+    },
+    {
+      "code": "y00758",
+      "name": "林鷚/樹鷚"
+    },
+    {
+      "code": "pecpip",
+      "name": "白背鷚"
+    },
+    {
+      "code": "retpip",
+      "name": "赤喉鷚"
+    },
+    {
+      "code": "sibpip1",
+      "name": "黃腹鷚"
+    },
+    {
+      "code": "y00760",
+      "name": "Water/Siberian/American Pipit"
+    },
+    {
+      "code": "pipit1",
+      "name": "鷚屬"
+    },
+    {
+      "code": "brambl",
+      "name": "花雀"
+    },
+    {
+      "code": "hawfin",
+      "name": "臘嘴雀"
+    },
+    {
+      "code": "yebgro1",
+      "name": "小桑鳲"
+    },
+    {
+      "code": "japgro1",
+      "name": "桑鳲"
+    },
+    {
+      "code": "comros",
+      "name": "普通朱雀"
+    },
+    {
+      "code": "vinros2",
+      "name": "酒紅朱雀"
+    },
+    {
+      "code": "vinros3",
+      "name": "臺灣朱雀"
+    },
+    {
+      "code": "palros2",
+      "name": "北朱雀"
+    },
+    {
+      "code": "brobul1",
+      "name": "褐鷽"
+    },
+    {
+      "code": "gyhbul5",
+      "name": "灰鷽"
+    },
+    {
+      "code": "eurbul",
+      "name": "歐亞鷽"
+    },
+    {
+      "code": "origre",
+      "name": "金翅雀"
+    },
+    {
+      "code": "yefcan",
+      "name": "黃額絲雀"
+    },
+    {
+      "code": "lebsee1",
+      "name": "Lemon-breasted Seedeater"
+    },
+    {
+      "code": "eurlin1",
+      "name": "赤胸朱頂雀"
+    },
+    {
+      "code": "redpol1",
+      "name": "普通朱頂雀"
+    },
+    {
+      "code": "redcro",
+      "name": "紅交嘴雀"
+    },
+    {
+      "code": "eursis",
+      "name": "黃雀"
+    },
+    {
+      "code": "finch1",
+      "name": "雀科"
+    },
+    {
+      "code": "laplon",
+      "name": "鐵爪鵐"
+    },
+    {
+      "code": "crebun1",
+      "name": "冠鵐"
+    },
+    {
+      "code": "blhbun1",
+      "name": "黑頭鵐"
+    },
+    {
+      "code": "rehbun1",
+      "name": "褐頭鵐"
+    },
+    {
+      "code": "y00923",
+      "name": "黑頭鵐/褐頭鵐"
+    },
+    {
+      "code": "chebun2",
+      "name": "赤胸鵐"
+    },
+    {
+      "code": "meabun1",
+      "name": "草鵐"
+    },
+    {
+      "code": "chbbun1",
+      "name": "白頂鵐"
+    },
+    {
+      "code": "pinbun",
+      "name": "白頭鵐"
+    },
+    {
+      "code": "gyhbun1",
+      "name": "灰頸鵐"
+    },
+    {
+      "code": "ortbun1",
+      "name": "圃鵐"
+    },
+    {
+      "code": "yetbun1",
+      "name": "黃喉鵐"
+    },
+    {
+      "code": "ocrbun1",
+      "name": "紅頸葦鵐"
+    },
+    {
+      "code": "palbun",
+      "name": "葦鵐"
+    },
+    {
+      "code": "reebun",
+      "name": "蘆鵐"
+    },
+    {
+      "code": "yebbun",
+      "name": "金鵐"
+    },
+    {
+      "code": "litbun",
+      "name": "小鵐"
+    },
+    {
+      "code": "rusbun",
+      "name": "田鵐"
+    },
+    {
+      "code": "yelbun1",
+      "name": "野鵐"
+    },
+    {
+      "code": "bkfbun1",
+      "name": "灰頭黑臉鵐"
+    },
+    {
+      "code": "bkfbun2",
+      "name": "黃喉黑臉鵐"
+    },
+    {
+      "code": "blfbun1",
+      "name": "灰頭黑臉鵐/黃喉黑臉鵐"
+    },
+    {
+      "code": "chebun1",
+      "name": "鏽鵐"
+    },
+    {
+      "code": "yebbun1",
+      "name": "黃眉鵐"
+    },
+    {
+      "code": "tribun1",
+      "name": "白眉鵐"
+    },
+    {
+      "code": "grybun",
+      "name": "灰鵐"
+    },
+    {
+      "code": "emberi1",
+      "name": "鵐屬"
+    },
+    {
+      "code": "savspa",
+      "name": "稀樹草鵐"
+    },
+    {
+      "code": "whbbla2",
+      "name": "White-browed Meadowlark"
+    },
+    {
+      "code": "reccar",
+      "name": "紅冠唐納雀"
+    },
+    {
+      "code": "reccar4",
+      "name": "紅頂唐納雀"
+    },
+    {
+      "code": "ofyfin1",
+      "name": "橙額黃雀鵐"
+    },
+    {
+      "code": "saffin",
+      "name": "橙黃雀鵐"
+    },
+    {
+      "code": "passer1",
+      "name": "雀形目"
+    },
+    {
+      "code": "bird1",
+      "name": "鳥類"
+    }
+  ]
+}

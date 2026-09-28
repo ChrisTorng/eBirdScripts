@@ -106,7 +106,7 @@ const requestedAliasMappings = {
     '翠鳥': 'comkin1',
     '斑馬鳩': 'zebdov',
     '褐頭鷦鶯': 'plapri1',
-    '灰頭鷦鶯': 'gybpri1',
+    '灰頭鷦鶯': 'yebpri1',
     '大卷尾': 'bladro1',
     '葡萄胸': 'vibsta4',
     '磯鷸': 'comsan',

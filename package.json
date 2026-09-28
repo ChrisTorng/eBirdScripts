@@ -4,6 +4,7 @@
   "private": true,
   "description": "Utility scripts for the eBirdScripts repository.",
   "scripts": {
+    "serve": "http-server . -c-1",
     "generate:index": "node scripts/generate-index.js",
     "test": "node --test"
   },

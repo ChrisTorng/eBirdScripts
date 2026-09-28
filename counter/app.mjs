@@ -1,3 +1,4 @@
+import { installBackNavigation } from "./navigation.mjs";
 import * as C from "./core.mjs";
 import * as O from "./organization.mjs";
 import { parsePersonalCSV, readPersonalFile } from "./personal.mjs";
@@ -65,7 +66,7 @@ function save() {
     return true;
   } catch {
     const el = document.querySelector("#storage-warning");
-    el.textContent = "儲存失敗，請保持此頁開啟並下載備份。";
+    el.textContent = "儲存失敗，請保持此頁開啟，停止後先複製紀錄文字。";
     el.hidden = false;
     return false;
   }
@@ -163,20 +164,17 @@ function locationData() {
       : "未載入";
   app.innerHTML =
     top(loc.alias + " · 頻率") +
-    `<section class="settings-list"><p>${esc(source)}${cache ? " · " + new Date(cache.updatedAt).toLocaleString("zh-TW") : ""}</p>${button(locationRequests.has(loc.id) ? "更新中…" : "重新抓取", "refresh-location", locationRequests.has(loc.id) ? "disabled" : "")}<a href="${esc(C.chartURL(loc.id))}" target="_blank" rel="noopener">eBird 全年圖表 ↗</a><label>全年 Histogram TXT<input id="location-file" type="file" accept=".txt,.tsv"></label><select id="location-source" aria-label="檔案來源"><option value="public">公開資料</option><option value="personal">已確認是個人資料</option></select><select id="location-month" aria-label="地點月份">${options(
-      Array.from({ length: 12 }, (_, i) => [i, `${i + 1} 月`]),
-      new Date().getMonth(),
-    )}</select><div id="location-preview"></div>${loc.cacheError ? '<small class="muted">線上讀取不可用，已保留原快取。</small>' : ""}</section>`;
+    `<section class="settings-list"><p>${esc(source)}${cache ? " · " + new Date(cache.updatedAt).toLocaleString("zh-TW") : ""}</p>${button(locationRequests.has(loc.id) ? "更新中…" : "重新抓取", "refresh-location", locationRequests.has(loc.id) ? "disabled" : "")}<a href="${esc(C.chartURL(loc.id))}" target="_blank" rel="noopener">eBird 全年圖表 ↗</a><label>全年 Histogram TXT<input id="location-file" type="file" accept=".txt,.tsv"></label><select id="location-source" aria-label="檔案來源"><option value="public">公開資料</option><option value="personal">已確認是個人資料</option></select><p>全年頻率</p><div id="location-preview"></div>${loc.cacheError ? '<small class="muted">線上讀取不可用，已保留原快取。</small>' : ""}</section>`;
   previewLocationMonth();
 }
 function previewLocationMonth() {
   const cache = locationById(dataLocationId)?.cache;
   if (!cache) return;
-  const month = Number($("#location-month").value);
-  $("#location-preview").innerHTML = C.sortSpecies(cache.species, month)
+
+  $("#location-preview").innerHTML = cache.species
     .map(
       (s) =>
-        `<div class="month-row"><span>${esc(nameOf(s))}</span><b>${s.months[month] == null ? "—" : s.months[month].toFixed(1) + "%"}</b></div>`,
+        `<div class="month-row"><span>${esc(nameOf(s))}</span><b>${frequency(s)}</b></div>`,
     )
     .join("");
 }
@@ -236,16 +234,13 @@ async function editLocation(id = "", candidate = null) {
 function nearbyView() {
   app.innerHTML =
     top("附近地點") +
-    `<section class="settings-list"><div class="line-actions">${button(locationBusy ? "尋找中…" : "⌖ 重新定位", "locate", locationBusy ? "disabled" : "")}${button("讀取附近熱點", "load-nearby", !point || locationBusy ? "disabled" : "")}</div><p class="muted">${esc(gpsMessage)}</p><a href="${esc(O.nearbyMapURL(point))}" target="_blank" rel="noopener">開啟 eBird 附近地圖 ↗</a>${nearby.map((l, i) => `<article class="location-item"><div><strong>${esc(l.name)}</strong><small>${(l.meters / 1000).toFixed(2)} km</small></div>${button("選擇", "pick-nearby", `data-index="${i}"`)}</article>`).join("")}${button("貼上地點網址", "add-location", "", "wide")}</section>`;
+    `<section class="settings-list"><div class="line-actions">${button(locationBusy ? "尋找中…" : "⌖ 重新定位", "locate", locationBusy ? "disabled" : "")}${button("讀取附近熱點", "load-nearby", !point || locationBusy ? "disabled" : "")}</div><p class="muted">${esc(gpsMessage)}</p><a href="${esc(O.nearbyMapURL(point))}" target="_blank" rel="noopener">開啟 eBird 附近地圖 ↗</a>${nearby.map((l, i) => `<article class="location-item"><div><strong>${esc(locationById(l.id)?.alias || l.name)}</strong><small>${(l.meters / 1000).toFixed(2)} km</small></div>${button(locationById(l.id) ? "編輯" : "選擇", "pick-nearby", `data-index="${i}"`)}</article>`).join("")}${button("貼上地點網址", "add-location", "", "wide")}</section>`;
 }
 function settings() {
   const freq = state.frequency.personal || state.frequency.public || publicData;
   app.innerHTML =
     top("設定") +
-    `<section class="settings-list"><h2>共用排序頻率</h2><p class="muted">${esc(sourceLabel(freq))}</p><a href="https://ebird.org/downloadMyData" target="_blank" rel="noopener">下載我的 eBird 資料 ↗</a><label>匯入個人紀錄 ZIP / CSV<input type="file" id="personal-file" accept=".csv,.zip"></label><small class="muted">只在本機統計完整鳥單，不上傳。</small>${freq?.unmatched ? `<p class="warning">${freq.unmatched} 個名稱未列於全台索引，已保留可辨識的鳥種與原名。</p>` : ""}${state.frequency.personal ? button("改用全台頻率", "clear-personal") : ""}<details><summary>全台頻率</summary><label>更新全台 Histogram TXT<input type="file" id="public-file" accept=".txt,.tsv"></label>${button("嘗試線上更新", "refresh-public")}<a href="${esc(C.chartURL("TW"))}" target="_blank" rel="noopener">eBird 全台統計 ↗</a></details><details><summary>月份頻率</summary><select id="preview-month" aria-label="預覽月份">${options(
-      Array.from({ length: 12 }, (_, i) => [i, `${i + 1} 月`]),
-      new Date().getMonth(),
-    )}</select>${button("顯示月份頻率", "preview-frequency")}<div id="month-preview"></div></details><h2>分組門檻</h2><div class="field-pair"><label>常見 ≥ %<input id="threshold-common" type="number" min="0.001" step="any" max="100" value="${profile().thresholds?.common ?? 20}"></label><label>少見 ≥ %<input id="threshold-uncommon" type="number" min="0.001" max="99" step="any" value="${profile().thresholds?.uncommon ?? 2}"></label></div><div id="threshold-preview" class="group-summary"></div><div class="line-actions">${button("自動抓 15 / 30 種", "suggest-groups")}${button("依門檻重建五區塊", "reset-groups")}</div>${button("編輯區塊 / 鳥種順序", "organize", "", "wide")}<details><summary>eBird 附近熱點 API</summary><label>API 金鑰<input id="api-key" type="password" autocomplete="off" value="${esc(localStorage.getItem(API_KEY) || "")}"></label><a href="https://ebird.org/api/keygen" target="_blank" rel="noopener">取得 eBird API 金鑰 ↗</a></details><details><summary>簡稱</summary><label>搜尋鳥名<input id="alias-query" type="search"></label><div id="alias-results"></div></details><details><summary>備份 / 還原</summary>${button("下載完整備份", "backup")}<label>還原 JSON<input id="restore" type="file" accept=".json"></label></details><small class="muted">文字助手需更新至 1.9.0，才能帶入描述與明確繁殖代碼。</small></section>`;
+    `<section class="settings-list">${button("安裝計鳥 App", "install-app", "", "wide")}<h2>全年共用排序頻率</h2><p class="muted">${esc(sourceLabel(freq))}</p><a href="https://ebird.org/downloadMyData" target="_blank" rel="noopener">下載我的 eBird 資料 ↗</a><label>匯入個人紀錄 ZIP / CSV<input type="file" id="personal-file" accept=".csv,.zip"></label><small class="muted">只在本機統計完整鳥單，不上傳。</small>${freq?.unmatched ? `<details><summary>${freq.unmatched} 個索引外名稱</summary><p>${(freq.unmatchedNames || []).map(esc).join("、") || "重新匯入可列出名稱"}</p></details>` : ""}${state.frequency.personal ? button("改用全台頻率", "clear-personal") : ""}<details><summary>全台頻率</summary><label>更新全台 Histogram TXT<input type="file" id="public-file" accept=".txt,.tsv"></label>${button("嘗試線上更新", "refresh-public")}<a href="${esc(C.chartURL("TW"))}" target="_blank" rel="noopener">eBird 全台統計 ↗</a></details><h2>分組門檻</h2><div class="field-pair"><label>常見 ≥ %<input id="threshold-common" type="number" min="0.001" step="any" max="100" value="${profile().thresholds?.common ?? 20}"></label><label>少見 ≥ %<input id="threshold-uncommon" type="number" min="0.001" max="99" step="any" value="${profile().thresholds?.uncommon ?? 2}"></label></div><div id="threshold-preview" class="group-summary"></div><div class="line-actions">${button("自動抓 15 / 30 種", "suggest-groups")}${button("依門檻重建五區塊", "reset-groups")}</div>${button("編輯區塊 / 鳥種順序", "organize", "", "wide")}<details><summary>eBird 附近熱點 API</summary><label>API 金鑰<input id="api-key" type="password" autocomplete="off" value="${esc(localStorage.getItem(API_KEY) || "")}"></label><a href="https://ebird.org/api/keygen" target="_blank" rel="noopener">取得 eBird API 金鑰 ↗</a></details><details><summary>簡稱</summary><label>搜尋鳥名<input id="alias-query" type="search"></label><div id="alias-results"></div></details><details><summary>備份 / 還原</summary>${button("下載設定備份", "backup")}<label>還原 JSON<input id="restore" type="file" accept=".json"></label></details><small class="muted">全年共用同一組頻率與排序。設定備份含地點、簡稱、分組門檻與排序，不含鳥單、頻率或 API 金鑰。</small></section>`;
   previewThresholds();
 }
 function previewThresholds() {
@@ -275,7 +270,7 @@ function rowHTML(s, organizing = false) {
       `data-code="${s.code}" data-field="${field}" data-delta="${delta}" aria-label="${esc(name)} ${field === "total" ? "個體" : "聽到"} 加 ${delta}"`,
       field === "total" && delta === 1 ? "total-plus" : "",
     );
-  return `<article class="bird ${C.hasInformation(c) ? "recorded" : ""} ${errors.length ? "invalid" : ""}" data-bird="${s.code}" title="${esc(errors.join("；"))}"><div class="bird-line ${editMode || organizing ? "reordering" : ""}">${editMode || organizing ? button("↕", "move-bird", `data-code="${s.code}" data-drag="bird" aria-label="移動 ${esc(name)}"`, "drag-handle") : ""}${organizing ? `<span class="organize-name">${esc(name)}</span><span class="frequency">${frequency(s)}</span>${button("移動", "move-bird", `data-code="${s.code}"`)}` : `${inc("+10", "total", 10)}${inc("+5", "total", 5)}${inc("+", "total", 1)}${button(`<b class="total">${c.total}</b><span class="bird-name">${esc(name)}${!C.compatibleAlias(s) ? '<small class="unmapped">未設定簡稱</small>' : ""}</span>`, "bird", `data-code="${s.code}" aria-label="${esc(name)} 個體數 ${c.total}"`, "bird-main")}${button(esc(breedLabel(c.breeding)), "breeding", `data-code="${s.code}" aria-label="${esc(name)} 繁殖"`, "breed")}${button(`<b>${c.heard}</b><span>聽</span>`, "bird", `data-code="${s.code}" aria-label="${esc(name)} 聽到 ${c.heard}"`, "heard")}${inc("+", "heard", 1)}`}</div><p class="bird-description" ${c.note ? "" : "hidden"}>${esc(c.note)}</p><div class="record-error" ${errors.length ? "" : "hidden"}>${esc(errors.join("；"))}</div></article>`;
+  return `<article class="bird ${C.hasInformation(c) ? "recorded" : ""} ${errors.length ? "invalid" : ""}" data-bird="${s.code}" title="${esc(errors.join("；"))}"><div class="bird-line ${editMode || organizing ? "reordering" : ""}">${editMode || organizing ? button("↕", "move-bird", `data-code="${s.code}" data-drag="bird" aria-label="移動 ${esc(name)}"`, "drag-handle") : ""}${organizing ? `<span class="organize-name">${esc(name)}</span><span class="frequency">${frequency(s)}</span>${button("移動", "move-bird", `data-code="${s.code}"`)}` : `${inc("+10", "total", 10)}${inc("+5", "total", 5)}${inc("+", "total", 1)}${button(`<b class="total">${c.total}</b><span class="bird-name">${esc(name)}</span>`, "bird", `data-code="${s.code}" aria-label="${esc(name)} 個體數 ${c.total}"`, "bird-main")}${button(esc(breedLabel(c.breeding)), "breeding", `data-code="${s.code}" aria-label="${esc(name)} 繁殖"`, "breed")}${button(`<b>${c.heard}</b><span>聽</span>`, "bird", `data-code="${s.code}" aria-label="${esc(name)} 聽到 ${c.heard}"`, "heard")}${inc("+", "heard", 1)}`}</div><p class="bird-description" ${c.note ? "" : "hidden"}>${esc(c.note)}</p><div class="record-error" ${errors.length ? "" : "hidden"}>${esc(errors.join("；"))}</div></article>`;
 }
 function lists(organizing = false) {
   const byCode = new Map(species.map((s) => [s.code, s])),
@@ -343,7 +338,7 @@ function filterRows() {
 }
 function counter() {
   const s = state.session;
-  app.innerHTML = `<div class="counter-top"><div class="stats"><b id="elapsed"></b><span id="distance" title="${esc(s.gpsStatus)}"></span><span class="current-location">${esc(s.location.alias)}</span>${button("⚙", "settings", 'aria-label="設定"', "icon")}</div><div class="search"><input id="query" type="search" value="${esc(s.query)}" placeholder="鳥名 / 加減數量" aria-label="搜尋鳥名或輸入數量" autocomplete="off"><span id="number-hint" hidden></span></div>${editMode ? `<div class="edit-toolbar">${button("＋ 區塊", "add-group")}<small>拖動 ↕ 調整順序</small>${button("完成", "toggle-edit")}</div>` : ""}</div><div id="bird-list">${lists()}</div><footer class="counter-footer">${button(editMode ? "✓" : "↕", "toggle-edit", 'aria-label="調整排序"', "icon")}${button("⇩", "backup", 'aria-label="下載備份"', "icon")}${button("", "only-recorded", `aria-pressed="${profile().groups.every((g) => g.collapsed)}"`, "totals")}${button("停止", "stop", "", "primary stop")}</footer>`;
+  app.innerHTML = `<div class="counter-top"><div class="stats"><b id="elapsed"></b><span id="distance" title="${esc(s.gpsStatus)}"></span><span class="current-location">${esc(s.location.alias)}</span>${button("⚙", "settings", 'aria-label="設定"', "icon")}</div><div class="search"><input id="query" type="search" value="${esc(s.query)}" placeholder="鳥名 / 加減數量" aria-label="搜尋鳥名或輸入數量" autocomplete="off">${button("×", "clear-query", 'aria-label="清除搜尋"', "clear-query")}<span id="number-hint" hidden></span></div>${editMode ? `<div class="edit-toolbar">${button("＋ 區塊", "add-group")}<small>拖動 ↕ 調整順序</small>${button("完成", "toggle-edit")}</div>` : ""}</div><div id="bird-list">${lists()}</div><footer class="counter-footer">${button(editMode ? "✓" : "↕", "toggle-edit", 'aria-label="調整排序"', "icon")}${button("⇩", "backup", 'aria-label="下載備份"', "icon")}${button("", "only-recorded", `aria-pressed="${profile().groups.every((g) => g.collapsed)}"`, "totals")}${button("停止", "stop", "", "primary stop")}</footer>`;
   filterRows();
   tick();
 }
@@ -436,7 +431,7 @@ async function breeding(code) {
     c = C.recordFor(state.session, code),
     el = document.createElement("dialog");
   el.className = "sheet breeding-sheet";
-  el.innerHTML = `<h2>${esc(nameOf(s))} · 繁殖</h2><div class="breeding-options">${O.BREEDING_OPTIONS.map(
+  el.innerHTML = `<div class="sheet-heading"><h2>${esc(nameOf(s))} · 繁殖</h2><button type="button" data-cancel aria-label="關閉繁殖選單">×</button></div><div class="breeding-options">${O.BREEDING_OPTIONS.map(
     ([value, english, short, full]) => {
       const chars = new Set([...short]),
         highlighted = [...full]
@@ -448,7 +443,7 @@ async function breeding(code) {
           .join("");
       return `<button type="button" data-value="${esc(value)}" class="breeding-option ${c.breeding === value ? "selected" : ""}"><strong>${english || "—"}</strong><span>${full ? highlighted : "無繁殖代碼"}</span></button>`;
     },
-  ).join("")}</div><button class="wide" data-cancel>取消</button>`;
+  ).join("")}</div>`;
   el.addEventListener("click", (e) => {
     const option = e.target.closest("[data-value]");
     if (option) {
@@ -489,11 +484,10 @@ function stopSession() {
 }
 function stopped() {
   const s = state.session,
-    { unmapped } = C.exportText(s, state.aliases),
     errors = s.species.filter((x) => C.recordErrors(s.counts[x.code]).length);
   app.innerHTML =
     top("紀錄", false) +
-    `<section class="settings-list"><div class="summary-metrics"><b>${C.formatDuration(C.elapsed(s))}</b><span>${(s.distanceM / 1000).toFixed(2)} km</span><span>${esc(s.location.alias)}</span></div>${errors.length ? `<div class="warning danger">${errors.length} 項數量提醒未解決</div>` : ""}${unmapped.length ? `<details class="warning" open><summary>${unmapped.length} 項需另行補填</summary>${unmapped.map((x) => `<p>${esc(x.name)} ${x.total}，聽 ${x.heard}${x.note ? " · " + esc(x.note) : ""}</p>`).join("")}</details>` : ""}<textarea id="output" aria-label="eBird 輸出文字" rows="13">${esc(s.output)}</textarea>${button(s.copied ? "已複製 ✓" : "複製全部", "copy", "", "primary wide")}<div class="line-actions">${button("繼續計鳥", "resume")}${button("下載", "download-text")}${button("重新產生", "regenerate")}${button("從頭開始", "restart")}</div><small class="muted">距離 ${(s.distanceM / 1000).toFixed(2)} km 請填入助手努力量；背景 GPS 可能中斷。</small></section>`;
+    `<section class="settings-list"><div class="summary-metrics"><b>${C.formatDuration(C.elapsed(s))}</b><span>${(s.distanceM / 1000).toFixed(2)} km</span><span>${esc(s.location.alias)}</span></div>${errors.length ? `<div class="warning danger">${errors.length} 項數量提醒未解決</div>` : ""}<textarea id="output" aria-label="eBird 輸出文字" rows="13">${esc(s.output)}</textarea>${button(s.copied ? "已複製 ✓" : "複製全部", "copy", "", "primary wide")}<div class="line-actions">${button("繼續計鳥", "resume")}${button("下載", "download-text")}${button("重新產生", "regenerate")}${button("從頭開始", "restart")}</div><small class="muted">距離 ${(s.distanceM / 1000).toFixed(2)} km 請填入助手努力量；背景 GPS 可能中斷。</small></section>`;
 }
 function render() {
   if (locked) return;
@@ -505,6 +499,13 @@ function render() {
   else if (view === "organize") organize();
   else if (state.session) state.session.stop === null ? counter() : stopped();
   else home();
+}
+function updateSelectedDistance() {
+  const loc = locationById(selectedId);
+  if (point && Number.isFinite(loc?.lat) && Number.isFinite(loc?.lon))
+    gpsMessage =
+      "距 " + loc.alias + " " + Math.round(C.distance(point, loc)) + " m";
+  else if (point && loc) gpsMessage = "此地點尚未設定座標";
 }
 function locate() {
   if (!navigator.geolocation) {
@@ -530,6 +531,7 @@ function locate() {
       gpsMessage = nearest
         ? `距 ${nearest.alias} ${Math.round(nearest.meters)} m`
         : "附近 500 m 無已設地點";
+      updateSelectedDistance();
       if (p.coords.accuracy > 500) gpsMessage = "定位精度不足，請選地點";
       if (!state.session || view === "nearby") render();
     },
@@ -718,7 +720,16 @@ app.addEventListener("click", async (event) => {
   if (!target || locked || suppressClick) return;
   const action = target.dataset.action;
   try {
-    if (action === "start") {
+    if (action === "clear-query") {
+      state.session.query = "";
+      $("#query").value = "";
+      closeEditor();
+      save();
+      refreshList();
+      $("#query").focus();
+    } else if (action === "install-app") {
+      await installApp();
+    } else if (action === "start") {
       const loc = locationById(selectedId);
       if (!loc) throw new Error("請選地點");
       state.session = C.createSession(
@@ -829,9 +840,15 @@ app.addEventListener("click", async (event) => {
         render();
       }
     } else if (action === "pick-nearby")
-      await editLocation("", nearby[Number(target.dataset.index)]);
+      await editLocation(
+        locationById(nearby[Number(target.dataset.index)].id)?.id || "",
+        nearby[Number(target.dataset.index)],
+      );
     else if (action === "backup")
-      download("ebird-counter.json", JSON.stringify(state, null, 2));
+      download(
+        "ebird-counter-settings.json",
+        JSON.stringify(C.settingsBackup(state), null, 2),
+      );
     else if (action === "download-text")
       download(
         "ebird-notes.txt",
@@ -897,26 +914,6 @@ app.addEventListener("click", async (event) => {
         save();
         render();
       }
-    } else if (action === "preview-frequency") {
-      let cache =
-        state.frequency.personal || state.frequency.public || publicData;
-      if (cache.compact) {
-        const response = await fetch("./data/taiwan.json");
-        if (!response.ok) throw new Error("月份資料暫時無法讀取");
-        cache = C.validateCache(await response.json(), "TW");
-        state.frequency.public = cache;
-        save();
-      }
-      const month = Number($("#preview-month").value),
-        byCode = new Map(cache.species.map((s) => [s.code, s]));
-      $("#month-preview").innerHTML =
-        O.orderedSpecies(profile(), species)
-          .filter((s) => (byCode.get(s.code)?.months[month] || 0) > 0)
-          .map(
-            (s) =>
-              `<div class="month-row"><span>${esc(nameOf(s))}</span><b>${byCode.get(s.code).months[month].toFixed(1)}%</b></div>`,
-          )
-          .join("") || "此月無紀錄";
     } else if (action === "suggest-groups") {
       const suggested = O.suggestThresholds(species);
       $("#threshold-common").value = suggested.common;
@@ -1016,8 +1013,7 @@ app.addEventListener("change", async (event) => {
   if (locked) return;
   const el = event.target;
   try {
-    if (el.id === "location-month") previewLocationMonth();
-    else if (el.id === "location-file" && el.files[0]) {
+    if (el.id === "location-file" && el.files[0]) {
       const loc = locationById(dataLocationId),
         file = el.files[0];
       if (file.size > 10_000_000) throw new Error("檔案超過 10 MB");
@@ -1034,6 +1030,8 @@ app.addEventListener("change", async (event) => {
       render();
     } else if (el.id === "location") {
       selectedId = el.value;
+      updateSelectedDistance();
+      $("#location-status").textContent = gpsMessage;
       manualLocation = true;
       $('[data-action="start"]').disabled = !selectedId;
     } else if (el.id === "gps") gpsEnabled = el.checked;
@@ -1062,8 +1060,13 @@ app.addEventListener("change", async (event) => {
           ? await readPersonalFile(el.files[0])
           : await el.files[0].text();
       if (el.id === "restore") {
-        const restored = C.readState({ getItem: () => text });
-        if (!(await confirmAction("還原備份", "取代目前的紀錄與所有設定？")))
+        const restored = C.restoreSettings(state, text);
+        if (
+          !(await confirmAction(
+            "還原備份",
+            "取代地點、簡稱、區塊與排序設定？目前鳥單與頻率資料會保留。",
+          ))
+        )
           return;
         gpsStop();
         state = restored;
@@ -1171,3 +1174,61 @@ if (navigator.locks)
     },
   );
 else boot();
+
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  installPrompt = event;
+});
+window.addEventListener("appinstalled", () => {
+  installPrompt = null;
+  notice("計鳥 App 已安裝");
+});
+async function installApp() {
+  if (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    navigator.standalone
+  )
+    return notice("目前已在 App 視窗中");
+  if (installPrompt) {
+    const prompt = installPrompt;
+    installPrompt = null;
+    await prompt.prompt();
+    await prompt.userChoice;
+    return;
+  }
+  await dialog(
+    "安裝計鳥 App",
+    "<p>Android / 電腦：開啟瀏覽器選單，選「安裝應用程式」或「加到主畫面」。</p><p>iPhone / iPad：Safari 分享 → 加入主畫面 → 開啟「作為網頁 App」。</p>",
+    "知道了",
+  );
+}
+installBackNavigation(window, {
+  dismiss() {
+    const modal = document.querySelector("dialog[open]");
+    if (modal) {
+      modal.close();
+      return true;
+    }
+    if (expanded) {
+      closeEditor();
+      return true;
+    }
+    if (view !== "home") {
+      view = "home";
+      editMode = false;
+      render();
+      return true;
+    }
+    if (editMode) {
+      editMode = false;
+      render();
+      return true;
+    }
+    return false;
+  },
+  active: () => Boolean(state?.session && !state.session.stop),
+  confirmLeave: () =>
+    confirmAction("離開計鳥？", "紀錄已自動儲存，下次開啟可繼續。"),
+  save: () => save(),
+});

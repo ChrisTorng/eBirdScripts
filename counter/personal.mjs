@@ -220,11 +220,15 @@ export function parsePersonalCSV(text, publicSpecies = []) {
   const samples = Array(12).fill(0);
   for (const m of checklists.values()) samples[m]++;
   let unmatched = 0;
+  const unmatchedNames = [];
   const resolved = new Map();
   for (const bird of [...birds.values()].sort((a, b) => a.order - b.order)) {
     const known = names.get(normalizeName(bird.name));
     const identity = known || identityForName(bird.name);
-    if (!known && !resolved.has(identity.code)) unmatched++;
+    if (!known && !resolved.has(identity.code)) {
+      unmatched++;
+      unmatchedNames.push(bird.name);
+    }
     // Historical names/subspecies may resolve to one species. Union checklist IDs,
     // never sum frequencies or count the same checklist twice.
     const previous = resolved.get(identity.code);
@@ -257,6 +261,7 @@ export function parsePersonalCSV(text, publicSpecies = []) {
       species,
       sampleSize: checklists.size,
       unmatched,
+      unmatchedNames,
     },
     "TW",
   );

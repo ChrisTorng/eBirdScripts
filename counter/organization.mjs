@@ -38,7 +38,11 @@ export const BREEDING_OPTIONS = [
   ["巢中有幼鳥", "NY", "巢雛", "巢中有幼鳥 Nest with Young"],
 ];
 export const normalizeName = (value) =>
-  String(value).normalize("NFKC").replace(/台/g, "臺").replace(/\s/g, "");
+  String(value)
+    .normalize("NFKC")
+    .replace(/台/g, "臺")
+    .replace(/\s/g, "")
+    .replace(/^(?:野鴿(?:\((?:野化|馴化)\))?|原鴿)$/, "原鴿");
 export function isOtherTaxon(s) {
   return (
     ["spuh", "slash", "hybrid", "intergrade", "domestic"].includes(
@@ -105,7 +109,8 @@ export function resetCollapsed(profile) {
 }
 export function toggleAllCollapsed(profile) {
   const collapse = profile.groups.some((g) => !g.collapsed);
-  for (const g of profile.groups) g.collapsed = collapse;
+  for (const g of profile.groups)
+    g.collapsed = collapse || !["common", "uncommon"].includes(g.id);
 }
 export function sharedSpecies(state, publicData) {
   const publicCache = state.frequency.public || publicData;
@@ -131,7 +136,12 @@ export function sharedSpecies(state, publicData) {
     if (!used.has(s.code) && !merged.some((x) => x.code === s.code))
       merged.push({ ...s });
   for (const s of catalog())
-    if (!merged.some((x) => x.code === s.code))
+    if (
+      !merged.some(
+        (x) =>
+          x.code === s.code || normalizeName(x.name) === normalizeName(s.name),
+      )
+    )
       merged.push({ ...s, annual: 0 });
   // Keep recorded rows even after changing the shared frequency source.
   for (const s of state.session?.species || [])

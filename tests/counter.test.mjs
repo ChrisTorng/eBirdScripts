@@ -75,7 +75,7 @@ test('counter output is parsed by the real assistant including heard-only and br
   session.counts.spodov.breeding = '唱歌'; c.increment(session, 'eutspa', 'heard', 2);
   const unknown = session.species.find(s => !c.compatibleAlias(s)); c.increment(session, unknown.code, 'seen', 4);
   session.stop = Date.now(); const output = c.exportText(session, { [unknown.code]: '新簡稱' });
-  assert.equal(output.unmapped.length, 1); assert.ok(!output.text.includes('新簡稱'));
+  assert.equal(output.unmapped.length, 0); assert.ok(output.text.includes(unknown.name)); assert.ok(!output.text.includes('新簡稱'));
   const lines = output.text.split('\n'); assert.equal(assistant.parseEffortLine(lines[2]).valid, true);
   const parsed = lines.slice(3).map(line => assistant.parseObservationLine(line));
   assert.ok(parsed.every(x => !x.error));
@@ -93,7 +93,7 @@ test('local backup restores counts, elapsed, GPS, editable output and copied sta
   state.session.output = 'edited'; state.session.copied = true;
   let raw; const storage = { setItem(k, value) { raw = value; }, getItem() { return raw; } };
   c.saveState(storage, state); const restored = c.readState(storage);
-  assert.deepEqual(restored, state); assert.equal(c.elapsed(restored.session, 31000), 30000);
+  assert.deepEqual(restored, JSON.parse(JSON.stringify(state, (key,value)=>key === "months" ? undefined : value))); assert.equal(c.elapsed(restored.session, 31000), 30000);
   assert.throws(() => c.createSession(state.locations[0], 2000, false, 1000), /未來/);
   assert.throws(() => c.saveState({ setItem() { throw new Error('quota'); } }, state), /quota/);
 });

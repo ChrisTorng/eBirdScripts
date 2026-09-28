@@ -5,13 +5,13 @@
     "Segoe UI",
     sans-serif;
   font-size: 16px;
-  color: #20322b;
+  color: #102018;
   background: #e8eeeb;
   font-synthesis: none;
   color-scheme: light;
-  --green: #31834a;
-  --ink: #20322b;
-  --muted: #687a71;
+  --green: #14532d;
+  --ink: #102018;
+  --muted: #3e5145;
   --line: #dfe7e2;
   --surface: #fff;
   --soft: #eff5f0;
@@ -383,7 +383,7 @@ details a {
   font-weight: 600;
 }
 .bird-line .breed {
-  font-size: 12px;
+  font-size: 15px;
   color: var(--muted);
 }
 .bird-line .heard {
@@ -393,7 +393,7 @@ details a {
   align-items: center;
   gap: 4px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 15px;
 }
 .heard b {
   font-size: 17px;
@@ -558,13 +558,13 @@ details a {
 }
 .breeding-option {
   display: grid;
-  grid-template-columns: 32px 1fr;
+  grid-template-columns: 20px 1fr;
   align-items: center;
   gap: 8px;
   padding: 9px 0;
   text-align: left;
   color: var(--ink);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   border-bottom: 1px solid var(--line);
 }
@@ -574,6 +574,7 @@ details a {
 }
 .breeding-option b {
   font-weight: 800;
+  font-size: 15px;
 }
 .breeding-option.selected {
   background: var(--soft);
@@ -669,38 +670,7 @@ details a {
     gap: 8px;
   }
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    color: #e2ebe4;
-    background: #141c18;
-    --ink: #e2ebe4;
-    --muted: #a3b4a8;
-    --surface: #1c2721;
-    --soft: #29382e;
-    --line: #3b4b40;
-    --green: #9ccd9c;
-    --red: #ff9692;
-  }
-  .primary,
-  .stats {
-    background: #286b3d;
-    color: #fff;
-  }
-  .recorded {
-    background: #253629;
-  }
-  .warning {
-    background: #3a311e;
-    color: #edc980;
-  }
-  .warning.danger {
-    background: #412b2a;
-  }
-  .drop-target {
-    background: #31543c;
-  }
-}
+
 .bird-editor {
   left: 0;
   right: 0;
@@ -796,5 +766,75 @@ details a {
   }
   .editor-grid.reordering {
     grid-template-columns: 24px 28px 25px 24px minmax(55px, 1fr) 36px 34px 26px;
+  }
+}
+
+/* Daylight: dark text and controls on light surfaces, independent of extensions. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light;
+    color: #102018;
+    background: #e8eeeb;
+    --green: #14532d;
+    --ink: #102018;
+    --muted: #3e5145;
+    --line: #becbc3;
+    --surface: #fff;
+    --soft: #eff5f0;
+    --red: #a51016;
+  }
+}
+.bird-name,
+.organize-name {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.group-toggle {
+  font-size: 17px;
+  font-weight: 700;
+}
+.search {
+  position: relative;
+}
+.search input {
+  padding-right: 44px;
+}
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+.clear-query {
+  position: absolute;
+  right: 6px;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  font-size: 25px;
+  color: var(--ink);
+}
+.sheet-heading {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.sheet-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.sheet-heading button {
+  font-size: 28px;
+  min-width: 44px;
+  color: var(--ink);
+}
+@media (max-width: 359px) {
+  .bird-name,
+  .organize-name {
+    font-size: 16px;
   }
 }
