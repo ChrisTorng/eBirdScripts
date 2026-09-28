@@ -88,7 +88,7 @@ test('counter output is parsed by the real assistant including heard-only and br
 test('local backup restores counts, elapsed, GPS, editable output and copied status', () => {
   const state = c.initialState(); state.session = c.createSession(state.locations[0], 1000, true, 1000);
   c.increment(state.session, 'eutspa', 'seen', 5); c.increment(state.session, 'eutspa', 'seen', -10);
-  assert.equal(state.session.counts.eutspa.seen, 0);
+  assert.equal(state.session.counts.eutspa.total, 0);
   state.session.distanceM = 120; state.session.lastFix = { lat: 25, lon: 121, accuracy: 5, time: 1000 };
   state.session.output = 'edited'; state.session.copied = true;
   let raw; const storage = { setItem(k, value) { raw = value; }, getItem() { return raw; } };

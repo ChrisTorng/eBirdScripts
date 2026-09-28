@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-13_1.8.2
+// @version      2026-09-28_1.9.0
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -265,10 +265,12 @@
     }
 
     function normalizeSource(text) {
-        return String(text || '')
-            .replace(/&(?:#x20|#32|nbsp);/gi, ' ')
-            .replace(/\u00a0/g, ' ')
-            .replace(/\r/g, '');
+        return String(text || '').replace(/\r/g, '').split('\n').map(function(line) {
+            const description = line.match(/\s*；描述\s+"(?:\\.|[^"\\])*"\s*$/);
+            const prefix = description ? line.slice(0, description.index) : line;
+            return prefix.replace(/&(?:#x20|#32|nbsp);/gi, ' ').replace(/\u00a0/g, ' ')
+                + (description ? description[0] : '');
+        }).join('\n');
     }
 
     function parseEffortLine(line) {
@@ -313,7 +315,18 @@
     }
 
     function parseObservationLine(line) {
-        const text = String(line || '').trim();
+        let text = String(line || '').trim();
+        // Counter descriptions are a JSON string at the end of the species line.
+        // Decode separately so arbitrary notes cannot become counts/breeding codes.
+        let description = '';
+        const descriptionMatch = text.match(/\s*；描述\s+("(?:\\.|[^"\\])*")$/);
+        if (descriptionMatch) {
+            try { description = JSON.parse(descriptionMatch[1]); }
+            catch { return { error: '描述文字格式錯誤：' + line }; }
+            text = text.slice(0, descriptionMatch.index).trim();
+        } else if (text.includes('；描述')) {
+            return { error: '描述文字格式錯誤：' + line };
+        }
         const aliases = Object.keys(speciesAliases).sort(function(left, right) {
             return right.length - left.length;
         });
@@ -353,8 +366,10 @@
             ? explicitHeardBefore ? Number(explicitHeardBefore[1])
                 : explicitHeardAfter ? Number(explicitHeardAfter[1]) : count
             : null;
-        let breedingCode = details.includes('求偶') ? 'C' : details.includes('一對') ? 'P' : (details.includes('唱歌') ? 'S' : null);
+        const explicitCode = details.match(/\[(C|S|P|H|T|N|A|B|PE|CN|NB|DD|UN|FL|ON|CF|FY|NE|NY)\]/);
+        let breedingCode = explicitCode ? explicitCode[1] : details.includes('求偶') ? 'C' : details.includes('一對') ? 'P' : (details.includes('唱歌') ? 'S' : null);
         const unknownDetails = details
+            .replace(/\[(?:C|S|P|H|T|N|A|B|PE|CN|NB|DD|UN|FL|ON|CF|FY|NE|NY)\]/g, '')
             .replace(/求偶|唱歌/g, '')
             .replace(/一對/g, '')
             .replace(/(?:^|,)\s*\d*\s*聽到(?:\s*\d+)?/g, '')
@@ -376,7 +391,7 @@
                 name: species.name,
                 count: count,
                 breedingCode: breedingCode,
-                comments: heardCount === null ? '' : 'Heard ' + heardCount,
+                comments: [heardCount === null ? '' : 'Heard ' + heardCount, description].filter(Boolean).join(', '),
                 sourceLine: String(line || ''),
                 warning: detailWarning
             },
