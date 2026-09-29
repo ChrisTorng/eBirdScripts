@@ -575,10 +575,13 @@ export function addFix(session, fix) {
 export function exportText(session, local = {}) {
   const date = new Date(session.start),
     pad = (n) => String(n).padStart(2, "0");
+  const distance = session.gpsEnabled
+    ? ` ${Number((session.distanceM / 1000).toFixed(2))} km`
+    : "";
   const lines = [
     `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`,
     session.location.alias,
-    `${pad(date.getHours())}:${pad(date.getMinutes())} 開始 ${Math.max(1, Math.round(elapsed(session) / 60000))} 分鐘`,
+    `${pad(date.getHours())}:${pad(date.getMinutes())} 開始 ${Math.max(1, Math.round(elapsed(session) / 60000))} 分鐘${distance}`,
   ];
   const unmapped = [];
   for (const s of session.species) {
@@ -594,7 +597,7 @@ export function exportText(session, local = {}) {
       .filter(Boolean)
       .join("，");
     lines.push(
-      `${alias} ${c.total}${details ? " " + details : ""}${c.note?.trim() ? "；描述 " + JSON.stringify(c.note.trim()) : ""}`,
+      `${alias} ${c.total}${details ? "，" + details : ""}${c.note?.trim() ? "；描述 " + JSON.stringify(c.note.trim()) : ""}`,
     );
   }
   return { text: lines.join("\n"), unmapped };
