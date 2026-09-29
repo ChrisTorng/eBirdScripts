@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-28_1.10.0
+// @version      2026-09-29_1.11.0
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -18184,7 +18184,7 @@
     }
 
     function parseEffortLine(line) {
-        const match = String(line || '').trim().match(/^(\d{1,2})[：:](\d{1,2})\s*(?:開始)?\s*(?:(\d+)\s*分鐘)?$/);
+        const match = String(line || '').trim().match(/^(\d{1,2})[：:](\d{1,2})\s*(?:開始)?\s*(?:(\d+)\s*分鐘)?(?:\s+(\d+(?:\.\d+)?)\s*km)?$/i);
         if (!match) {
             return null;
         }
@@ -18192,7 +18192,9 @@
             hour: Number(match[1]),
             minute: Number(match[2]),
             durationMinutes: match[3] === undefined ? null : Number(match[3]),
-            valid: Number(match[1]) <= 23 && Number(match[2]) <= 59 && (match[3] === undefined || Number(match[3]) > 0)
+            distanceKm: match[4] === undefined ? null : Number(match[4]),
+            valid: Number(match[1]) <= 23 && Number(match[2]) <= 59
+                && (match[3] === undefined || Number(match[3]) > 0)
         };
     }
 
@@ -18247,7 +18249,7 @@
                 continue;
             }
             const remainder = text.slice(candidate.length);
-            const candidateMatch = remainder.match(/^\s*(\d+)(?:\s*[；;]?\s*(.*))?$/)
+            const candidateMatch = remainder.match(/^\s*(\d+)(?:\s*[，,；;]?\s*(.*))?$/)
                 || (/^\s*(?:$|聽到|唱歌|求偶|一對|[;；])/.test(remainder)
                     ? [remainder, '1', remainder.replace(/^\s*[;；]?\s*/, '')] : null);
             if (candidateMatch) {
@@ -18267,7 +18269,7 @@
             }
         }
         if (!match) {
-            const fallback = text.match(/^(.+?)\s+(\d+)(?:\s*[；;]?\s*(.*))?$/) || text.match(/^(.+?)\s*(\d+)(?:\s*[；;]?\s*(.*))?$/);
+            const fallback = text.match(/^(.+?)\s+(\d+)(?:\s*[，,；;]?\s*(.*))?$/) || text.match(/^(.+?)\s*(\d+)(?:\s*[，,；;]?\s*(.*))?$/);
             if (!fallback) {
                 return { error: '無法解析物種紀錄：' + (line || '（未填）') };
             }
@@ -18367,8 +18369,8 @@
             hour: parsedEffort.hour,
             minute: parsedEffort.minute,
             durationMinutes: parsedEffort.durationMinutes,
-            protocol: preset ? protocolForDistance(preset.distanceKm) : 'P20',
-            distanceKm: preset && preset.distanceKm !== undefined ? preset.distanceKm : null,
+            protocol: protocolForDistance(parsedEffort.distanceKm),
+            distanceKm: parsedEffort.distanceKm,
             partySize: preset ? preset.partySize : 1
         } : null;
         if (!parsedEffort) {

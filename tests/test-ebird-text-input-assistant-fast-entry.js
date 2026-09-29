@@ -182,7 +182,7 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(api.protocolForDistance(0.031), 'P22');
         assert.throws(() => api.protocolForDistance(-0.01), /0 以上/);
 
-        const legacyPresetRecord = plain(api.parseRecord(
+        const recordWithoutDistance = plain(api.parseRecord(
             '9/2\n舊設定\n8：38 開始 28 分鐘\n麻雀1',
             new Date(2026, 8, 3),
             {
@@ -196,7 +196,14 @@ describe('eBird assistant fast entry workflow', () => {
             },
             new Date(2026, 8, 3)
         ));
-        assert.equal(legacyPresetRecord.effort.protocol, 'P21');
+        assert.equal(recordWithoutDistance.effort.protocol, 'P20');
+        assert.equal(recordWithoutDistance.effort.distanceKm, null);
+        assert.deepEqual(plain(api.parseEffortLine('8：38 開始 28 分鐘 0 km')), {
+            hour: 8, minute: 38, durationMinutes: 28, distanceKm: 0, valid: true
+        });
+        assert.deepEqual(plain(api.parseEffortLine('8:38 開始 28 分鐘 1.2 km')), {
+            hour: 8, minute: 38, durationMinutes: 28, distanceKm: 1.2, valid: true
+        });
     });
 
     test('keeps only one default location in local settings', () => {
