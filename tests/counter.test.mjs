@@ -151,6 +151,8 @@ test('full names, shortest aliases and custom aliases are searchable', () => {
   assert.equal(c.matchesQuery(s, '咕', { spodov: '咕咕' }), true);
   assert.equal(c.matchesQuery(s, '不存在'), false);
   assert.equal(c.compatibleAlias(s, { spodov: '咕咕' }), '珠頸');
+  assert.equal(c.displayAlias({ code: 'rocpig1', name: '原鴿' }), '野鴿');
+  assert.equal(c.displayAlias({ code: 'rocpig1', name: '原鴿' }, { rocpig1: '鴿鴿' }), '鴿鴿');
 });
 test('stationary GPS reports do not masquerade as background gaps', () => {
   const s = c.createSession({ id: 'L1', alias: 'Test' }, 1000, true, 1000);

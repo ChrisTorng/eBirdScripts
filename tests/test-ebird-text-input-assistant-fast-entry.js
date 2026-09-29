@@ -518,7 +518,7 @@ describe('eBird assistant fast entry workflow', () => {
         }
     });
 
-    test('does not show the assistant while browsing unrelated completed checklists', () => {
+    test('shows the editing assistant on existing checklists and collapses when birds already exist', () => {
         const confirmationKey = 'ebirdTextInputAssistant:lastConfirmation';
         const unrelated = loadAssistant({
             url: 'https://ebird.org/atlastw/checklist/S999999999',
@@ -530,15 +530,22 @@ describe('eBird assistant fast entry workflow', () => {
                     record: {},
                     result: {}
                 })
+            },
+            beforeLoad(currentHarness) {
+                currentHarness.document.body.textContent = '3 紀錄鳥種數';
             }
         }).harness;
-        assert.equal(unrelated.document.getElementById('tm-ebird-text-input-assistant'), null);
+        const existingPanel = unrelated.document.getElementById('tm-ebird-text-input-assistant');
+        assert.ok(existingPanel);
+        assert.equal(existingPanel.querySelector('.tm-ebird-body').hidden, true);
 
         const noConfirmation = loadAssistant({
             url: 'https://ebird.org/atlastw/checklist/S999999999',
             readyState: 'complete'
         }).harness;
-        assert.equal(noConfirmation.document.getElementById('tm-ebird-text-input-assistant'), null);
+        const emptyPanel = noConfirmation.document.getElementById('tm-ebird-text-input-assistant');
+        assert.ok(emptyPanel);
+        assert.equal(emptyPanel.querySelector('.tm-ebird-body').hidden, false);
 
         const unsubmitted = loadAssistant({
             url: 'https://ebird.org/atlastw/checklist/S999999999',
@@ -552,7 +559,7 @@ describe('eBird assistant fast entry workflow', () => {
                 })
             }
         }).harness;
-        assert.equal(unsubmitted.document.getElementById('tm-ebird-text-input-assistant'), null);
+        assert.ok(unsubmitted.document.getElementById('tm-ebird-text-input-assistant'));
     });
 
     test('expands checklist errors even on a small screen and keeps desktop open', () => {

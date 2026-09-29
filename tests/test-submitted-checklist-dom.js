@@ -75,6 +75,13 @@ for (const date of ['5 Sep 2026', 'September 5, 2026', '周六 9月 05, 2026', '
     });
 }
 
+test('accepts an existing checklist time within five minutes and distance within ten percent', () => {
+    const { document, verify } = load(fixture('2026/9/5'));
+    document.querySelector('time').setAttribute('datetime', '2026-09-05T07:59');
+    document.querySelector('.Icon--track').parentElement.querySelector('.Badge-label').textContent = '1.1 km';
+    assert.equal(verify().allMatched, true);
+});
+
 const changes = [
     ['location', doc => doc.querySelector('a').setAttribute('href', '/atlastw/hotspot/L9999')],
     ['datetime', doc => doc.querySelector('time').setAttribute('datetime', '2026-09-04T07:54')],
