@@ -85,6 +85,44 @@ test('counter output is parsed by the real assistant including heard-only and br
   assert.equal(parsed.find(x => x.value.code === 'eutspa').value.count, 2);
   for (const [detail] of c.BREEDING.slice(1)) assert.ok(assistant.parseObservationLine(`麻雀 1 ${detail}`).value.breedingCode, detail);
 });
+test('counter and assistant round-trip every output shape and derive effort from GPS distance', () => {
+  const presets = { 測試地點: { locId: 'L1', pageName: '測試地點', distanceKm: 9, partySize: 1 } };
+  const cases = [
+    { gps: false, distanceM: 0, protocol: 'P20', distanceKm: null, count: 3 },
+    { gps: true, distanceM: 0, protocol: 'P21', distanceKm: 0, count: 3, heard: 1 },
+    { gps: true, distanceM: 20, protocol: 'P21', distanceKm: 0.02, count: 3, breeding: '唱歌' },
+    { gps: true, distanceM: 1200, protocol: 'P22', distanceKm: 1.2, count: 3, heard: 1, breeding: '唱歌', note: '樹上，已看見' },
+  ];
+  for (const expected of cases) {
+    const session = c.createSession(
+      { id: 'L1', alias: '測試地點' },
+      Date.now() - 600000,
+      expected.gps,
+      Date.now(),
+      [{ code: 'grytre1', name: '樹鵲' }],
+    );
+    session.stop = Date.now();
+    session.distanceM = expected.distanceM;
+    session.counts.grytre1 = {
+      total: expected.count,
+      heard: expected.heard || 0,
+      breeding: expected.breeding || '',
+      note: expected.note || '',
+    };
+    const output = c.exportText(session).text;
+    const effortLine = output.split('\n')[2];
+    assert.equal(effortLine.endsWith(' km'), expected.gps, output);
+    if (expected.heard) assert.match(output, /樹鵲 3，(?:唱歌，)?1 聽到/);
+    const record = assistant.parseRecord(output, new Date(), presets);
+    assert.equal(record.errors.length, 0, output);
+    assert.equal(record.effort.protocol, expected.protocol, output);
+    assert.equal(record.effort.distanceKm, expected.distanceKm, output);
+    assert.equal(record.observations[0].count, 3, output);
+    assert.equal(record.observations[0].comments,
+      [expected.heard ? 'Heard 1' : '', expected.note || ''].filter(Boolean).join(', '), output);
+    assert.equal(record.observations[0].breedingCode, expected.breeding ? 'S' : null, output);
+  }
+});
 test('local backup restores counts, elapsed, GPS, editable output and copied status', () => {
   const state = c.initialState(); state.session = c.createSession(state.locations[0], 1000, true, 1000);
   c.increment(state.session, 'eutspa', 'seen', 5); c.increment(state.session, 'eutspa', 'seen', -10);
@@ -113,6 +151,8 @@ test('full names, shortest aliases and custom aliases are searchable', () => {
   assert.equal(c.matchesQuery(s, '咕', { spodov: '咕咕' }), true);
   assert.equal(c.matchesQuery(s, '不存在'), false);
   assert.equal(c.compatibleAlias(s, { spodov: '咕咕' }), '珠頸');
+  assert.equal(c.displayAlias({ code: 'rocpig1', name: '原鴿' }), '野鴿');
+  assert.equal(c.displayAlias({ code: 'rocpig1', name: '原鴿' }, { rocpig1: '鴿鴿' }), '鴿鴿');
 });
 test('stationary GPS reports do not masquerade as background gaps', () => {
   const s = c.createSession({ id: 'L1', alias: 'Test' }, 1000, true, 1000);

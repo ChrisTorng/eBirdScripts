@@ -30,7 +30,7 @@ const testLocationPresets = {
 const syntheticRecords = [
     `2000.01.01
 測試公園
-6：00 開始 20 分鐘
+6：00 開始 20 分鐘 1 km
 珠頸 3 唱歌，1 聽到
 紅鳩 2 一對
 麻雀 5
@@ -45,7 +45,7 @@ const syntheticRecords = [
 黑領 1 聽到唱歌`,
     `2000.01.02
 測試河段
-14：30 開始 10 分鐘
+14：30 開始 10 分鐘 0.2 km
 金背 1
 野鴿 1
 紅冠 1
@@ -65,7 +65,7 @@ const syntheticRecords = [
 鵲鴝 2 一對`,
     `2000.01.03
 測試河段
-8：30 開始 9 分鐘
+8：30 開始 9 分鐘 0.2 km
 小環 2
 小環 2
 麻雀 4`
@@ -325,7 +325,7 @@ describe('eBird species form safety', () => {
         const { harness, api } = loadAssistant();
         const record = api.parseRecord(`2000.01.05
 測試河段
-7：15 開始 6 分鐘
+7：15 開始 6 分鐘 0.2 km
 鵲鴝 2 一對
 白頭翁 3 唱歌，1 聽到`, new Date(2000, 0, 31), testLocationPresets);
 
@@ -376,7 +376,7 @@ describe('eBird species form safety', () => {
         const { harness, api } = loadAssistant();
         const record = api.parseRecord(`2000.01.05
 測試河段
-7：15 開始 6 分鐘
+7：15 開始 6 分鐘 0.2 km
 麻雀 1`, new Date(2000, 0, 31), testLocationPresets);
         record.effortReadback = {
             locationId: 'L10000002',
@@ -447,7 +447,7 @@ describe('eBird species form safety', () => {
         const { harness, api } = loadAssistant();
         const record = api.parseRecord(`2000.01.05
 測試公園
-7：15 開始 6 分鐘
+7：15 開始 6 分鐘 1 km
 麻雀 4
 小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
 
@@ -479,7 +479,7 @@ describe('eBird species form safety', () => {
         const { harness, api } = loadAssistant();
         const record = api.parseRecord(`2000.01.05
 測試公園
-7：15 開始 6 分鐘
+7：15 開始 6 分鐘 1 km
 麻雀 4
 小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
 
@@ -514,7 +514,7 @@ describe('eBird species form safety', () => {
         const { harness, api } = loadAssistant();
         const record = api.parseRecord(`2000.01.05
 測試公園
-7：15 開始 6 分鐘
+7：15 開始 6 分鐘 1 km
 小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
         const count = harness.document.createElement('input');
         count.id = 'houswi';
@@ -534,7 +534,7 @@ describe('eBird species form safety', () => {
         const { harness, api } = loadAssistant();
         const record = api.parseRecord(`2000.01.05
 測試河段
-7：15 開始 6 分鐘
+7：15 開始 6 分鐘 0.2 km
 白頭翁 3 唱歌，1 聽到
 鵲鴝 2 一對`, new Date(2000, 0, 31), testLocationPresets);
 
@@ -591,7 +591,7 @@ describe('eBird species form safety', () => {
         const { harness, api } = loadAssistant();
         const record = api.parseRecord(`2000.01.05
 測試公園
-7：15 開始 6 分鐘
+7：15 開始 6 分鐘 1 km
 神秘鳥1
 麻雀2`, new Date(2000, 0, 31), testLocationPresets);
         const row = harness.document.createElement('li');
