@@ -128,7 +128,7 @@ export function compatibleAlias(spec, local = {}) {
   return matches.sort((a, b) => a[0].length - b[0].length)[0]?.[0] || "";
 }
 export function displayAlias(spec, local = {}) {
-  return local[spec.code] || compatibleAlias(spec) || spec.name;
+  return local[spec.code] || (spec.code === "rocpig1" ? "野鴿" : compatibleAlias(spec)) || spec.name;
 }
 export function speciesList(cache) {
   const data = (cache?.species || []).map((s) => ({ ...s }));
