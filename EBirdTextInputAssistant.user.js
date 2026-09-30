@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-28_1.10.0
+// @version      2026-09-30_1.11.1
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -9,6 +9,8 @@
 // @updateURL    https://github.com/ChrisTorng/eBirdScripts/raw/main/EBirdTextInputAssistant.user.js
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=ebird.org
 // @match        https://ebird.org/*/submit*
+// @match        https://ebird.org/edit/checklist*
+// @match        https://ebird.org/*/edit/checklist*
 // @match        https://ebird.org/checklist/*
 // @match        https://ebird.org/*/checklist/*
 // @grant        GM_getValue
@@ -18436,6 +18438,59 @@
         };
     }
 
+    function splitExistingRecord(text, fallbackDate) {
+        const lines = normalizeSource(text).split('\n');
+        const indexes = getNonemptyLineIndexes(lines);
+        let cursor = 0;
+        const header = {};
+        const dateIndex = indexes[cursor];
+        if (dateIndex !== undefined) {
+            const parsedDate = parseFlexibleDate(lines[dateIndex].trim(), fallbackDate);
+            if (parsedDate.consumed) {
+                header.date = parsedDate.value;
+                header.dateError = parsedDate.error;
+                header.dateIndex = dateIndex;
+                cursor += 1;
+            }
+        }
+        const locationIndex = indexes[cursor];
+        const editEffort = function(line) {
+            return parseEffortLine(String(line || '').replace(/\s+\d+(?:\.\d+)?\s*(?:km|公里)\s*$/i, ''));
+        };
+        if (locationIndex !== undefined
+            && !editEffort(lines[locationIndex])
+            && !/\s+\d+(?:\s|$)/.test(lines[locationIndex])
+            && parseObservationLine(lines[locationIndex].trim()).error) {
+            header.location = lines[locationIndex].trim();
+            header.locationIndex = locationIndex;
+            cursor += 1;
+        }
+        const effortIndex = indexes[cursor];
+        if (effortIndex !== undefined && editEffort(lines[effortIndex])) {
+            header.effort = editEffort(lines[effortIndex]);
+            header.effortIndex = effortIndex;
+            cursor += 1;
+        }
+        return { lines: lines, indexes: indexes.slice(cursor), header: header };
+    }
+
+    function parseExistingRecord(text, fallbackDate = new Date()) {
+        const sections = splitExistingRecord(text, fallbackDate);
+        const stamp = dateValue(startOfDay(fallbackDate));
+        const synthetic = [
+            stamp.year + '/' + stamp.month + '/' + stamp.day,
+            '目前清單',
+            '08:00 開始 1 分鐘'
+        ].concat(sections.indexes.map(function(index) { return sections.lines[index]; })).join('\n');
+        const record = parseRecord(synthetic, fallbackDate, {
+            '目前清單': { locId: '', pageName: '目前清單', distanceKm: null, partySize: 1 }
+        }, fallbackDate);
+        record.source = normalizeSource(text).trim();
+        record.editExisting = true;
+        record.editHeader = sections.header;
+        return record;
+    }
+
     function assertRecordReady(record) {
         if (record.effort && record.effort.protocol !== 'P20' && !(record.effort.durationMinutes > 0)) {
             throw new Error('定點或行進計數必須提供觀察分鐘數。');
@@ -19136,8 +19191,8 @@
             && result.items.length === record.observations.length
             && result.items.every(function(item) { return item.status === 'filled'; })
             && Array.isArray(result.metadata)
-            && result.metadata.length > 0
-            && result.metadata.every(function(item) { return item.matched; })
+            && (record.editExisting || result.metadata.length > 0)
+            && (record.editExisting || result.metadata.every(function(item) { return item.matched; }))
         );
     }
 
@@ -19382,7 +19437,11 @@
     }
 
     function verifySubmittedChecklist(record, preResult) {
-        const metadata = readSubmittedMetadata(record);
+        const metadata = record.editExisting
+            ? (record.editAdvisories || []).map(function(value) {
+                return { key: 'existing-info', label: '原清單資訊', value: value, matched: false };
+            })
+            : readSubmittedMetadata(record);
         const items = verifySubmittedSpecies(record, preResult);
         const rows = Array.from(document.querySelectorAll('.Observation'));
         if (rows.length) {
@@ -19414,7 +19473,7 @@
             postSubmitPassed: false,
             allMatched: false
         };
-        result.postSubmitPassed = metadata.every(function(item) { return item.matched; })
+        result.postSubmitPassed = (record.editExisting || metadata.every(function(item) { return item.matched; }))
             && items.every(function(item) { return item.status === 'filled'; })
             && result.unresolved.length === 0;
         result.allMatched = result.preSubmitPassed && result.postSubmitPassed;
@@ -19526,11 +19585,11 @@
             : 'all-spp-y';
         const complete = document.getElementById(completenessId);
         const formErrors = [];
-        if (!complete) {
+        if (!complete && !record.editExisting) {
             formErrors.push(completenessId === 'all-spp-n'
                 ? '找不到非完整清單選項'
                 : '找不到完整清單選項');
-        } else if (errors.length === 0 && !hasInputIssues) {
+        } else if (complete && !record.editExisting && errors.length === 0 && !hasInputIssues) {
             complete.click();
             complete.checked = true;
             dispatchValueEvents(complete);
@@ -19548,8 +19607,12 @@
                 }
             }
         });
-        const verification = readChecklistVerification(record, completenessId);
-        renderEffortDetailsOnPage(verification.checks);
+        const verification = record.editExisting
+            ? { checks: (record.editAdvisories || []).map(function(value) {
+                return { key: 'existing-info', label: '原清單資訊', value: value, matched: false };
+            }) }
+            : readChecklistVerification(record, completenessId);
+        if (!record.editExisting) renderEffortDetailsOnPage(verification.checks);
 
         errors.push.apply(errors, formErrors);
         unresolved.forEach(function(item) {
@@ -19997,6 +20060,86 @@
         };
     }
 
+    function analyzeExistingRecordLines(text, fallbackDate) {
+        const sections = splitExistingRecord(text, fallbackDate);
+        const results = sections.lines.map(function() { return { text: '', error: false }; });
+        const header = sections.header;
+        const record = parseExistingRecord(text, fallbackDate);
+        const current = readEffortFormState(record, null);
+        const submitted = readSubmittedMetadata(record);
+        const actual = function(key) {
+            const item = submitted.find(function(check) { return check.key === key; });
+            return item && item.actualValue ? String(item.actualValue) : '';
+        };
+        const displayed = parseDisplayedDateTime(actual('datetime'));
+        const actualDate = current.date || displayed.date;
+        const actualTime = current.time || displayed.time;
+        const sameName = function(left, right) {
+            const normalize = function(value) {
+                return String(value || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+            };
+            return Boolean(normalize(left) && normalize(right)
+                && (normalize(left).includes(normalize(right)) || normalize(right).includes(normalize(left))));
+        };
+        if (header.dateIndex !== undefined) {
+            const mismatch = Boolean(header.dateError || (actualDate && !sameDate(header.date, actualDate)));
+            results[header.dateIndex] = {
+                text: mismatch ? '日期與原清單不符；保留原清單日期' : '沿用原清單日期',
+                warning: mismatch
+            };
+        }
+        if (header.locationIndex !== undefined) {
+            const currentName = current.locationName || actual('location');
+            const mismatch = Boolean(currentName && !sameName(header.location, currentName));
+            results[header.locationIndex] = {
+                text: mismatch ? '地點與原清單不符；保留「' + currentName + '」' : '沿用原清單地點',
+                warning: mismatch
+            };
+        }
+        if (header.effortIndex !== undefined) {
+            const effort = header.effort;
+            const timeMismatch = Boolean(actualTime && (Number(effort.hour) !== Number(actualTime.hour)
+                || Number(effort.minute) !== Number(actualTime.minute)));
+            const duration = current.durationMinutes !== null ? current.durationMinutes
+                : Number((actual('duration').match(/\d+(?:\.\d+)?/) || [])[0]);
+            const durationMismatch = effort.durationMinutes !== null && Number.isFinite(duration)
+                && Number(effort.durationMinutes) !== duration;
+            const inputDistance = sections.lines[header.effortIndex].match(/\b(\d+(?:\.\d+)?)\s*(?:km|公里)(?:\s|$)/i);
+            const actualDistance = current.distanceKm !== null ? current.distanceKm
+                : Number((actual('distance').match(/\d+(?:\.\d+)?/) || [])[0]);
+            const distanceMismatch = inputDistance && Number.isFinite(actualDistance)
+                && Math.abs(Number(inputDistance[1]) - actualDistance) > 0.001;
+            const mismatch = timeMismatch || durationMismatch || distanceMismatch || !effort.valid;
+            results[header.effortIndex] = {
+                text: mismatch ? '時間／努力量與原清單不符；保留原清單資料' : '沿用原清單時間與努力量',
+                warning: Boolean(mismatch)
+            };
+        }
+        let failureCount = 0;
+        const seen = new Set();
+        sections.indexes.forEach(function(index) {
+            const parsed = parseObservationLine(sections.lines[index].trim());
+            if (parsed.error) {
+                results[index] = { text: parsed.error, error: true };
+                failureCount += 1;
+                return;
+            }
+            const duplicate = seen.has(parsed.value.code);
+            seen.add(parsed.value.code);
+            results[index] = {
+                text: formatObservationForEbird(parsed.value)
+                    + (duplicate ? '（重複鳥種）' : parsed.warning ? '（' + parsed.warning + '）' : ''),
+                error: Boolean(duplicate || parsed.warning)
+            };
+            if (duplicate || parsed.warning) failureCount += 1;
+        });
+        return {
+            lines: results,
+            failureCount: failureCount,
+            blockingFailureCount: sections.indexes.length ? 0 : 1
+        };
+    }
+
     function addStyle() {
         if (document.getElementById(styleId)) {
             return;
@@ -20405,7 +20548,17 @@
         };
     }
 
-    function createRecordEditor(body, status, isEffortPage) {
+    function findEditSpeciesLink() {
+        return Array.from(document.querySelectorAll('a[href]')).find(function(link) {
+            if (link.closest('#' + panelId)) return false;
+            const label = String(link.textContent || '').replace(/\s+/g, ' ').trim();
+            const href = link.getAttribute('href') || '';
+            return /編輯鳥種|修改鳥種|Edit Species/i.test(label)
+                && /submit\/checklist|edit/i.test(href);
+        }) || null;
+    }
+
+    function createRecordEditor(body, status, isEffortPage, editExisting = false) {
         let locationFilter = null;
         let settings = null;
         let datePicker = null;
@@ -20416,7 +20569,9 @@
         const grid = document.createElement('div');
         grid.className = 'tm-ebird-record-grid';
         const textarea = document.createElement('textarea');
-        textarea.placeholder = '貼上日期、地點（可省略）、時間與物種紀錄';
+        textarea.placeholder = editExisting
+            ? '貼上鳥種與數量；日期、地點、時間與努力量可省略'
+            : '貼上日期、地點（可省略）、時間與物種紀錄';
         const preview = document.createElement('div');
         preview.className = 'tm-ebird-preview';
         preview.setAttribute('aria-label', '逐行辨識結果');
@@ -20425,7 +20580,7 @@
         actionRow.className = 'tm-ebird-action-row';
         const button = document.createElement('button');
         button.type = 'button';
-        button.textContent = '開始填寫紀錄';
+        button.textContent = editExisting ? '填入既有清單鳥種' : '開始填寫紀錄';
         const failure = document.createElement('span');
         failure.className = 'tm-ebird-error';
         actionRow.append(button, failure);
@@ -20437,7 +20592,9 @@
         const autoSubmit = document.createElement('input');
         autoSubmit.type = 'checkbox';
         autoSubmit.checked = true;
-        autoSubmitLabel.append(autoSubmit, document.createTextNode('確認成功後自動儲存'));
+        const autoSubmitText = document.createElement('span');
+        autoSubmitText.textContent = '確認成功後自動儲存';
+        autoSubmitLabel.append(autoSubmit, autoSubmitText);
         const autoSubmitHint = document.createElement('div');
         autoSubmitHint.className = 'tm-ebird-local-note';
         autoSubmitBox.append(autoSubmitLabel, autoSubmitHint);
@@ -20476,11 +20633,16 @@
         }
 
         function refresh() {
-            if (updating || !datePicker) {
+            if (updating || (!datePicker && !editExisting)) {
                 return null;
             }
             updating = true;
             try {
+                if (editExisting) {
+                    const analysis = analyzeExistingRecordLines(textarea.value, dateReference);
+                    renderPreview(analysis);
+                    return { analysis: analysis };
+                }
                 const fallback = datePicker.getDate();
                 const presets = getLocationPresets();
                 const alias = extractLocationAlias(textarea.value, dateReference, presets);
@@ -20557,21 +20719,25 @@
             return locationFilter;
         }
 
-        datePicker = createDatePicker(refresh, dateReference);
-        settings = createSettingsEditor(selectedLocation, function() {
-            lastEffortPresetKey = '';
-            refresh();
-        });
-        body.append(
-            datePicker.element,
-            grid,
-            effortOverride.element,
-            autoSubmitBox,
-            actionRow,
-            status,
-            settings.element
-        );
-        installFilter();
+        if (editExisting) {
+            body.append(grid, autoSubmitBox, actionRow, status);
+        } else {
+            datePicker = createDatePicker(refresh, dateReference);
+            settings = createSettingsEditor(selectedLocation, function() {
+                lastEffortPresetKey = '';
+                refresh();
+            });
+            body.append(
+                datePicker.element,
+                grid,
+                effortOverride.element,
+                autoSubmitBox,
+                actionRow,
+                status,
+                settings.element
+            );
+            installFilter();
+        }
 
         textarea.addEventListener('input', refresh);
         textarea.addEventListener('scroll', function() {
@@ -20588,16 +20754,16 @@
             try {
                 sessionStorage.removeItem(confirmationKey);
                 sessionStorage.removeItem(autoSubmitGuardKey);
-                if (!state.known) {
+                if (!editExisting && !state.known) {
                     settings.savePending(state.alias);
                 }
-                const record = parseRecord(
-                    textarea.value,
-                    datePicker.getDate(),
-                    getLocationPresets(),
-                    dateReference
-                );
-                effortOverride.applyToRecord(record);
+                const record = editExisting
+                    ? parseExistingRecord(textarea.value, dateReference)
+                    : parseRecord(textarea.value, datePicker.getDate(), getLocationPresets(), dateReference);
+                if (editExisting) record.editAdvisories = state.analysis.lines
+                    .filter(function(item) { return item.warning; })
+                    .map(function(item) { return item.text; });
+                if (!editExisting) effortOverride.applyToRecord(record);
                 record.autoSubmit = autoSubmit.checked
                     && !autoSubmit.disabled
                     && state.analysis.failureCount === 0;
@@ -20605,7 +20771,22 @@
                 button.disabled = true;
                 status.textContent = record.warnings.join('\n');
                 status.className = 'tm-ebird-status';
-                if (isEffortPage) {
+                if (editExisting) {
+                    sessionStorage.setItem(storageKey, JSON.stringify(record));
+                    if (document.querySelector('.SubmitChecklist-species input.sc')) {
+                        const result = await fillSpecies(record);
+                        renderChecklistSummary(status, record, result);
+                        saveChecklistConfirmation(record, result, {
+                            awaitingSubmittedPage: false, submittedPath: null
+                        });
+                        if (result.allMatched) tryAutoSubmit(record, result);
+                        button.disabled = false;
+                    } else {
+                        const editLink = findEditSpeciesLink();
+                        if (!editLink) throw new Error('請先在 eBird 開啟「編輯鳥種」，再填入文字。');
+                        location.assign(editLink.href);
+                    }
+                } else if (isEffortPage) {
                     await fillEffort(record);
                 } else {
                     startRecord(record);
@@ -20617,7 +20798,7 @@
             }
         });
 
-        if (!locationFilter) {
+        if (!editExisting && !locationFilter) {
             let attempts = 0;
             const timer = setInterval(function() {
                 attempts += 1;
@@ -20673,10 +20854,11 @@
 
         const metadata = Array.isArray(result.metadata) ? result.metadata : [];
         metadata.forEach(function(item) {
+            const advisory = record.editExisting && !item.matched;
             appendLine(
-                (item.matched ? '✓ ' : '✗ ') + item.label + '：' + item.value
+                (item.matched ? '✓ ' : advisory ? '⚠ ' : '✗ ') + item.label + '：' + item.value
                     + (item.error ? ' — ' + item.error : ''),
-                item.matched ? 'tm-ebird-ok' : 'tm-ebird-error'
+                item.matched ? 'tm-ebird-ok' : advisory ? 'tm-ebird-warning' : 'tm-ebird-error'
             );
         });
 
@@ -20711,15 +20893,17 @@
             return item.status !== 'filled';
         }) || result.unresolved.length > 0
             || result.formErrors.length > 0
-            || metadata.some(function(item) { return !item.matched; });
+            || (!record.editExisting && metadata.some(function(item) { return !item.matched; }));
         const submitted = !location.pathname.endsWith('/submit/checklist')
             && /\/checklist\/[^/]+\/?$/.test(location.pathname);
         appendLine(
             hasProblems
                 ? '仍有讀回結果不符，請檢查紅字項目。'
-                : submitted
-                    ? '✓ 送出前所有欄位均已重新讀取並符合預期。'
-                    : '✓ 所有欄位均已重新讀取並符合預期；尚未送出。',
+                : record.editExisting
+                    ? '✓ 鳥種已核對；原清單資訊維持原值。'
+                    : submitted
+                        ? '✓ 送出前所有欄位均已重新讀取並符合預期。'
+                        : '✓ 所有欄位均已重新讀取並符合預期；尚未送出。',
             hasProblems ? 'tm-ebird-error' : 'tm-ebird-ok'
         );
     }
@@ -20782,8 +20966,16 @@
         }
         const isEffortPage = location.pathname.endsWith('/submit/effort');
         const isChecklistPage = location.pathname.endsWith('/submit/checklist');
-        const isSubmittedChecklistPage = !isChecklistPage
+        const isEditChecklistPage = /\/edit\/checklist\/?$/.test(location.pathname);
+        const hasSpeciesEditor = Boolean(document.querySelector('.SubmitChecklist-species input.sc'));
+        const pendingSource = sessionStorage.getItem(storageKey);
+        let pendingEdit = false;
+        try { pendingEdit = Boolean(pendingSource && JSON.parse(pendingSource).editExisting); } catch (error) {}
+        const isEditSpeciesPage = isEditChecklistPage || (hasSpeciesEditor && pendingEdit);
+        const isSubmittedChecklistPage = !isChecklistPage && !isEditSpeciesPage
             && /\/checklist\/[^/]+\/?$/.test(location.pathname);
+        const canEditExisting = Boolean(isEditChecklistPage || findEditSpeciesLink()
+            || (hasSpeciesEditor && /(?:subID|submission|edit)/i.test(location.search + location.pathname)));
         let submittedConfirmation = null;
         const submittedPath = location.pathname.replace(/\/$/, '');
         if (isSubmittedChecklistPage) {
@@ -20793,7 +20985,8 @@
             if (!submittedConfirmation
                 || (boundPath && boundPath !== submittedPath)
                 || (!boundPath && !awaiting)) {
-                return null;
+                if (!canEditExisting) return null;
+                submittedConfirmation = null;
             }
         }
         addStyle();
@@ -20802,7 +20995,9 @@
         const header = document.createElement('div');
         header.className = 'tm-ebird-header';
         const title = document.createElement('strong');
-        title.textContent = 'eBird 文字輸入助手';
+        title.textContent = canEditExisting && !sessionStorage.getItem(storageKey)
+            ? '編輯既有紀錄'
+            : 'eBird 文字輸入助手';
         const collapse = document.createElement('button');
         collapse.type = 'button';
         collapse.className = 'tm-ebird-collapse';
@@ -20813,7 +21008,8 @@
         status.className = 'tm-ebird-status';
         const mobile = (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) || window.innerWidth <= 700;
         let initialCollapsed = mobile;
-        const heightKey = 'ebirdTextInputAssistant:panelHeight:' + (isChecklistPage ? 'submit' : 'other');
+        const heightKey = 'ebirdTextInputAssistant:panelHeight:'
+            + (isChecklistPage || isEditSpeciesPage ? 'submit' : 'other');
         let preferredHeight = typeof GM_getValue === 'function' ? Number(GM_getValue(heightKey, 0)) : 0;
         const resizeHandle = document.createElement('div');
         resizeHandle.textContent = '⋯';
@@ -20821,7 +21017,7 @@
         resizeHandle.style.cssText = 'position:sticky;bottom:0;text-align:center;cursor:ns-resize;touch-action:none;background:#e7eee8;color:#222;height:18px;flex-shrink:0';
         function applyHeight() {
             if (mobile) return;
-            const max = Math.max(120, window.innerHeight - (isChecklistPage ? 120 : 16));
+            const max = Math.max(120, window.innerHeight - (isChecklistPage || isEditSpeciesPage ? 120 : 16));
             panel.style.display = 'flex';
             panel.style.flexDirection = 'column';
             body.style.minHeight = '0';
@@ -20865,11 +21061,11 @@
         header.append(title, collapse);
         panel.append(header, body);
 
-        if (isChecklistPage || isSubmittedChecklistPage) {
+        if (isChecklistPage || isEditSpeciesPage || isSubmittedChecklistPage) {
             panel.classList.add('tm-ebird-review-panel');
         }
 
-        if (isSubmittedChecklistPage) {
+        if (isSubmittedChecklistPage && submittedConfirmation) {
             const confirmation = submittedConfirmation;
             body.appendChild(status);
             status.textContent = '';
@@ -20883,7 +21079,7 @@
             });
             renderChecklistSummary(status, confirmation.record, postResult);
             if (postResult.allMatched) {
-                setHeaderState('✓ 全部檢查符合', true);
+                setHeaderState(confirmation.record.editExisting ? '✓ 鳥種檢查符合' : '✓ 全部檢查符合', true);
                 initialCollapsed = true;
             } else {
                 setHeaderState('完成頁檢查未通過', false);
@@ -20903,7 +21099,7 @@
                     });
                     renderChecklistSummary(status, confirmation.record, retried);
                     if (retried.allMatched) {
-                        setHeaderState('✓ 全部檢查符合', true);
+                        setHeaderState(confirmation.record.editExisting ? '✓ 鳥種檢查符合' : '✓ 全部檢查符合', true);
                         setCollapsed(true);
                     } else if (retryCount < 10) {
                         setHeaderState('正在等待完成頁內容…', false);
@@ -20915,7 +21111,8 @@
                 };
                 setTimeout(retrySubmittedVerification, 500);
             }
-        } else if (isChecklistPage) {
+        } else if ((isChecklistPage || isEditSpeciesPage)
+            && (!canEditExisting || sessionStorage.getItem(storageKey))) {
             const pending = sessionStorage.getItem(storageKey);
             const button = document.createElement('button');
             button.type = 'button';
@@ -20948,7 +21145,9 @@
                                 submit.addEventListener('click', markSubmittedPageExpected, { once: true });
                             }
                             setHeaderState(
-                                record.autoSubmit ? '提交頁檢查符合，正在自動儲存…' : '提交頁檢查符合',
+                                record.editExisting
+                                    ? (record.autoSubmit ? '鳥種檢查符合，正在儲存…' : '鳥種檢查符合')
+                                    : record.autoSubmit ? '提交頁檢查符合，正在自動儲存…' : '提交頁檢查符合',
                                 true
                             );
                             if (tryAutoSubmit(record, result)) {
@@ -20973,7 +21172,7 @@
                 setTimeout(run, 0);
             }
         } else {
-            const controls = createRecordEditor(body, status, isEffortPage);
+            const controls = createRecordEditor(body, status, isEffortPage, canEditExisting);
             const pending = sessionStorage.getItem(storageKey);
             if (isEffortPage && pending && sessionStorage.getItem(autoEffortKey) === 'true') {
                 sessionStorage.removeItem(autoEffortKey);
@@ -21009,6 +21208,7 @@
         parseFlexibleDate: parseFlexibleDate,
         parseEffortLine: parseEffortLine,
         parseRecord: parseRecord,
+        parseExistingRecord: parseExistingRecord,
         parseObservationLine: parseObservationLine,
         renderChecklistSummary: renderChecklistSummary,
         addSpeciesVisibilityButton: addSpeciesVisibilityButton,
@@ -21016,6 +21216,7 @@
         applyObservationDetails: applyObservationDetails,
         formatObservationForEbird: formatObservationForEbird,
         analyzeRecordLines: analyzeRecordLines,
+        analyzeExistingRecordLines: analyzeExistingRecordLines,
         extractLocationAlias: extractLocationAlias,
         filterLocationItems: filterLocationItems,
         installLocationFilter: installLocationFilter,
@@ -21027,6 +21228,7 @@
         readChecklistVerification: readChecklistVerification,
         verifyObservationOutcome: verifyObservationOutcome,
         resultFullyVerified: resultFullyVerified,
+        findEditSpeciesLink: findEditSpeciesLink,
         tryAutoSubmit: tryAutoSubmit,
         readSubmittedMetadata: readSubmittedMetadata,
         parseDisplayedDateTime: parseDisplayedDateTime,

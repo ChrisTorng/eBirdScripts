@@ -22,6 +22,7 @@ jobs:
       - run: node scripts/generate-counter-aliases.js
       - run: npm test
       - run: npm run generate:index
+      - run: node scripts/stamp-counter-build.mjs
       - run: |
           mkdir -p _site
           cp index.html *.user.js *.png _site/

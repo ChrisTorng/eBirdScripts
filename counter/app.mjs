@@ -1,4 +1,5 @@
 import { installBackNavigation } from "./navigation.mjs";
+import { BUILD_TIME } from "./build-info.mjs";
 import * as C from "./core.mjs";
 import * as O from "./organization.mjs";
 import { parsePersonalCSV, readPersonalFile } from "./personal.mjs";
@@ -91,7 +92,11 @@ function rebuild(reclassify = false) {
     state.session.species = O.orderedSpecies(profile(), species);
 }
 function top(title, back = true) {
-  return `<header class="page-bar">${back ? button("‹", "back", 'aria-label="返回"', "icon") : '<span class="brand-mark">◉</span>'}<h1>${esc(title)}</h1>${button("⚙", "settings", 'aria-label="設定"', "icon")}</header>`;
+  const buildLabel = new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(new Date(BUILD_TIME));
+  return `<header class="page-bar">${back ? button("‹", "back", 'aria-label="返回"', "icon") : '<span class="brand-mark">◉</span>'}<div class="page-title"><h1>${esc(title)}</h1><small>版本時間 ${esc(buildLabel)}</small></div>${button("⚙", "settings", 'aria-label="設定"', "icon")}</header>`;
 }
 function dialog(title, body, accept = "確定") {
   return new Promise((resolve) => {
@@ -1155,8 +1160,16 @@ async function boot() {
   gpsStart();
   if (!state.session) locate();
   setInterval(tick, 1000);
-  if ("serviceWorker" in navigator)
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  if ("serviceWorker" in navigator) {
+    const wasControlled = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (wasControlled) document.querySelector("#update-prompt").hidden = false;
+    });
+    document.querySelector("#reload-update").addEventListener("click", () => location.reload());
+    navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" })
+      .then((registration) => registration.update())
+      .catch(() => {});
+  }
 }
 document.querySelector("#notice").hidden = true;
 if (navigator.locks)

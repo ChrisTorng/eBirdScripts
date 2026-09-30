@@ -33,6 +33,150 @@ function plain(value) {
 }
 
 describe('eBird assistant fast entry workflow', () => {
+    test('userscript includes the root and portal edit checklist URLs', () => {
+        const patterns = Array.from(scriptContents.matchAll(/^\/\/ @match\s+(\S+)/gm), function(match) {
+            return new RegExp('^' + match[1].split('*').map(function(part) {
+                return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }).join('.*') + '$');
+        });
+        for (const url of [
+            'https://ebird.org/atlastw/edit/checklist?subID=S123456789',
+            'https://ebird.org/edit/checklist?subID=S123456789'
+        ]) {
+            assert.ok(patterns.some(function(pattern) { return pattern.test(url); }), url);
+        }
+    });
+
+    test('edit checklist URL opens the existing record editor before species fields are available', () => {
+        const { harness } = loadAssistant({
+            url: 'https://ebird.org/atlastw/edit/checklist?subID=S123456789',
+            readyState: 'complete'
+        });
+        assert.equal(harness.document.querySelector('.tm-ebird-header').children[0].textContent,
+            '編輯既有紀錄');
+        assert.ok(harness.document.querySelector('.tm-ebird-record-grid textarea'));
+        assert.equal(harness.document.querySelector('.tm-ebird-settings'), null);
+    });
+
+    test('editing an existing checklist accepts bird counts without a configured location or effort', () => {
+        const { api } = loadAssistant();
+        const reference = new Date(2026, 8, 29);
+        const birdsOnly = api.parseExistingRecord('麻雀 2\n珠頸斑鳩 3', reference);
+        assert.equal(birdsOnly.editExisting, true);
+        assert.equal(birdsOnly.blockingErrors.length, 0);
+        assert.deepEqual(plain(birdsOnly.observations.map(function(item) { return item.count; })), [2, 3]);
+
+        const full = api.parseExistingRecord(
+            '2026/9/28\n桃園--瑞興濕地\n15:24 開始 49 分鐘 1.1 km\n麻雀 2', reference
+        );
+        assert.equal(full.blockingErrors.length, 0);
+        assert.equal(full.observations.length, 1);
+        assert.equal(full.editHeader.location, '桃園--瑞興濕地');
+        const analysis = api.analyzeExistingRecordLines(full.source, reference);
+        assert.equal(analysis.blockingFailureCount, 0);
+        assert.equal(analysis.failureCount, 0);
+
+        const unknownFirst = api.parseExistingRecord('神秘鳥 1\n麻雀 2', reference);
+        assert.equal(unknownFirst.editHeader.location, undefined);
+        assert.equal(unknownFirst.unresolvedObservations.length, 1);
+    });
+
+    test('existing checklist metadata mismatches remain advisory to species verification', () => {
+        const { api } = loadAssistant();
+        const record = api.parseExistingRecord('麻雀 2', new Date(2026, 8, 29));
+        const result = {
+            items: [{ status: 'filled' }],
+            metadata: [{ key: 'location', matched: false }],
+            unresolved: [],
+            formErrors: []
+        };
+        assert.equal(api.resultFullyVerified(record, result), true);
+        result.metadata = [];
+        assert.equal(api.resultFullyVerified(record, result), true);
+        record.editExisting = false;
+        assert.equal(api.resultFullyVerified(record, result), false);
+    });
+
+    test('completed checklist continues on the actual edit URL and fills pending birds despite advisory warnings', async () => {
+        const { harness } = loadAssistant({
+            url: 'https://ebird.org/atlastw/checklist/S123456789?continue',
+            readyState: 'complete',
+            beforeLoad(currentHarness) {
+                const doc = currentHarness.document;
+                const edit = doc.createElement('a');
+                edit.textContent = '編輯鳥種';
+                edit.setAttribute('href', 'https://ebird.org/atlastw/edit/checklist?subID=S123456789');
+                doc.body.appendChild(edit);
+                const primary = doc.createElement('section');
+                primary.setAttribute('aria-labelledby', 'primary-details');
+                const time = doc.createElement('time');
+                time.setAttribute('datetime', '2026-09-28T15:23');
+                primary.appendChild(time);
+                const location = doc.createElement('a');
+                location.textContent = '桃園--瑞興濕地公園';
+                location.setAttribute('href', '/atlastw/hotspot/L1001');
+                primary.appendChild(location);
+                doc.body.appendChild(primary);
+            }
+        });
+        const title = harness.document.querySelector('.tm-ebird-header').children[0];
+        assert.equal(title.textContent, '編輯既有紀錄');
+        const input = harness.document.querySelector('.tm-ebird-record-grid textarea');
+        input.value = '2026/9/28\n桃園--瑞興濕地公園\n15:24 開始 49 分鐘\n麻雀 2';
+        input.dispatchEvent({ type: 'input' });
+        const preview = harness.document.querySelector('.tm-ebird-preview');
+        assert.ok(preview.children.at(-2).className.includes('tm-ebird-warning'));
+        assert.ok(!preview.children.at(-1).className.includes('tm-ebird-error'));
+        assert.equal(harness.document.querySelector('.tm-ebird-error').textContent, '');
+        harness.document.querySelector('.tm-ebird-action-row button').click();
+        await Promise.resolve();
+        assert.equal(harness.location.assignedUrl,
+            'https://ebird.org/atlastw/edit/checklist?subID=S123456789');
+        const pending = JSON.parse(harness.sessionStorage.getItem('ebirdTextInputAssistant:pendingRecord'));
+        assert.equal(pending.editExisting, true);
+        assert.equal(pending.editAdvisories.length, 1);
+
+        let submitClicks = 0;
+        let completenessClicks = 0;
+        const edited = loadAssistant({
+            url: harness.location.assignedUrl,
+            readyState: 'complete',
+            sessionStorageSeed: {
+                'ebirdTextInputAssistant:pendingRecord': JSON.stringify(pending)
+            },
+            beforeLoad(currentHarness) {
+                const doc = currentHarness.document;
+                const row = doc.createElement('li');
+                row.className = 'SubmitChecklist-species';
+                const count = doc.createElement('input');
+                count.id = 'eutspa';
+                count.className = 'sc';
+                row.appendChild(count);
+                doc.body.appendChild(row);
+                const complete = doc.createElement('input');
+                complete.id = 'all-spp-y';
+                complete.checked = true;
+                complete.addEventListener('click', function() { completenessClicks += 1; });
+                doc.body.appendChild(complete);
+                const submit = doc.createElement('button');
+                submit.id = 'btn-continue';
+                submit.addEventListener('click', function() { submitClicks += 1; });
+                doc.body.appendChild(submit);
+            }
+        });
+        assert.ok(edited.harness.document.querySelector('.tm-ebird-header'));
+        edited.harness.runAllTimeouts();
+        await new Promise(setImmediate);
+        assert.equal(edited.harness.document.getElementById('eutspa').value, '2');
+        assert.equal(edited.harness.document.getElementById('all-spp-y').checked, true);
+        assert.equal(completenessClicks, 0);
+        assert.equal(submitClicks, 1);
+        const confirmation = JSON.parse(edited.harness.sessionStorage.getItem(
+            'ebirdTextInputAssistant:lastConfirmation'
+        ));
+        assert.equal(confirmation.result.allMatched, true);
+    });
+
     test('accepts every supported compact date format relative to today', () => {
         const { api } = loadAssistant();
         const reference = new Date(2026, 8, 3);

@@ -133,7 +133,7 @@ small,
 }
 #app {
   width: 100%;
-  max-width: 440px;
+  max-width: 360px;
   margin: auto;
   min-height: 100dvh;
   background: var(--surface);
@@ -435,7 +435,7 @@ details a {
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: min(100%, 440px);
+  width: min(100%, 360px);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -507,15 +507,17 @@ details a {
   grid-template-columns: 26px 33px 28px 28px minmax(62px, 1fr) 40px 39px 28px;
 }
 .organizing .bird-line {
-  grid-template-columns: 32px 1fr 60px 54px;
-  gap: 5px;
+  grid-template-columns: 28px minmax(0, 1fr) 66px 48px;
+  gap: 4px;
+  padding-inline: 6px;
 }
 .organize-name {
-  font-size: 15px;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 .frequency {
   text-align: right;
+  white-space: nowrap;
   color: var(--muted);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -620,6 +622,26 @@ details a {
   color: #fff;
   padding: 10px;
   z-index: 30;
+}
+#update-prompt {
+  position: fixed;
+  z-index: 25;
+  left: 50%;
+  bottom: calc(70px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(336px, calc(100% - 24px));
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #203b30;
+  color: #fff;
+  box-shadow: 0 4px 16px #10201866;
+}
+#update-prompt button {
+  float: right;
+  min-height: 32px;
+  padding: 2px 8px;
+  background: #fff;
+  border-radius: 4px;
 }
 @keyframes count-flash {
   0%,
@@ -793,6 +815,18 @@ details a {
 .group-toggle {
   font-size: 17px;
   font-weight: 700;
+}
+.page-title {
+  flex: 1;
+  min-width: 0;
+}
+.page-title small {
+  display: block;
+  font-size: 10px;
+  line-height: 1.1;
+}
+.organizing .bird-line > button:last-child {
+  font-size: 13px;
 }
 .search {
   position: relative;

@@ -1,10 +1,11 @@
 // Scope is counter/ only; no caching of eBird responses or other projects.
-const CACHE = "ebird-counter-shell-v5";
+const CACHE = "ebird-counter-shell-v6";
 const FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./app.mjs",
+  "./build-info.mjs",
   "./core.mjs",
   "./organization.mjs",
   "./personal.mjs",
@@ -19,7 +20,7 @@ const FILES = [
   "./data/taiwan-index.json",
 ];
 self.addEventListener("install", (event) =>
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES))),
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES)).then(() => self.skipWaiting())),
 );
 self.addEventListener("activate", (event) =>
   event.waitUntil(
@@ -31,7 +32,7 @@ self.addEventListener("activate", (event) =>
             .filter((k) => k.startsWith("ebird-counter-shell-") && k !== CACHE)
             .map((k) => caches.delete(k)),
         ),
-      ),
+      ).then(() => self.clients.claim()),
   ),
 );
 self.addEventListener("fetch", (event) => {
@@ -42,9 +43,13 @@ self.addEventListener("fetch", (event) => {
     !url.href.startsWith(self.registration.scope)
   )
     return;
-  event.respondWith(
-    caches
-      .match(event.request)
-      .then((cached) => cached || fetch(event.request)),
-  );
+  event.respondWith(fetch(event.request).then(async (response) => {
+    if (response.ok && FILES.some((file) => new URL(file, self.registration.scope).href === url.href)) {
+      try {
+        const cache = await caches.open(CACHE);
+        await cache.put(event.request, response.clone());
+      } catch {}
+    }
+    return response;
+  }).catch(() => caches.match(event.request)));
 });
