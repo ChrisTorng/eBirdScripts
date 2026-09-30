@@ -74,7 +74,7 @@ test("every breeding selection exports a Chinese short label and round trips its
     const output = C.exportText(session);
     assert.equal(output.unmapped.length, 0);
     const line = output.text.split("\n").at(-1);
-    assert.match(line, /^花嘴鴨 2 /);
+    assert.match(line, /^花嘴鴨 2，/);
     assert.ok(!line.includes("["));
     assert.equal(parse(line).value.breedingCode, code, line);
     assert.equal(parse(line).value.requiresConfirmation, false, line);

@@ -177,6 +177,29 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(confirmation.result.allMatched, true);
     });
 
+    test('existing birds require manual saving while bird-only input continues to the edit page', async () => {
+        const { harness } = loadAssistant({
+            url: 'https://ebird.org/atlastw/checklist/S123456789',
+            readyState: 'complete',
+            beforeLoad(currentHarness) {
+                currentHarness.document.body.textContent = '3 紀錄鳥種數';
+            }
+        });
+        assert.equal(harness.document.querySelector('.tm-ebird-settings'), null);
+        const input = harness.document.querySelector('.tm-ebird-record-grid textarea');
+        input.value = '麻雀 2';
+        input.dispatchEvent({ type: 'input' });
+        harness.document.querySelector('.tm-ebird-action-row button').click();
+        await Promise.resolve();
+        const pending = JSON.parse(harness.sessionStorage.getItem('ebirdTextInputAssistant:pendingRecord'));
+        assert.equal(pending.editExisting, true);
+        assert.equal(pending.autoSubmit, false);
+        assert.equal(pending.editWarnings.length, 1);
+        assert.match(pending.editWarnings[0], /已有鳥種/);
+        assert.equal(harness.location.assignedUrl,
+            'https://ebird.org/atlastw/edit/checklist?subID=S123456789');
+    });
+
     test('accepts every supported compact date format relative to today', () => {
         const { api } = loadAssistant();
         const reference = new Date(2026, 8, 3);
@@ -326,7 +349,7 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(api.protocolForDistance(0.031), 'P22');
         assert.throws(() => api.protocolForDistance(-0.01), /0 以上/);
 
-        const legacyPresetRecord = plain(api.parseRecord(
+        const recordWithoutDistance = plain(api.parseRecord(
             '9/2\n舊設定\n8：38 開始 28 分鐘\n麻雀1',
             new Date(2026, 8, 3),
             {
@@ -340,7 +363,14 @@ describe('eBird assistant fast entry workflow', () => {
             },
             new Date(2026, 8, 3)
         ));
-        assert.equal(legacyPresetRecord.effort.protocol, 'P21');
+        assert.equal(recordWithoutDistance.effort.protocol, 'P20');
+        assert.equal(recordWithoutDistance.effort.distanceKm, null);
+        assert.deepEqual(plain(api.parseEffortLine('8：38 開始 28 分鐘 0 km')), {
+            hour: 8, minute: 38, durationMinutes: 28, distanceKm: 0, valid: true
+        });
+        assert.deepEqual(plain(api.parseEffortLine('8:38 開始 28 分鐘 1.2 km')), {
+            hour: 8, minute: 38, durationMinutes: 28, distanceKm: 1.2, valid: true
+        });
     });
 
     test('keeps only one default location in local settings', () => {
@@ -655,7 +685,7 @@ describe('eBird assistant fast entry workflow', () => {
         }
     });
 
-    test('does not show the assistant while browsing unrelated completed checklists', () => {
+    test('shows the editing assistant on existing checklists and collapses when birds already exist', () => {
         const confirmationKey = 'ebirdTextInputAssistant:lastConfirmation';
         const unrelated = loadAssistant({
             url: 'https://ebird.org/atlastw/checklist/S999999999',
@@ -667,15 +697,22 @@ describe('eBird assistant fast entry workflow', () => {
                     record: {},
                     result: {}
                 })
+            },
+            beforeLoad(currentHarness) {
+                currentHarness.document.body.textContent = '3 紀錄鳥種數';
             }
         }).harness;
-        assert.equal(unrelated.document.getElementById('tm-ebird-text-input-assistant'), null);
+        const existingPanel = unrelated.document.getElementById('tm-ebird-text-input-assistant');
+        assert.ok(existingPanel);
+        assert.equal(existingPanel.querySelector('.tm-ebird-body').hidden, true);
 
         const noConfirmation = loadAssistant({
             url: 'https://ebird.org/atlastw/checklist/S999999999',
             readyState: 'complete'
         }).harness;
-        assert.equal(noConfirmation.document.getElementById('tm-ebird-text-input-assistant'), null);
+        const emptyPanel = noConfirmation.document.getElementById('tm-ebird-text-input-assistant');
+        assert.ok(emptyPanel);
+        assert.equal(emptyPanel.querySelector('.tm-ebird-body').hidden, false);
 
         const unsubmitted = loadAssistant({
             url: 'https://ebird.org/atlastw/checklist/S999999999',
@@ -689,7 +726,7 @@ describe('eBird assistant fast entry workflow', () => {
                 })
             }
         }).harness;
-        assert.equal(unsubmitted.document.getElementById('tm-ebird-text-input-assistant'), null);
+        assert.ok(unsubmitted.document.getElementById('tm-ebird-text-input-assistant'));
     });
 
     test('expands checklist errors even on a small screen and keeps desktop open', () => {

@@ -463,19 +463,17 @@ details a {
   font-size: 18px;
 }
 .bird-editor {
-  position: absolute;
-  top: 100%;
+  position: static;
   left: 6px;
   right: 6px;
-  z-index: 4;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 0 0 8px 8px;
   padding: 8px;
-  box-shadow: 0 8px 24px #12332140;
+  box-shadow: inset 0 1px 4px #12332120;
 }
 .bird:has(.bird-editor) {
-  z-index: 4;
+  z-index: auto;
 }
 .editor-actions {
   display: flex;

@@ -22,6 +22,7 @@ let startValue = Date.now(),
   startTouched = false,
   gpsEnabled = true,
   noticeTimer,
+  saveTimer,
   nearby = [],
   locationBusy = false;
 const $ = (selector) => app.querySelector(selector),
@@ -75,7 +76,11 @@ function save() {
 function changed() {
   armedStop = false;
   if (state.session) state.session.copied = false;
-  save();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    save();
+  }, 80);
 }
 function download(name, text, type = "application/json") {
   const url = URL.createObjectURL(new Blob([text], { type })),
@@ -343,7 +348,7 @@ function filterRows() {
 }
 function counter() {
   const s = state.session;
-  app.innerHTML = `<div class="counter-top"><div class="stats"><b id="elapsed"></b><span id="distance" title="${esc(s.gpsStatus)}"></span><span class="current-location">${esc(s.location.alias)}</span>${button("⚙", "settings", 'aria-label="設定"', "icon")}</div><div class="search"><input id="query" type="search" value="${esc(s.query)}" placeholder="鳥名 / 加減數量" aria-label="搜尋鳥名或輸入數量" autocomplete="off">${button("×", "clear-query", 'aria-label="清除搜尋"', "clear-query")}<span id="number-hint" hidden></span></div>${editMode ? `<div class="edit-toolbar">${button("＋ 區塊", "add-group")}<small>拖動 ↕ 調整順序</small>${button("完成", "toggle-edit")}</div>` : ""}</div><div id="bird-list">${lists()}</div><footer class="counter-footer">${button(editMode ? "✓" : "↕", "toggle-edit", 'aria-label="調整排序"', "icon")}${button("⇩", "backup", 'aria-label="下載備份"', "icon")}${button("", "only-recorded", `aria-pressed="${profile().groups.every((g) => g.collapsed)}"`, "totals")}${button("停止", "stop", "", "primary stop")}</footer>`;
+  app.innerHTML = `<div class="counter-top"><div class="stats"><b id="elapsed"></b><span id="distance" title="${esc(s.gpsStatus)}"></span><span class="current-location">${esc(s.location.alias)}</span>${button("⚙", "settings", 'aria-label="設定"', "icon")}</div><div class="search"><input id="query" type="search" value="${esc(s.query)}" placeholder="鳥名 / 加減數量" aria-label="搜尋鳥名或輸入數量" autocomplete="off">${button("×", "clear-query", `${s.query ? "" : "hidden"} aria-label="清除搜尋"`, "clear-query")}<span id="number-hint" hidden></span></div>${editMode ? `<div class="edit-toolbar">${button("＋ 區塊", "add-group")}<small>拖動 ↕ 調整順序</small>${button("完成", "toggle-edit")}</div>` : ""}</div><div id="bird-list">${lists()}</div><footer class="counter-footer">${button(editMode ? "✓" : "↕", "toggle-edit", 'aria-label="調整排序"', "icon")}${button("⇩", "backup", 'aria-label="下載備份"', "icon")}${button("", "only-recorded", `aria-pressed="${profile().groups.every((g) => g.collapsed)}"`, "totals")}${button("停止", "stop", "", "primary stop")}</footer>`;
   filterRows();
   tick();
 }
@@ -406,9 +411,18 @@ function updateRow(code, flash = false) {
     for (const field of ["total", "heard"]) {
       const input = editor.querySelector(`[data-direct="${field}"]`);
       if (input !== document.activeElement) input.value = c[field];
-    }
+  }
   tick();
-  filterRows();
+  if (state.session.query.trim()) {
+    filterRows();
+  } else {
+    const group = profile().groups.find((item) => item.codes.includes(code));
+    if (group && s) {
+      el.hidden = !O.rowVisible(s, c, group, "", false, state.aliases);
+      const groupElement = el.closest(".bird-group");
+      if (groupElement) groupElement.hidden = false;
+    }
+  }
 }
 function closeEditor() {
   $(".bird-editor")?.remove();
@@ -718,7 +732,7 @@ app.addEventListener("pointercancel", () => {
   clearDrop();
 });
 document.addEventListener("click", (e) => {
-  if (expanded && !e.target.closest(".bird")) closeEditor();
+  if (expanded && !e.target.closest(`[data-bird="${expanded}"]`)) closeEditor();
 });
 app.addEventListener("click", async (event) => {
   const target = event.target.closest("[data-action]");
@@ -727,11 +741,12 @@ app.addEventListener("click", async (event) => {
   try {
     if (action === "clear-query") {
       state.session.query = "";
-      $("#query").value = "";
+      const query = $("#query");
+      query.value = "";
+      query.blur();
       closeEditor();
       save();
       refreshList();
-      $("#query").focus();
     } else if (action === "install-app") {
       await installApp();
     } else if (action === "start") {
@@ -962,6 +977,7 @@ app.addEventListener("input", (event) => {
   const el = event.target;
   if (el.id === "query") {
     state.session.query = el.value;
+    $(".clear-query").hidden = !el.value;
     closeEditor();
     save();
     refreshList();

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-30_1.11.1
+// @version      2026-09-30_1.12.1
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -18186,7 +18186,7 @@
     }
 
     function parseEffortLine(line) {
-        const match = String(line || '').trim().match(/^(\d{1,2})[：:](\d{1,2})\s*(?:開始)?\s*(?:(\d+)\s*分鐘)?$/);
+        const match = String(line || '').trim().match(/^(\d{1,2})[：:](\d{1,2})\s*(?:開始)?\s*(?:(\d+)\s*分鐘)?(?:\s+(\d+(?:\.\d+)?)\s*km)?$/i);
         if (!match) {
             return null;
         }
@@ -18194,7 +18194,9 @@
             hour: Number(match[1]),
             minute: Number(match[2]),
             durationMinutes: match[3] === undefined ? null : Number(match[3]),
-            valid: Number(match[1]) <= 23 && Number(match[2]) <= 59 && (match[3] === undefined || Number(match[3]) > 0)
+            distanceKm: match[4] === undefined ? null : Number(match[4]),
+            valid: Number(match[1]) <= 23 && Number(match[2]) <= 59
+                && (match[3] === undefined || Number(match[3]) > 0)
         };
     }
 
@@ -18249,7 +18251,7 @@
                 continue;
             }
             const remainder = text.slice(candidate.length);
-            const candidateMatch = remainder.match(/^\s*(\d+)(?:\s*[；;]?\s*(.*))?$/)
+            const candidateMatch = remainder.match(/^\s*(\d+)(?:\s*[，,；;]?\s*(.*))?$/)
                 || (/^\s*(?:$|聽到|唱歌|求偶|一對|[;；])/.test(remainder)
                     ? [remainder, '1', remainder.replace(/^\s*[;；]?\s*/, '')] : null);
             if (candidateMatch) {
@@ -18269,7 +18271,7 @@
             }
         }
         if (!match) {
-            const fallback = text.match(/^(.+?)\s+(\d+)(?:\s*[；;]?\s*(.*))?$/) || text.match(/^(.+?)\s*(\d+)(?:\s*[；;]?\s*(.*))?$/);
+            const fallback = text.match(/^(.+?)\s+(\d+)(?:\s*[，,；;]?\s*(.*))?$/) || text.match(/^(.+?)\s*(\d+)(?:\s*[，,；;]?\s*(.*))?$/);
             if (!fallback) {
                 return { error: '無法解析物種紀錄：' + (line || '（未填）') };
             }
@@ -18369,8 +18371,8 @@
             hour: parsedEffort.hour,
             minute: parsedEffort.minute,
             durationMinutes: parsedEffort.durationMinutes,
-            protocol: preset ? protocolForDistance(preset.distanceKm) : 'P20',
-            distanceKm: preset && preset.distanceKm !== undefined ? preset.distanceKm : null,
+            protocol: protocolForDistance(parsedEffort.distanceKm),
+            distanceKm: parsedEffort.distanceKm,
             partySize: preset ? preset.partySize : 1
         } : null;
         if (!parsedEffort) {
@@ -19183,6 +19185,7 @@
             record
             && result
             && !record.observations.some(item => item.requiresConfirmation || item.warning)
+            && (!record.editWarnings || record.editWarnings.length === 0)
             && (!record.blockingErrors || record.blockingErrors.length === 0)
             && (!record.unresolvedObservations || record.unresolvedObservations.length === 0)
             && (!result.formErrors || result.formErrors.length === 0)
@@ -19267,8 +19270,9 @@
             ? formatDateLabel(actualDate) + ' ' + formatTime12(actualTime.hour, actualTime.minute)
             : content(time), Boolean(actualDate && actualTime)
                 && actualDate.year === record.date.year && actualDate.month === record.date.month
-                && actualDate.day === record.date.day && actualTime.hour === Number(expected.hour)
-                && actualTime.minute === Number(expected.minute));
+                && actualDate.day === record.date.day
+                && Math.abs((actualTime.hour * 60 + actualTime.minute)
+                    - (Number(expected.hour) * 60 + Number(expected.minute))) <= 5);
 
         const protocolNode = effort && effort.querySelector('.Heading-main');
         const protocolText = content(protocolNode);
@@ -19294,7 +19298,9 @@
         add('distance', '距離', expectedDistance,
             expected.protocol === 'P22' ? distanceText : distanceText || '不適用',
             expected.protocol === 'P22'
-                ? distance && Math.abs(distanceKm - Number(expected.distanceKm)) < 0.000001
+                ? distance && (Number(expected.distanceKm) === 0
+                    ? distanceKm === 0
+                    : Math.abs(distanceKm - Number(expected.distanceKm)) / Number(expected.distanceKm) <= 0.100000001)
                 : !distanceText);
         const party = content(badgeForIcon('Icon--user'));
         add('party', '人數', expected.partySize + ' 人', party ? party + ' 人' : '',
@@ -20147,9 +20153,10 @@
         const style = document.createElement('style');
         style.id = styleId;
         style.textContent = [
-            '#' + panelId + ' { box-sizing:border-box;position:fixed;z-index:2147483647;right:8px;top:8px;width:min(520px,calc(100vw - 16px));max-height:calc(100dvh - 16px);overflow-y:auto;overscroll-behavior:contain;padding:0;border:2px solid #2f7f45;border-radius:8px;background:#fff;color:#222;box-shadow:0 4px 18px #0004;font:13px/1.4 sans-serif; }',
+            '#' + panelId + ' { box-sizing:border-box;position:fixed;z-index:2147483647;right:64px;top:8px;width:min(520px,calc(100vw - 72px));max-height:calc(100dvh - 16px);overflow-y:auto;overscroll-behavior:contain;padding:0;border:2px solid #2f7f45;border-radius:8px;background:#fff;color:#222;box-shadow:0 4px 18px #0004;font:13px/1.4 sans-serif; }',
+            '#' + panelId + '.tm-ebird-collapsed { width:auto!important;height:auto!important;max-height:none;overflow:hidden; }',
             '#' + panelId + '.tm-ebird-review-panel { width:min(380px,calc(100vw - 16px));max-height:calc(100dvh - 120px); }',
-            '#' + panelId + ' .tm-ebird-header { position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:#fff;border-bottom:1px solid #ddd; }',
+            '#' + panelId + ' .tm-ebird-header { position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;justify-content:flex-start;padding:4px 6px;background:#fff;border-bottom:1px solid #ddd;white-space:nowrap; }',
             '#' + panelId + ' .tm-ebird-collapse { min-width:36px;padding:5px 9px;font-size:16px; }',
             '#' + panelId + ' .tm-ebird-body { padding:7px 9px 9px; }',
             '#' + panelId + ' .tm-ebird-body[hidden] { display:none; }',
@@ -20189,7 +20196,7 @@
             '.tm-ebird-location-input-row { display:flex;align-items:center;gap:8px; } .tm-ebird-location-count { flex:none;white-space:nowrap; } .tm-ebird-location-input-row input { min-width:0;flex:1; }',
             '.tm-ebird-location-filter input { box-sizing:border-box;width:100%;padding:8px; }',
             '.tm-ebird-unobserved-hidden { display:none!important; }',
-            '@media (max-width:700px) { #' + panelId + ' { right:6px;top:6px;width:min(420px,calc(100vw - 12px));max-height:52dvh; } #' + panelId + '.tm-ebird-review-panel { width:min(360px,calc(100vw - 12px));max-height:48dvh; } #' + panelId + ' .tm-ebird-record-grid { grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px; } #' + panelId + ' .tm-ebird-body { padding:6px; } #' + panelId + ' textarea,#' + panelId + ' .tm-ebird-preview { min-height:34vh;padding:5px;font-size:11px; } #' + panelId + ' .tm-ebird-effort-override { grid-template-columns:1fr 1fr; } #' + panelId + ' .tm-ebird-effort-derived { grid-column:1/-1;padding:0; } }'
+            '@media (max-width:700px) { #' + panelId + ' { right:56px;top:6px;width:min(420px,calc(100vw - 62px));max-height:52dvh; } #' + panelId + '.tm-ebird-review-panel { width:min(360px,calc(100vw - 62px));max-height:48dvh; } #' + panelId + ' .tm-ebird-record-grid { grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px; } #' + panelId + ' .tm-ebird-body { padding:6px; } #' + panelId + ' textarea,#' + panelId + ' .tm-ebird-preview { min-height:34vh;padding:5px;font-size:11px; } #' + panelId + ' .tm-ebird-effort-override { grid-template-columns:1fr 1fr; } #' + panelId + ' .tm-ebird-effort-derived { grid-column:1/-1;padding:0; } }'
         ].join('\n');
         document.head.appendChild(style);
     }
@@ -20242,7 +20249,9 @@
         defaultLabel.className = 'tm-ebird-checkbox-label';
         const isDefault = document.createElement('input');
         isDefault.type = 'checkbox';
-        defaultLabel.append(isDefault, document.createTextNode('設為未填地點時的預設地點'));
+        const defaultText = document.createElement('span');
+        defaultText.textContent = '設為未填地點時的預設地點';
+        defaultLabel.append(isDefault, defaultText);
         body.appendChild(defaultLabel);
         const effortMode = addSelect('預設努力量', [
             { value: 'incidental', text: '附帶紀錄（不填距離）' },
@@ -20558,7 +20567,8 @@
         }) || null;
     }
 
-    function createRecordEditor(body, status, isEffortPage, editExisting = false) {
+    function createRecordEditor(body, status, isEffortPage, options = {}) {
+        const editExisting = Boolean(options.editExisting);
         let locationFilter = null;
         let settings = null;
         let datePicker = null;
@@ -20768,10 +20778,19 @@
                     && !autoSubmit.disabled
                     && state.analysis.failureCount === 0;
                 assertRecordReady(record);
+                if (typeof options.prepareRecord === 'function') {
+                    record.editWarnings = options.prepareRecord(record) || [];
+                    if (record.editWarnings.length) {
+                        record.autoSubmit = false;
+                    }
+                }
                 button.disabled = true;
-                status.textContent = record.warnings.join('\n');
-                status.className = 'tm-ebird-status';
-                if (editExisting) {
+                status.textContent = (record.editWarnings || []).concat(record.warnings).join('\n');
+                status.className = record.editWarnings && record.editWarnings.length
+                    ? 'tm-ebird-status tm-ebird-warning' : 'tm-ebird-status';
+                if (editExisting && typeof options.startRecord === 'function') {
+                    options.startRecord(record);
+                } else if (editExisting) {
                     sessionStorage.setItem(storageKey, JSON.stringify(record));
                     if (document.querySelector('.SubmitChecklist-species input.sc')) {
                         const result = await fillSpecies(record);
@@ -20788,6 +20807,8 @@
                     }
                 } else if (isEffortPage) {
                     await fillEffort(record);
+                } else if (typeof options.startRecord === 'function') {
+                    options.startRecord(record);
                 } else {
                     startRecord(record);
                 }
@@ -20851,6 +20872,10 @@
             container.appendChild(line);
             return line;
         }
+
+        (record.editWarnings || []).forEach(function(warning) {
+            appendLine(warning, 'tm-ebird-warning');
+        });
 
         const metadata = Array.isArray(result.metadata) ? result.metadata : [];
         metadata.forEach(function(item) {
@@ -20960,6 +20985,29 @@
         }
     }
 
+    function existingChecklistWarnings(record, hasExistingSpecies) {
+        const warnings = (record.editExisting ? [] : readSubmittedMetadata(record))
+            .filter(function(item) { return !item.matched; })
+            .map(function(item) {
+                return '⚠ ' + item.label + '與目標清單不一致（'
+                    + (item.actualValue || item.value || '找不到') + '）';
+            });
+        if (hasExistingSpecies) {
+            warnings.push('⚠ 目標清單已有鳥種紀錄，請在儲存前人工確認。');
+        }
+        return warnings;
+    }
+
+    function startEditingRecord(record, subId) {
+        record.editMode = true;
+        record.subId = subId;
+        sessionStorage.setItem(storageKey, JSON.stringify(record));
+        sessionStorage.removeItem(autoEffortKey);
+        const portal = (location.pathname.match(/^\/(?!checklist\/)([^/]+)/) || [])[1];
+        const prefix = portal ? '/' + portal : '';
+        location.assign(location.origin + prefix + '/edit/checklist?subID=' + encodeURIComponent(subId));
+    }
+
     function createPanel() {
         if (document.getElementById(panelId)) {
             return document.getElementById(panelId);
@@ -20978,16 +21026,15 @@
             || (hasSpeciesEditor && /(?:subID|submission|edit)/i.test(location.search + location.pathname)));
         let submittedConfirmation = null;
         const submittedPath = location.pathname.replace(/\/$/, '');
+        let editingLanding = false;
         if (isSubmittedChecklistPage) {
             submittedConfirmation = getChecklistConfirmation();
             const boundPath = submittedConfirmation && submittedConfirmation.submittedPath;
             const awaiting = submittedConfirmation && submittedConfirmation.awaitingSubmittedPage;
-            if (!submittedConfirmation
+            editingLanding = !submittedConfirmation
                 || (boundPath && boundPath !== submittedPath)
-                || (!boundPath && !awaiting)) {
-                if (!canEditExisting) return null;
-                submittedConfirmation = null;
-            }
+                || (!boundPath && !awaiting);
+            if (editingLanding) submittedConfirmation = null;
         }
         addStyle();
         const panel = document.createElement('section');
@@ -21047,6 +21094,7 @@
 
         function setCollapsed(collapsed) {
             body.hidden = collapsed;
+            panel.classList.toggle('tm-ebird-collapsed', collapsed);
             applyHeight();
             collapse.textContent = collapsed ? '▼' : '▲';
             collapse.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
@@ -21065,7 +21113,27 @@
             panel.classList.add('tm-ebird-review-panel');
         }
 
-        if (isSubmittedChecklistPage && submittedConfirmation) {
+        if (isSubmittedChecklistPage && editingLanding) {
+            const text = document.body ? document.body.textContent : '';
+            const countMatch = text.match(/(\d+)\s*紀錄鳥種數/);
+            const hasExistingSpecies = countMatch ? Number(countMatch[1]) > 0
+                : document.querySelectorAll('.Observation').length > 0;
+            const subId = (location.pathname.match(/\/checklist\/(S\d+)/i) || [])[1];
+            const controls = createRecordEditor(body, status, false, {
+                editExisting: true,
+                prepareRecord: function(record) {
+                    return existingChecklistWarnings(record, hasExistingSpecies);
+                },
+                startRecord: function(record) { startEditingRecord(record, subId); }
+            });
+            initialCollapsed = hasExistingSpecies;
+            setHeaderState('編輯既有紀錄', false);
+            if (hasExistingSpecies) {
+                status.textContent = '⚠ 目標清單已有鳥種紀錄；可繼續填入，但不會自動儲存。';
+                status.className = 'tm-ebird-status tm-ebird-warning';
+            }
+            if (!hasExistingSpecies) setTimeout(function() { controls.textarea.focus(); }, 0);
+        } else if (isSubmittedChecklistPage) {
             const confirmation = submittedConfirmation;
             body.appendChild(status);
             status.textContent = '';
@@ -21172,7 +21240,7 @@
                 setTimeout(run, 0);
             }
         } else {
-            const controls = createRecordEditor(body, status, isEffortPage, canEditExisting);
+            const controls = createRecordEditor(body, status, isEffortPage, { editExisting: canEditExisting });
             const pending = sessionStorage.getItem(storageKey);
             if (isEffortPage && pending && sessionStorage.getItem(autoEffortKey) === 'true') {
                 sessionStorage.removeItem(autoEffortKey);
@@ -21189,6 +21257,10 @@
                         controls.button.disabled = false;
                     }
                 }, 0);
+            }
+            if (!isEffortPage) {
+                initialCollapsed = false;
+                setTimeout(function() { controls.textarea.focus(); }, 0);
             }
         }
         if (!mobile) panel.appendChild(resizeHandle);
