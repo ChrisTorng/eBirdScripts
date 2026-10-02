@@ -264,3 +264,24 @@ test('the reported eleven-bird checklist passes with pigeon synonyms and a one-m
     assert.equal(preview.lines[2].warning, true, 'an actual duration mismatch is still advisory');
     assert.equal(preview.blockingFailureCount, 0);
 });
+
+
+test('completed note readback accepts trimmed notes and normalized newlines but rejects changed descriptions', () => {
+    const { document, api, record, pre } = load(fixture('2026/9/5'));
+    document.querySelectorAll('.Observation').forEach(row => row.remove());
+    document.body.insertAdjacentHTML('beforeend', `<section class="Observation" id="magrob">
+      <a href="/atlastw/species/magrob">鵲鴝</a><div class="Observation-numberObserved">1</div>
+      <div class="Observation-comments"><p></p></div></section>`);
+    for (const [note, actual, matched] of [
+        ['公的 ', '公的', true], [' 公的 \r\n 第二行 ', '公的 \n 第二行', true],
+        ['公的 ', '母的', false], ['公  的', '公 的', false]
+    ]) {
+        const observation = api.parseObservationLine('鵲鴝 1；描述 ' + JSON.stringify(note)).value;
+        record.observations = [observation];
+        pre.totalCount = 1;
+        pre.items = [{ observation, code: observation.code, status: 'filled' }];
+        document.querySelector('.Observation-comments p').textContent = actual;
+        const result = api.verifySubmittedChecklist(record, pre);
+        assert.equal(result.allMatched, matched, JSON.stringify(result));
+    }
+});

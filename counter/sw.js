@@ -1,5 +1,5 @@
 // Scope is counter/ only; no caching of eBird responses or other projects.
-const CACHE = "ebird-counter-shell-v7";
+const CACHE = "ebird-counter-shell-v8";
 const FILES = [
   "./",
   "./index.html",

@@ -118,7 +118,9 @@ export function catalog() {
 }
 export function compatibleAlias(spec, local = {}) {
   const matches = Object.entries(aliases).filter(
-    ([, a]) =>
+    ([name, a]) =>
+      name.normalize("NFKC").replace(/\s/g, "") ===
+        spec.name.normalize("NFKC").replace(/\s/g, "") ||
       (a.codes || [a.code]).includes(spec.code) ||
       a.name.normalize("NFKC").replace(/\s/g, "") ===
         spec.name.normalize("NFKC").replace(/\s/g, ""),
@@ -233,19 +235,14 @@ export function identityForName(name) {
     ([key]) => normalized(key) === normalized(name),
   );
   if (historical) return { ...historical[1] };
-  const loose = (text) => normalized(text).replace(/\([^)]*\)/g, "");
   const entries = Object.entries(aliases);
   const exact = entries.filter(
     ([key, value]) =>
       normalized(key) === normalized(name) ||
       normalized(value.name) === normalized(name),
   );
-  const matches = exact.length
-    ? exact
-    : entries.filter(
-        ([key, value]) =>
-          loose(key) === loose(name) || loose(value.name) === loose(name),
-      );
+  // Parent taxa and named subspecies must never collapse by stripping parentheses.
+  const matches = exact;
   const codes = [...new Set(matches.map(([, value]) => value.code))];
   return {
     code:

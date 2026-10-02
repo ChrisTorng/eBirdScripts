@@ -366,3 +366,63 @@ test("whole record normalization preserves literal entities inside encoded descr
   );
   assert.equal(record.observations[0].comments, note);
 });
+
+
+test("legacy public names display and export the requested compatible short names", () => {
+  const context = { document: { readyState: "loading", addEventListener() {} } };
+  vm.runInNewContext(fs.readFileSync(new URL("../EBirdTextInputAssistant.user.js", import.meta.url), "utf8"), context);
+  const parse = context.__ebirdTextInputAssistant.parseObservationLine;
+  const publicData = JSON.parse(fs.readFileSync(new URL("../counter/data/taiwan-index.json", import.meta.url)));
+  for (const [name, alias, code] of [
+    ["原鴿", "野鴿", "rocpig1"], ["花嘴鴨", "花嘴", "spbduc"], ["東方環頸鴴", "東方", "kenplo1"]
+  ]) {
+    const species = publicData.species.find(s => s.name === name);
+    assert.ok(species, name);
+    assert.equal(C.displayAlias(species), alias);
+    const session = state().session;
+    session.species = [species];
+    C.increment(session, species.code, "total", 1);
+    const line = C.exportText(session).text.split("\n").at(-1);
+    assert.equal(line, alias + " 1");
+    assert.equal(parse(line).value.code, code);
+  }
+  const parent = bird("eaywag", 8, "東方黃鶺鴒");
+  assert.equal(C.displayAlias(parent), "東方黃鶺鴒");
+  assert.equal(C.displayAlias(bird("weywag8", 0, "東方黃鶺鴒(黃眉)")), "東方黃");
+});
+
+test("parent taxa and the requested named subspecies stay distinct across aliases and shared frequency", () => {
+  const expected = [
+    ["紅尾伯勞", "brnshr"], ["紅尾伯勞(灰頭)", "brnshr3"], ["灰頭紅尾伯勞", "brnshr3"],
+    ["紅尾伯勞(褐頭)", "brnshr1"], ["褐頭紅尾伯勞", "brnshr1"],
+    ["東方黃鶺鴒", "eaywag"], ["東方黃鶺鴒(黃眉)", "weywag8"], ["東方黃", "weywag8"]
+  ];
+  for (const [name, code] of expected) assert.equal(C.identityForName(name).code, code, name);
+  assert.notEqual(O.normalizeName("紅尾伯勞"), O.normalizeName("紅尾伯勞(灰頭)"));
+  assert.equal(O.normalizeName("灰頭紅尾伯勞"), O.normalizeName("紅尾伯勞(灰頭)"));
+  assert.notEqual(O.normalizeName("東方黃鶺鴒"), O.normalizeName("東方黃"));
+  const s = C.initialState();
+  s.frequency.personal = { species: [bird("oldgray", 42, "灰頭紅尾伯勞")] };
+  const merged = O.sharedSpecies(s, { species: [bird("brnshr3", 0, "紅尾伯勞(灰頭)"), bird("brnshr", 5, "紅尾伯勞")] });
+  assert.equal(merged.find(s => s.code === "brnshr3").annual, 42);
+  assert.equal(merged.find(s => s.code === "brnshr").annual, 0);
+  assert.ok(!merged.some(s => s.code === "oldgray"));
+});
+
+test("group counts discard unavailable and duplicate codes while preserving custom placement and recorded birds", () => {
+  const s = state();
+  const species = [bird("brnshr3", 0, "紅尾伯勞(灰頭)"), bird("brnshr1", 0, "紅尾伯勞(褐頭)")];
+  s.session.species = [bird("recorded", 0)];
+  C.increment(s.session, "recorded", "total", 1);
+  const profile = { customized: true, thresholds: { common: 20, uncommon: 2 }, groups: [
+    { id: "none", name: "無紀錄", collapsed: false, codes: ["brnshr1", "missing", "brnshr3"] },
+    { id: "other", name: "其他分類", collapsed: true, codes: ["brnshr1", "recorded"] }
+  ] };
+  O.syncGroups(profile, O.sharedSpecies(s, { species }));
+  assert.deepEqual(profile.groups[0].codes.slice(0, 2), ["brnshr1", "brnshr3"]);
+  assert.ok(!profile.groups.some(g => g.codes.includes("missing")));
+  assert.equal(profile.groups.flatMap(g => g.codes).filter(c => c === "brnshr1").length, 1);
+  assert.ok(profile.groups[1].codes.includes("recorded"));
+  assert.equal(profile.groups[0].collapsed, false);
+  assert.equal(profile.customized, true);
+});

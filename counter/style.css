@@ -504,7 +504,7 @@ details a {
 .bird-line.reordering {
   grid-template-columns: 26px 33px 28px 28px minmax(62px, 1fr) 40px 39px 28px;
 }
-.organizing .bird-line {
+.organizing .bird-line.reordering {
   grid-template-columns: 28px minmax(0, 1fr) 66px 48px;
   gap: 4px;
   padding-inline: 6px;
@@ -868,4 +868,20 @@ details a {
   .organize-name {
     font-size: 16px;
   }
+}
+
+/* Sorting uses four columns at every screen width, including narrow phones. */
+.organizing .bird-line.reordering > button:last-child {
+  padding-inline: 0;
+  white-space: nowrap;
+}
+.output-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.output-actions > button {
+  min-width: 0;
+  padding-inline: 4px;
+  font-size: 14px;
+  white-space: nowrap;
 }

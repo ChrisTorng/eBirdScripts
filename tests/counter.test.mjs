@@ -88,7 +88,7 @@ test('counter output is parsed by the real assistant including heard-only and br
 test('counter and assistant round-trip every output shape and derive effort from GPS distance', () => {
   const presets = { 測試地點: { locId: 'L1', pageName: '測試地點', distanceKm: 9, partySize: 1 } };
   const cases = [
-    { gps: false, distanceM: 0, protocol: 'P20', distanceKm: null, count: 3 },
+    { gps: false, distanceM: 0, protocol: 'P22', distanceKm: 9, count: 3 },
     { gps: true, distanceM: 0, protocol: 'P21', distanceKm: 0, count: 3, heard: 1 },
     { gps: true, distanceM: 20, protocol: 'P21', distanceKm: 0.02, count: 3, breeding: '唱歌' },
     { gps: true, distanceM: 1200, protocol: 'P22', distanceKm: 1.2, count: 3, heard: 1, breeding: '唱歌', note: '樹上，已看見' },

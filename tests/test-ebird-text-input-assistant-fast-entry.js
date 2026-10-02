@@ -363,14 +363,60 @@ describe('eBird assistant fast entry workflow', () => {
             },
             new Date(2026, 8, 3)
         ));
-        assert.equal(recordWithoutDistance.effort.protocol, 'P20');
-        assert.equal(recordWithoutDistance.effort.distanceKm, null);
+        assert.equal(recordWithoutDistance.effort.protocol, 'P21');
+        assert.equal(recordWithoutDistance.effort.distanceKm, 0.02);
         assert.deepEqual(plain(api.parseEffortLine('8：38 開始 28 分鐘 0 km')), {
             hour: 8, minute: 38, durationMinutes: 28, distanceKm: 0, valid: true
         });
         assert.deepEqual(plain(api.parseEffortLine('8:38 開始 28 分鐘 1.2 km')), {
             hour: 8, minute: 38, durationMinutes: 28, distanceKm: 1.2, valid: true
         });
+    });
+
+    test('uses input distance including zero, otherwise the configured default', () => {
+        const { api } = loadAssistant();
+        for (const fallback of [null, 0, 1.25]) {
+            const presets = { 測試: { locId: 'L1001', pageName: '測試', distanceKm: fallback, partySize: 1, isDefault: true } };
+            for (const [suffix, expected] of [['', fallback], [' 0 km', 0], [' 0.02 公里', 0.02], [' 1.2 KM', 1.2]]) {
+                for (const location of ['測試\n', '']) {
+                    const record = api.parseRecord('2026/10/1\n' + location + '08:30 開始 28 分鐘' + suffix + '\n麻雀 2', new Date(2026, 9, 2), presets);
+                    assert.equal(record.effort.distanceKm, expected, `${fallback} / ${suffix}`);
+                    assert.equal(record.effort.protocol, api.protocolForDistance(expected));
+                    assert.equal(record.blockingErrors.length, 0);
+                }
+            }
+        }
+        const existing = api.parseExistingRecord('2026/10/1\n測試\n08:30 開始 28 分鐘 1.2 公里\n麻雀 2', new Date(2026, 9, 2));
+        assert.equal(existing.editHeader.effort.distanceKm, 1.2);
+    });
+
+    test('distance input synchronizes the per-record field and survives clicking start', async () => {
+        for (const [suffix, fallback, expected] of [
+            [' 1.2 km', 9, 1.2], [' 1.2 公里', null, 1.2], [' 0 km', 9, 0], ['', 1.25, 1.25], ['', null, null]
+        ]) {
+            const { harness, api } = loadAssistant({ url: 'https://ebird.org/atlastw/submit' });
+            api.saveLocationPreset('測試', { locId: 'L1001', pageName: '測試', distanceKm: fallback, partySize: 1 });
+            harness.dispatchDocumentEvent('DOMContentLoaded');
+            const textarea = harness.document.querySelector('.tm-ebird-record-grid textarea');
+            const source = ending => '2026/10/1\n測試\n08:30 開始 28 分鐘' + ending + '\n麻雀 2';
+            textarea.value = source(' 3 km');
+            textarea.dispatchEvent({ type: 'input' });
+            const distance = harness.document.querySelector('.tm-ebird-effort-override input');
+            assert.equal(Number(distance.value), 3);
+            textarea.value = source(suffix);
+            textarea.dispatchEvent({ type: 'input' });
+            const mode = harness.document.querySelector('.tm-ebird-effort-override select');
+            assert.equal(mode.value, expected === null ? 'incidental' : 'distance');
+            assert.equal(expected === null ? distance.value : Number(distance.value), expected === null ? '' : expected);
+            if (suffix) assert.match(harness.document.querySelector('.tm-ebird-preview').children.map(row => row.textContent).join('\n'), /公里/);
+            harness.document.querySelector('.tm-ebird-action-row button').click();
+            await Promise.resolve();
+            const pending = JSON.parse(harness.sessionStorage.getItem(api.storageKey));
+            assert.ok(pending, harness.document.querySelector('.tm-ebird-status').textContent);
+            assert.equal(pending.effort.distanceKm, expected);
+            assert.equal(pending.effort.protocol, api.protocolForDistance(expected));
+            assert.match(harness.location.assignedUrl, /submit\/effort\?locID=L1001/);
+        }
     });
 
     test('keeps only one default location in local settings', () => {

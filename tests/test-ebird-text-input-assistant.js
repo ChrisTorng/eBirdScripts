@@ -96,7 +96,7 @@ const requestedAliasMappings = {
     '台灣藍鵲': 'formag1',
     '黑冠': 'manher1',
     '樹鵲': 'grytre1',
-    '東方黃': 'eaywag',
+    '東方黃': 'weywag8',
     '喜鵲': 'orimag1',
     '黃頭鷺': 'categr2',
     '白面': 'whiwag8',
@@ -215,7 +215,7 @@ describe('eBird compact note parser', () => {
     test('uses the user-confirmed current Chinese names for updated taxa', () => {
         const { api } = loadAssistant();
 
-        assert.equal(api.speciesAliases['東方黃'].name, '東方黃鶺鴒 (黃頭)');
+        assert.equal(api.speciesAliases['東方黃'].name, '東方黃鶺鴒(黃眉)');
         assert.equal(api.speciesAliases['赤腰燕'].name, '東方金腰燕 (赤腰燕)');
         assert.deepEqual(plain(api.speciesAliases['赤腰燕'].codes), ['strswa2', 'y00621', 'strswa1']);
         assert.equal(api.speciesAliases['冠八'].name, '八哥 (冠八哥)');
@@ -712,4 +712,22 @@ describe('eBird species form safety', () => {
         assert.match(style.textContent, /max-height:48dvh/);
         assert.match(style.textContent, /overflow-y:\s*auto/);
     });
+});
+
+
+test('form note readback tolerates boundary whitespace and line endings without ignoring real differences', () => {
+    const { harness, api } = loadAssistant();
+    const count = harness.document.createElement('input');
+    count.id = 'magrob'; count.value = '1'; harness.appendToBody(count);
+    const field = harness.document.createElement('textarea');
+    field.id = 'p-magrob_comments'; harness.appendToBody(field);
+    for (const [note, actual, status] of [
+        ['公的 ', '公的', 'filled'], [' 公的 \r\n 第二行 ', '公的 \n 第二行', 'filled'],
+        ['公的 ', '母的', 'failed'], ['公  的', '公 的', 'failed']
+    ]) {
+        const observation = api.parseObservationLine('鵲鴝 1；描述 ' + JSON.stringify(note)).value;
+        assert.equal(observation.comments, note, 'parser preserves original note');
+        field.value = actual;
+        assert.equal(api.verifyObservationOutcome({ observation, code: 'magrob', status: 'filled' }).status, status, note);
+    }
 });

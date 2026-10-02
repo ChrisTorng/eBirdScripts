@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-30_1.12.2
+// @version      2026-10-02_1.12.4
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -154,8 +154,13 @@
         '黑冠': { code: 'manher1', name: '黑冠麻鷺' },
         '黑冠麻鷺': { code: 'manher1', name: '黑冠麻鷺' },
         '樹鵲': { code: 'grytre1', name: '樹鵲' },
-        '東方黃': { code: 'eaywag', name: '東方黃鶺鴒 (黃頭)' },
-        '東方黃鶺鴒': { code: 'eaywag', name: '東方黃鶺鴒 (黃頭)' },
+        '東方': { code: 'kenplo1', name: '東方環頸鴴' },
+        '東方環頸鴴': { code: 'kenplo1', name: '東方環頸鴴' },
+        '花嘴': { code: 'spbduc', name: '花嘴鴨' },
+        '花嘴鴨': { code: 'spbduc', name: '花嘴鴨' },
+        '東方黃': { code: 'weywag8', name: '東方黃鶺鴒(黃眉)' },
+        '東方黃鶺鴒(黃眉)': { code: 'weywag8', name: '東方黃鶺鴒(黃眉)' },
+        '東方黃鶺鴒': { code: 'eaywag', name: '東方黃鶺鴒' },
         '大卷尾': { code: 'bladro1', name: '大卷尾' },
         '五色鳥': { code: 'taibar2', name: '五色鳥' },
         '亞洲': { code: 'asgsta1', name: '亞洲輝椋鳥' },
@@ -193,6 +198,9 @@
         '薑母鴨': { code: 'musduc', codes: ['musduc', 'musduc3', 'musduc2'], name: '疣鼻棲鴨' },
         '疣鼻棲鴨': { code: 'musduc', codes: ['musduc', 'musduc3', 'musduc2'], name: '疣鼻棲鴨' },
         '灰鶺鴒': { code: 'grywag', name: '灰鶺鴒' },
+        '紅尾伯勞': { code: 'brnshr', name: '紅尾伯勞' },
+        '紅尾伯勞(灰頭)': { code: 'brnshr3', name: '紅尾伯勞(灰頭)' },
+        '紅尾伯勞(褐頭)': { code: 'brnshr1', name: '紅尾伯勞(褐頭)' },
         '灰頭紅尾伯勞': { code: 'brnshr3', name: '紅尾伯勞(灰頭)' },
         '褐頭紅尾伯勞': { code: 'brnshr1', name: '紅尾伯勞(褐頭)' },
         '白面': { code: 'whiwag8', name: '白鶺鴒（白面）' },
@@ -18186,7 +18194,7 @@
     }
 
     function parseEffortLine(line) {
-        const match = String(line || '').trim().match(/^(\d{1,2})[：:](\d{1,2})\s*(?:開始)?\s*(?:(\d+)\s*分鐘)?(?:\s+(\d+(?:\.\d+)?)\s*km)?$/i);
+        const match = String(line || '').trim().match(/^(\d{1,2})[：:](\d{1,2})\s*(?:開始)?\s*(?:(\d+)\s*分鐘)?(?:\s+(\d+(?:\.\d+)?)\s*(?:km|公里))?$/i);
         if (!match) {
             return null;
         }
@@ -18367,12 +18375,16 @@
 
         const effortLine = lines[index++] || '';
         const parsedEffort = parseEffortLine(effortLine);
+        const distanceKm = parsedEffort && parsedEffort.distanceKm !== null
+            ? parsedEffort.distanceKm
+            : preset && preset.distanceKm !== null && preset.distanceKm !== undefined && preset.distanceKm !== ''
+                ? Number(preset.distanceKm) : null;
         const effort = parsedEffort ? {
             hour: parsedEffort.hour,
             minute: parsedEffort.minute,
             durationMinutes: parsedEffort.durationMinutes,
-            protocol: protocolForDistance(parsedEffort.distanceKm),
-            distanceKm: parsedEffort.distanceKm,
+            protocol: protocolForDistance(distanceKm),
+            distanceKm: distanceKm,
             partySize: preset ? preset.partySize : 1
         } : null;
         if (!parsedEffort) {
@@ -18457,7 +18469,7 @@
         }
         const locationIndex = indexes[cursor];
         const editEffort = function(line) {
-            return parseEffortLine(String(line || '').replace(/\s+\d+(?:\.\d+)?\s*(?:km|公里)\s*$/i, ''));
+            return parseEffortLine(line);
         };
         if (locationIndex !== undefined
             && !editEffort(lines[locationIndex])
@@ -18904,7 +18916,7 @@
             : breedingMatch ? breedingMatch[1].toUpperCase() : rawBreedingValue;
         const breedingText = rawBreedingValue ? selectedBreedingText : '';
         const commentsField = document.getElementById('p-' + code + '_comments');
-        const comments = commentsField ? String(commentsField.value || '').trim() : '';
+        const comments = normalizeObservationComments(commentsField && commentsField.value);
         const extras = [];
         if (breedingText) {
             extras.push(breedingText);
@@ -18925,6 +18937,12 @@
         };
     }
 
+    // eBird trims note boundaries and browsers normalize textarea line endings.
+    // Preserve interior whitespace and literal entities when comparing notes.
+    function normalizeObservationComments(value) {
+        return String(value || '').replace(/\r\n?/g, '\n').trim();
+    }
+
     function verifyObservationOutcome(outcome) {
         if (outcome.status === 'failed') {
             outcome.display = outcome.observation.count + ' ' + outcome.observation.name;
@@ -18943,8 +18961,9 @@
         } else if (actual.breedingCode) {
             mismatches.push('出現未預期的繁殖代碼');
         }
-        if (expected.comments) {
-            if (!actual.hasCommentsField || actual.comments !== expected.comments) {
+        const expectedComments = normalizeObservationComments(expected.comments);
+        if (expectedComments) {
+            if (!actual.hasCommentsField || actual.comments !== expectedComments) {
                 mismatches.push('附註讀回為「' + (actual.hasCommentsField ? actual.comments : '找不到欄位') + '」');
             }
         } else if (actual.comments) {
@@ -19427,15 +19446,16 @@
             const breedingField = found.row.querySelector('.Observation-meta-item-value');
             const commentsField = found.row.querySelector('.Observation-comments p');
             const breedingText = breedingField ? breedingField.textContent.trim() : structured ? '' : rowText;
-            const commentsText = commentsField ? commentsField.textContent.trim() : structured ? '' : rowText;
+            const commentsText = normalizeObservationComments(commentsField ? commentsField.textContent : structured ? '' : rowText);
+            const expectedComments = normalizeObservationComments(observation.comments);
             const breedingMatched = observation.breedingCode
                 ? new RegExp(
                     '(^|[^A-Za-z])' + escapeRegex(observation.breedingCode) + '(?=[^A-Za-z]|$)',
                     'i'
                 ).test(breedingText)
                 : !structured || !breedingText;
-            const commentsMatched = observation.comments
-                ? (structured ? commentsText === observation.comments : commentsText.includes(observation.comments))
+            const commentsMatched = expectedComments
+                ? (structured ? commentsText === expectedComments : commentsText.includes(expectedComments))
                 : !structured || !commentsText;
             const extras = [];
             if (observation.breedingCode && breedingMatched) {
@@ -20029,7 +20049,8 @@
                 text: locationPrefix
                     + String(parsedEffort.hour).padStart(2, '0') + ':'
                     + String(parsedEffort.minute).padStart(2, '0')
-                    + (parsedEffort.durationMinutes === null ? '' : '／' + parsedEffort.durationMinutes + ' 分鐘'),
+                    + (parsedEffort.durationMinutes === null ? '' : '／' + parsedEffort.durationMinutes + ' 分鐘')
+                    + (parsedEffort.distanceKm === null ? '' : '／' + parsedEffort.distanceKm + ' 公里'),
                 error: locationFailure
             } : {
                 text: locationPrefix + '無法辨識開始時間與分鐘',
@@ -20649,6 +20670,12 @@
         }
 
         function applyEffortPreset(preset, locationKey) {
+            const inputEffort = normalizeSource(textarea.value).split('\n')
+                .map(function(line) { return line.trim(); }).filter(Boolean).slice(0, 3)
+                .map(parseEffortLine).find(Boolean);
+            if (inputEffort && inputEffort.distanceKm !== null) {
+                preset = Object.assign({}, preset, { distanceKm: inputEffort.distanceKm });
+            }
             const distanceKey = preset && preset.distanceKm !== null && preset.distanceKm !== undefined
                 ? String(preset.distanceKm)
                 : 'incidental';

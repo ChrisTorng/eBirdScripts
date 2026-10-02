@@ -2,6 +2,7 @@ import {
   catalog,
   distance,
   hasInformation,
+  identityForName,
   matchesQuery,
   numericQuery,
 } from "./core.mjs";
@@ -37,12 +38,16 @@ export const BREEDING_OPTIONS = [
   ["巢中有蛋", "NE", "巢蛋", "巢中有蛋 Nest with Eggs"],
   ["巢中有幼鳥", "NY", "巢雛", "巢中有幼鳥 Nest with Young"],
 ];
-export const normalizeName = (value) =>
-  String(value)
-    .normalize("NFKC")
-    .replace(/台/g, "臺")
-    .replace(/\s/g, "")
-    .replace(/^(?:野鴿(?:\((?:野化|馴化)\))?|原鴿)$/, "原鴿");
+const normalizedTaxonNames = new Map();
+export const normalizeName = (value) => {
+  const name = String(value).normalize("NFKC").replace(/台/g, "臺").replace(/\s/g, "");
+  if (/^(?:野鴿(?:\((?:野化|馴化)\))?|原鴿)$/.test(name)) return "taxon:rocpig1";
+  if (!normalizedTaxonNames.has(name)) {
+    const identity = identityForName(name);
+    normalizedTaxonNames.set(name, /^u[0-9a-f]+$/.test(identity.code) ? name : "taxon:" + identity.code);
+  }
+  return normalizedTaxonNames.get(name);
+};
 export function isOtherTaxon(s) {
   return (
     ["spuh", "slash", "hybrid", "intergrade", "domestic"].includes(
@@ -158,7 +163,14 @@ export function syncGroups(profile, species, rebuild = false) {
       collapsed: ["rare", "none", "other"].includes(id),
       codes: [],
     }));
-  const seen = new Set(profile.groups.flatMap((g) => g.codes));
+  const available = new Set(species.map((s) => s.code));
+  const seen = new Set();
+  for (const group of profile.groups)
+    group.codes = group.codes.filter((code) => {
+      if (!available.has(code) || seen.has(code)) return false;
+      seen.add(code);
+      return true;
+    });
   for (const s of species)
     if (!seen.has(s.code)) {
       const id = defaultGroup(s, thresholds);

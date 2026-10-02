@@ -533,7 +533,7 @@ function stopped() {
     errors = s.species.filter((x) => C.recordErrors(s.counts[x.code]).length);
   app.innerHTML =
     top("紀錄", false) +
-    `<section class="settings-list"><div class="summary-metrics"><b>${C.formatDuration(C.elapsed(s))}</b><span>${(s.distanceM / 1000).toFixed(2)} km</span><span>${esc(s.location.alias)}</span></div>${errors.length ? `<div class="warning danger">${errors.length} 項數量提醒未解決</div>` : ""}<textarea id="output" aria-label="eBird 輸出文字" rows="13">${esc(s.output)}</textarea>${button(s.copied ? "已複製 ✓" : "複製全部", "copy", "", "primary wide")}<div class="line-actions">${button("繼續計鳥", "resume")}${button("下載", "download-text")}${button("重新產生", "regenerate")}${button("從頭開始", "restart")}</div><small class="muted">距離 ${(s.distanceM / 1000).toFixed(2)} km 請填入助手努力量；背景 GPS 可能中斷。</small></section>`;
+    `<section class="settings-list"><div class="summary-metrics"><b>${C.formatDuration(C.elapsed(s))}</b><span>${(s.distanceM / 1000).toFixed(2)} km</span><span>${esc(s.location.alias)}</span></div>${errors.length ? `<div class="warning danger">${errors.length} 項數量提醒未解決</div>` : ""}<textarea id="output" aria-label="eBird 輸出文字" rows="13">${esc(s.output)}</textarea>${button(s.copied ? "已複製 ✓" : "複製全部", "copy", "", "primary wide")}<div class="line-actions output-actions">${button("繼續計鳥", "resume")}${button("下載", "download-text")}${button("重新產生", "regenerate")}${button("從頭開始", "restart")}</div><small class="muted">距離 ${(s.distanceM / 1000).toFixed(2)} km 請填入助手努力量；背景 GPS 可能中斷。</small></section>`;
 }
 function render() {
   if (locked) return;

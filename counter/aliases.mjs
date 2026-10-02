@@ -160,13 +160,33 @@ export default {
     "code": "grytre1",
     "name": "樹鵲"
   },
+  "東方": {
+    "code": "kenplo1",
+    "name": "東方環頸鴴"
+  },
+  "東方環頸鴴": {
+    "code": "kenplo1",
+    "name": "東方環頸鴴"
+  },
+  "花嘴": {
+    "code": "spbduc",
+    "name": "花嘴鴨"
+  },
+  "花嘴鴨": {
+    "code": "spbduc",
+    "name": "花嘴鴨"
+  },
   "東方黃": {
-    "code": "eaywag",
-    "name": "東方黃鶺鴒 (黃頭)"
+    "code": "weywag8",
+    "name": "東方黃鶺鴒(黃眉)"
+  },
+  "東方黃鶺鴒(黃眉)": {
+    "code": "weywag8",
+    "name": "東方黃鶺鴒(黃眉)"
   },
   "東方黃鶺鴒": {
     "code": "eaywag",
-    "name": "東方黃鶺鴒 (黃頭)"
+    "name": "東方黃鶺鴒"
   },
   "大卷尾": {
     "code": "bladro1",
@@ -343,6 +363,18 @@ export default {
   "灰鶺鴒": {
     "code": "grywag",
     "name": "灰鶺鴒"
+  },
+  "紅尾伯勞": {
+    "code": "brnshr",
+    "name": "紅尾伯勞"
+  },
+  "紅尾伯勞(灰頭)": {
+    "code": "brnshr3",
+    "name": "紅尾伯勞(灰頭)"
+  },
+  "紅尾伯勞(褐頭)": {
+    "code": "brnshr1",
+    "name": "紅尾伯勞(褐頭)"
   },
   "灰頭紅尾伯勞": {
     "code": "brnshr3",
