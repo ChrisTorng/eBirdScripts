@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-09-30_1.12.1
+// @version      2026-09-30_1.12.2
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -122,15 +122,15 @@
         '大白': {code:'greegr',name:'大白鷺'},
         '大白鷺': {code:'greegr',name:'大白鷺'},
         '蒼鷺': {code:'graher1',name:'蒼鷺'},
-        '原鴿': {code:'rocpig1',codes:['rocpig1','rocpig'],name:'原鴿'},
-        '野鴿(馴化)': {code:'rocpig1',codes:['rocpig1','rocpig'],name:'原鴿'},
-        '野鴿(野化)': {code:'rocpig1',codes:['rocpig1','rocpig'],name:'原鴿'},
+        '原鴿': {code:'rocpig1',codes:['rocpig1','rocpig'],name:'野鴿'},
+        '野鴿(馴化)': {code:'rocpig1',codes:['rocpig1','rocpig'],name:'野鴿'},
+        '野鴿(野化)': {code:'rocpig1',codes:['rocpig1','rocpig'],name:'野鴿'},
         '金背': { code: 'ortdov', name: '金背鳩' },
         '金背鳩': { code: 'ortdov', name: '金背鳩' },
         '珠頸': { code: 'spodov', name: '珠頸斑鳩' },
         '珠頸斑鳩': { code: 'spodov', name: '珠頸斑鳩' },
         '紅鳩': { code: 'recdov1', name: '紅鳩' },
-        '野鴿': { code: 'rocpig1', codes:['rocpig1','rocpig'], name: '原鴿' },
+        '野鴿': { code: 'rocpig1', codes:['rocpig1','rocpig'], name: '野鴿' },
         '紅嘴': { code: 'blabul1', name: '紅嘴黑鵯' },
         '紅嘴黑鵯': { code: 'blabul1', name: '紅嘴黑鵯' },
         '小雨燕': { code: 'houswi1', codes: ['houswi1', 'houswi'], name: '小雨燕' },
@@ -18788,6 +18788,12 @@
         return code || '';
     }
 
+    function isPigeonObservation(observation) {
+        return [observation.code].concat(observation.codes || []).some(function(code) {
+            return code === 'rocpig' || code === 'rocpig1';
+        });
+    }
+
     function formatObservationForEbird(observation, details) {
         const extra = [];
         const breedingText = details && details.breedingText
@@ -18802,7 +18808,7 @@
         if (comments) {
             extra.push(comments);
         }
-        return observation.count + ' ' + observation.name
+        return observation.count + ' ' + (isPigeonObservation(observation) ? '野鴿' : observation.name)
             + (extra.length ? '; ' + extra.join(', ') : '');
     }
 
@@ -18883,7 +18889,7 @@
         const nameNode = nameContainer
             ? (nameContainer.querySelector('span') || nameContainer)
             : null;
-        const actualName = nameNode && nameNode.textContent.trim()
+        const actualName = isPigeonObservation(observation) ? '野鴿' : nameNode && nameNode.textContent.trim()
             ? nameNode.textContent.replace(/\s+/g, ' ').trim()
             : observation.name;
         const breedingSelect = document.getElementById('p-' + code + '_bcode');
@@ -19185,7 +19191,6 @@
             record
             && result
             && !record.observations.some(item => item.requiresConfirmation || item.warning)
-            && (!record.editWarnings || record.editWarnings.length === 0)
             && (!record.blockingErrors || record.blockingErrors.length === 0)
             && (!record.unresolvedObservations || record.unresolvedObservations.length === 0)
             && (!result.formErrors || result.formErrors.length === 0)
@@ -19195,7 +19200,9 @@
             && result.items.every(function(item) { return item.status === 'filled'; })
             && Array.isArray(result.metadata)
             && (record.editExisting || result.metadata.length > 0)
-            && (record.editExisting || result.metadata.every(function(item) { return item.matched; }))
+            && result.metadata.every(function(item) {
+                return (record.editExisting && item.key !== 'completeness') || item.matched;
+            })
         );
     }
 
@@ -19215,6 +19222,16 @@
 
     function escapeRegex(text) {
         return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function timeWithinTolerance(actual, expected) {
+        return Math.abs((Number(actual.hour) * 60 + Number(actual.minute))
+            - (Number(expected.hour) * 60 + Number(expected.minute))) <= 5;
+    }
+
+    function distanceWithinTolerance(actual, expected) {
+        return Number(expected) === 0 ? Number(actual) === 0
+            : Math.abs(Number(actual) - Number(expected)) / Number(expected) <= 0.100000001;
     }
 
     function readStructuredSubmittedMetadata(record, primary, effort) {
@@ -19271,8 +19288,7 @@
             : content(time), Boolean(actualDate && actualTime)
                 && actualDate.year === record.date.year && actualDate.month === record.date.month
                 && actualDate.day === record.date.day
-                && Math.abs((actualTime.hour * 60 + actualTime.minute)
-                    - (Number(expected.hour) * 60 + Number(expected.minute))) <= 5);
+                && timeWithinTolerance(actualTime, expected));
 
         const protocolNode = effort && effort.querySelector('.Heading-main');
         const protocolText = content(protocolNode);
@@ -19298,9 +19314,7 @@
         add('distance', '距離', expectedDistance,
             expected.protocol === 'P22' ? distanceText : distanceText || '不適用',
             expected.protocol === 'P22'
-                ? distance && (Number(expected.distanceKm) === 0
-                    ? distanceKm === 0
-                    : Math.abs(distanceKm - Number(expected.distanceKm)) / Number(expected.distanceKm) <= 0.100000001)
+                ? distance && distanceWithinTolerance(distanceKm, expected.distanceKm)
                 : !distanceText);
         const party = content(badgeForIcon('Icon--user'));
         add('party', '人數', expected.partySize + ' 人', party ? party + ' 人' : '',
@@ -19334,7 +19348,9 @@
         const normalizeName = function(value) {
             return String(value || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
         };
-        const names = [observation.name];
+        const pigeon = isPigeonObservation(observation);
+        const codes = pigeon ? ['rocpig', 'rocpig1'] : [code];
+        const names = pigeon ? ['野鴿', '原鴿', '野鴿(馴化)', '野鴿(野化)', 'Rock Pigeon', 'Rock Pigeon (Feral Pigeon)'] : [observation.name];
         if (observation.code === 'whiwag8') names.push('White Wagtail (Chinese)');
         if (observation.code === 'brnshr3') names.push('Brown Shrike (Philippine)');
         if (observation.code === 'brnshr1') names.push('Brown Shrike (Brown)');
@@ -19343,19 +19359,19 @@
             if (item.closest('#' + panelId)) return false;
             const href = String(item.href || item.getAttribute('href') || '');
             const linkedCode = (href.match(/\/species\/([^/?#]+)/) || [])[1];
-            return (code && linkedCode === code)
+            return (linkedCode && codes.includes(linkedCode))
                 || names.some(function(name) { return normalizeName(item.textContent) === normalizeName(name); });
         });
         if (anchor) {
             const structuredRow = anchor.closest('.Observation');
-            if (structuredRow) return { row: structuredRow, name: anchor.textContent.replace(/\s+/g, ' ').trim() };
+            if (structuredRow) return { row: structuredRow, name: pigeon ? '野鴿' : anchor.textContent.replace(/\s+/g, ' ').trim() };
             let current = anchor;
             let best = anchor.parentElement || anchor;
             for (let depth = 0; current && current !== document.body && depth < 7; depth += 1) {
                 const candidateText = String(current.innerText || current.textContent || '')
                     .replace(/\s+/g, ' ')
                     .trim();
-                if (candidateText.includes(observation.name)) {
+                if (names.some(function(name) { return candidateText.includes(name); })) {
                     best = current;
                     if (new RegExp('(^|\\D)' + escapeRegex(observation.count) + '(?=\\D|$)').test(candidateText)) {
                         break;
@@ -19363,18 +19379,18 @@
                 }
                 current = current.parentElement;
             }
-            return { row: best, name: anchor.textContent.replace(/\s+/g, ' ').trim() || observation.name };
+            return { row: best, name: pigeon ? '野鴿' : anchor.textContent.replace(/\s+/g, ' ').trim() || observation.name };
         }
         const candidates = Array.from(document.querySelectorAll('li,article,section,div'))
             .filter(function(item) {
                 if (item.closest('#' + panelId) || item.querySelector('#' + panelId)) return false;
                 const value = String(item.innerText || item.textContent || '').replace(/\s+/g, ' ').trim();
-                return value.includes(observation.name);
+                return names.some(function(name) { return value.includes(name); });
             })
             .sort(function(left, right) {
                 return String(left.textContent || '').length - String(right.textContent || '').length;
             });
-        return candidates.length ? { row: candidates[0], name: observation.name } : null;
+        return candidates.length ? { row: candidates[0], name: pigeon ? '野鴿' : observation.name } : null;
     }
 
     function verifySubmittedSpecies(record, preResult) {
@@ -19444,9 +19460,9 @@
 
     function verifySubmittedChecklist(record, preResult) {
         const metadata = record.editExisting
-            ? (record.editAdvisories || []).map(function(value) {
-                return { key: 'existing-info', label: '原清單資訊', value: value, matched: false };
-            })
+            ? readExistingChecklistAdvisories(record).concat(readSubmittedMetadata(
+                Object.assign({}, record, { effort: Object.assign({}, record.effort, { protocol: 'P22' }) })
+            ).filter(function(item) { return item.key === 'completeness'; }))
             : readSubmittedMetadata(record);
         const items = verifySubmittedSpecies(record, preResult);
         const rows = Array.from(document.querySelectorAll('.Observation'));
@@ -19479,7 +19495,9 @@
             postSubmitPassed: false,
             allMatched: false
         };
-        result.postSubmitPassed = (record.editExisting || metadata.every(function(item) { return item.matched; }))
+        result.postSubmitPassed = metadata.every(function(item) {
+                return (record.editExisting && item.key !== 'completeness') || item.matched;
+            })
             && items.every(function(item) { return item.status === 'filled'; })
             && result.unresolved.length === 0;
         result.allMatched = result.preSubmitPassed && result.postSubmitPassed;
@@ -19586,16 +19604,16 @@
         const hasInputIssues = outcomes.some(function(outcome) {
             return outcome.status === 'failed' || outcome.status === 'warning';
         }) || unresolved.length > 0;
-        const completenessId = record.effort && record.effort.protocol === 'P20'
+        const completenessId = !record.editExisting && record.effort && record.effort.protocol === 'P20'
             ? 'all-spp-n'
             : 'all-spp-y';
         const complete = document.getElementById(completenessId);
         const formErrors = [];
-        if (!complete && !record.editExisting) {
+        if (!complete) {
             formErrors.push(completenessId === 'all-spp-n'
                 ? '找不到非完整清單選項'
                 : '找不到完整清單選項');
-        } else if (complete && !record.editExisting && errors.length === 0 && !hasInputIssues) {
+        } else if (complete && errors.length === 0 && !hasInputIssues) {
             complete.click();
             complete.checked = true;
             dispatchValueEvents(complete);
@@ -19614,9 +19632,10 @@
             }
         });
         const verification = record.editExisting
-            ? { checks: (record.editAdvisories || []).map(function(value) {
-                return { key: 'existing-info', label: '原清單資訊', value: value, matched: false };
-            }) }
+            ? { checks: readExistingChecklistAdvisories(record).concat(
+                readChecklistVerification(record, completenessId).checks
+                    .filter(function(item) { return item.key === 'completeness'; })
+            ) }
             : readChecklistVerification(record, completenessId);
         if (!record.editExisting) renderEffortDetailsOnPage(verification.checks);
 
@@ -20066,13 +20085,24 @@
         };
     }
 
+    function readExistingChecklistAdvisories(record) {
+        if (!record.source) return [];
+        return analyzeExistingRecordLines(record.source, dateObject(record.date)).lines
+            .filter(function(item) { return item.warning; })
+            .map(function(item) {
+                return { key: 'existing-info', label: '原清單資訊', value: item.text, matched: false };
+            });
+    }
+
     function analyzeExistingRecordLines(text, fallbackDate) {
         const sections = splitExistingRecord(text, fallbackDate);
         const results = sections.lines.map(function() { return { text: '', error: false }; });
         const header = sections.header;
         const record = parseExistingRecord(text, fallbackDate);
         const current = readEffortFormState(record, null);
-        const submitted = readSubmittedMetadata(record);
+        const submitted = readSubmittedMetadata(Object.assign({}, record, {
+            effort: Object.assign({}, record.effort, { protocol: 'P22' })
+        }));
         const actual = function(key) {
             const item = submitted.find(function(check) { return check.key === key; });
             return item && item.actualValue ? String(item.actualValue) : '';
@@ -20080,13 +20110,6 @@
         const displayed = parseDisplayedDateTime(actual('datetime'));
         const actualDate = current.date || displayed.date;
         const actualTime = current.time || displayed.time;
-        const sameName = function(left, right) {
-            const normalize = function(value) {
-                return String(value || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
-            };
-            return Boolean(normalize(left) && normalize(right)
-                && (normalize(left).includes(normalize(right)) || normalize(right).includes(normalize(left))));
-        };
         if (header.dateIndex !== undefined) {
             const mismatch = Boolean(header.dateError || (actualDate && !sameDate(header.date, actualDate)));
             results[header.dateIndex] = {
@@ -20095,17 +20118,11 @@
             };
         }
         if (header.locationIndex !== undefined) {
-            const currentName = current.locationName || actual('location');
-            const mismatch = Boolean(currentName && !sameName(header.location, currentName));
-            results[header.locationIndex] = {
-                text: mismatch ? '地點與原清單不符；保留「' + currentName + '」' : '沿用原清單地點',
-                warning: mismatch
-            };
+            results[header.locationIndex] = { text: '沿用原清單地點', warning: false };
         }
         if (header.effortIndex !== undefined) {
             const effort = header.effort;
-            const timeMismatch = Boolean(actualTime && (Number(effort.hour) !== Number(actualTime.hour)
-                || Number(effort.minute) !== Number(actualTime.minute)));
+            const timeMismatch = Boolean(actualTime && !timeWithinTolerance(actualTime, effort));
             const duration = current.durationMinutes !== null ? current.durationMinutes
                 : Number((actual('duration').match(/\d+(?:\.\d+)?/) || [])[0]);
             const durationMismatch = effort.durationMinutes !== null && Number.isFinite(duration)
@@ -20114,7 +20131,7 @@
             const actualDistance = current.distanceKm !== null ? current.distanceKm
                 : Number((actual('distance').match(/\d+(?:\.\d+)?/) || [])[0]);
             const distanceMismatch = inputDistance && Number.isFinite(actualDistance)
-                && Math.abs(Number(inputDistance[1]) - actualDistance) > 0.001;
+                && !distanceWithinTolerance(actualDistance, Number(inputDistance[1]));
             const mismatch = timeMismatch || durationMismatch || distanceMismatch || !effort.valid;
             results[header.effortIndex] = {
                 text: mismatch ? '時間／努力量與原清單不符；保留原清單資料' : '沿用原清單時間與努力量',
@@ -20879,7 +20896,7 @@
 
         const metadata = Array.isArray(result.metadata) ? result.metadata : [];
         metadata.forEach(function(item) {
-            const advisory = record.editExisting && !item.matched;
+            const advisory = record.editExisting && item.key !== 'completeness' && !item.matched;
             appendLine(
                 (item.matched ? '✓ ' : advisory ? '⚠ ' : '✗ ') + item.label + '：' + item.value
                     + (item.error ? ' — ' + item.error : ''),
@@ -20918,14 +20935,16 @@
             return item.status !== 'filled';
         }) || result.unresolved.length > 0
             || result.formErrors.length > 0
-            || (!record.editExisting && metadata.some(function(item) { return !item.matched; }));
+            || metadata.some(function(item) {
+                return !item.matched && (!record.editExisting || item.key === 'completeness');
+            });
         const submitted = !location.pathname.endsWith('/submit/checklist')
             && /\/checklist\/[^/]+\/?$/.test(location.pathname);
         appendLine(
             hasProblems
                 ? '仍有讀回結果不符，請檢查紅字項目。'
                 : record.editExisting
-                    ? '✓ 鳥種已核對；原清單資訊維持原值。'
+                    ? '✓ 鳥種已核對，清單已改為完整清單。'
                     : submitted
                         ? '✓ 送出前所有欄位均已重新讀取並符合預期。'
                         : '✓ 所有欄位均已重新讀取並符合預期；尚未送出。',

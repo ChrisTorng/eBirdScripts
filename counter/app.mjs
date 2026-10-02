@@ -13,6 +13,7 @@ let state,
   point = null,
   gpsMessage = "",
   watchId = null;
+let searchOriginScroll = null;
 let editMode = false,
   expanded = "",
   armedStop = false,
@@ -313,6 +314,29 @@ function refreshList() {
   if ($("#bird-list")) $("#bird-list").innerHTML = lists(view === "organize");
   filterRows();
 }
+function updateQuery(value, blur = false) {
+  const previous = state.session.query;
+  if (value && !previous) searchOriginScroll = { left: window.scrollX, top: window.scrollY };
+  state.session.query = value;
+  const query = $("#query");
+  query.value = value;
+  $(".clear-query").hidden = !value;
+  if (blur) query.blur();
+  closeEditor();
+  save();
+  refreshList();
+  if (value) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  else if (previous && searchOriginScroll) {
+    window.scrollTo({ ...searchOriginScroll, behavior: "instant" });
+    searchOriginScroll = null;
+  }
+}
+function flashCount(element) {
+  if (!element) return;
+  element.classList.remove("count-changed");
+  void element.offsetWidth;
+  element.classList.add("count-changed");
+}
 function filterRows() {
   if (!state.session || view === "organize") return;
   const byCode = new Map(species.map((s) => [s.code, s])),
@@ -376,12 +400,17 @@ function tick() {
     $("#start-time").max = localDate(startValue);
   }
 }
-function updateRow(code, flash = false) {
+function updateRow(code, pressed = null) {
   const el = $(`[data-bird="${code}"]`),
     c = counts()[code];
   if (!el || !c) return;
-  el.querySelector(".total").textContent = c.total;
-  el.querySelector(".heard b").textContent = c.heard;
+  for (const [field, selector] of [["total", ".total"], ["heard", ".heard b"]]) {
+    const number = el.querySelector(selector);
+    const changed = number.textContent !== String(c[field]);
+    number.textContent = c[field];
+    if (changed) flashCount(number);
+  }
+  if (pressed) flashCount(pressed);
   el.querySelector(".breed").textContent = breedLabel(c.breeding);
   const s = species.find((x) => x.code === code);
   el.querySelector(".bird-main").setAttribute(
@@ -401,16 +430,14 @@ function updateRow(code, flash = false) {
   err.hidden = !errors.length;
   el.classList.toggle("invalid", !!errors.length);
   el.classList.toggle("recorded", C.hasInformation(c));
-  if (flash) {
-    el.classList.remove("heard-flash");
-    void el.offsetWidth;
-    el.classList.add("heard-flash");
-  }
   const editor = el.querySelector(".bird-editor");
   if (editor)
     for (const field of ["total", "heard"]) {
       const input = editor.querySelector(`[data-direct="${field}"]`);
-      if (input !== document.activeElement) input.value = c[field];
+      if (input !== document.activeElement) {
+        if (input.value !== String(c[field])) flashCount(input);
+        input.value = c[field];
+      }
   }
   tick();
   if (state.session.query.trim()) {
@@ -740,13 +767,7 @@ app.addEventListener("click", async (event) => {
   const action = target.dataset.action;
   try {
     if (action === "clear-query") {
-      state.session.query = "";
-      const query = $("#query");
-      query.value = "";
-      query.blur();
-      closeEditor();
-      save();
-      refreshList();
+      updateQuery("", true);
     } else if (action === "install-app") {
       await installApp();
     } else if (action === "start") {
@@ -776,18 +797,14 @@ app.addEventListener("click", async (event) => {
         Number(target.dataset.delta),
       );
       changed();
-      updateRow(
-        target.dataset.code,
-        target.dataset.field === "heard" && Number(target.dataset.delta) > 0,
-      );
+      updateRow(target.dataset.code, target);
     } else if (action === "bird") {
       const number = C.numericQuery(state.session.query);
       if (number !== null && target.classList.contains("bird-main")) {
         C.increment(state.session, target.dataset.code, "total", number);
-        state.session.query = "";
-        $("#query").value = "";
         changed();
-        updateRow(target.dataset.code);
+        updateQuery("");
+        updateRow(target.dataset.code, $(`[data-bird="${target.dataset.code}"] .bird-main`));
       } else openEditor(target.dataset.code);
     } else if (action === "close-editor") closeEditor();
     else if (action === "breeding") await breeding(target.dataset.code);
@@ -976,11 +993,7 @@ app.addEventListener("input", (event) => {
   if (locked) return;
   const el = event.target;
   if (el.id === "query") {
-    state.session.query = el.value;
-    $(".clear-query").hidden = !el.value;
-    closeEditor();
-    save();
-    refreshList();
+    updateQuery(el.value);
   } else if (el.id === "threshold-common" || el.id === "threshold-uncommon")
     previewThresholds();
   else if (el.id === "output") {
@@ -996,7 +1009,7 @@ app.addEventListener("input", (event) => {
       try {
         C.increment(state.session, el.dataset.code, el.dataset.direct, delta);
         changed();
-        updateRow(el.dataset.code, el.dataset.direct === "heard" && delta > 0);
+        updateRow(el.dataset.code);
       } catch (e) {
         notice(e.message);
       }
@@ -1026,8 +1039,7 @@ for (const type of ["compositionupdate", "compositionend"])
   app.addEventListener(type, (e) => {
     if (e.target.id === "query")
       queueMicrotask(() => {
-        state.session.query = e.target.value;
-        refreshList();
+        updateQuery(e.target.value);
       });
   });
 app.addEventListener("change", async (event) => {
@@ -1070,7 +1082,7 @@ app.addEventListener("change", async (event) => {
         delta = value - c[el.dataset.direct];
       C.increment(state.session, el.dataset.code, el.dataset.direct, delta);
       changed();
-      updateRow(el.dataset.code, el.dataset.direct === "heard" && delta > 0);
+      updateRow(el.dataset.code);
     } else if (
       ["personal-file", "public-file", "restore"].includes(el.id) &&
       el.files[0]

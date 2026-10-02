@@ -123,12 +123,14 @@ export function compatibleAlias(spec, local = {}) {
       a.name.normalize("NFKC").replace(/\s/g, "") ===
         spec.name.normalize("NFKC").replace(/\s/g, ""),
   );
+  if (["rocpig", "rocpig1"].includes(spec.code) || matches.some(([, a]) => a.code === "rocpig1")) return "野鴿";
   const custom = local[spec.code];
   if (custom && matches.some(([name]) => name === custom)) return custom;
   return matches.sort((a, b) => a[0].length - b[0].length)[0]?.[0] || "";
 }
 export function displayAlias(spec, local = {}) {
-  return local[spec.code] || (spec.code === "rocpig1" ? "野鴿" : compatibleAlias(spec)) || spec.name;
+  const alias = compatibleAlias(spec, local);
+  return alias === "野鴿" ? alias : local[spec.code] || alias || spec.name;
 }
 export function speciesList(cache) {
   const data = (cache?.species || []).map((s) => ({ ...s }));
@@ -587,7 +589,7 @@ export function exportText(session, local = {}) {
   for (const s of session.species) {
     const c = session.counts[s.code];
     if (!hasInformation(c)) continue;
-    const alias = s.name;
+    const alias = compatibleAlias(s, local) || s.name;
     const breedingCode =
       BREEDING_CODES[BREEDING.findIndex(([value]) => value === c.breeding)];
     const details = [

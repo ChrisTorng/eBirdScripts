@@ -18,7 +18,7 @@ export default {
       "rocpig1",
       "rocpig"
     ],
-    "name": "原鴿"
+    "name": "野鴿"
   },
   "野鴿(馴化)": {
     "code": "rocpig1",
@@ -26,7 +26,7 @@ export default {
       "rocpig1",
       "rocpig"
     ],
-    "name": "原鴿"
+    "name": "野鴿"
   },
   "野鴿(野化)": {
     "code": "rocpig1",
@@ -34,7 +34,7 @@ export default {
       "rocpig1",
       "rocpig"
     ],
-    "name": "原鴿"
+    "name": "野鴿"
   },
   "金背": {
     "code": "ortdov",
@@ -62,7 +62,7 @@ export default {
       "rocpig1",
       "rocpig"
     ],
-    "name": "原鴿"
+    "name": "野鴿"
   },
   "紅嘴": {
     "code": "blabul1",

@@ -253,3 +253,30 @@ test("Back closes UI first; exit can be cancelled/confirmed; reload adds no dupl
   await events.popstate();
   assert.deepEqual(calls, ["push", "save", -2]);
 });
+
+
+test("exports shortest compatible names and keeps full names only when no alias exists", () => {
+  const birds = JSON.parse(fs.readFileSync(new URL("counter/data/taiwan-index.json", root))).species;
+  const session = C.createSession(C.DEFAULT_LOCATIONS[0], 1000, false, 1000, birds);
+  for (const s of birds) C.increment(session, s.code, "total", 2);
+  const lines = C.exportText(session).text.split("\n").slice(3);
+  for (const [i, s] of birds.entries()) {
+    const name = C.compatibleAlias(s) || s.name;
+    assert.equal(lines[i], name + " 2");
+    const parsed = parse(lines[i]);
+    assert.ok(!parsed.error, lines[i]);
+    assert.ok((parsed.value.codes || [parsed.value.code]).includes(s.code)
+      || parsed.value.code === parse(s.name + " 2").value.code, s.name);
+  }
+  for (const code of ["rocpig", "rocpig1"]) {
+    const pigeon = { code, name: "原鴿" };
+    assert.equal(C.displayAlias(pigeon), "野鴿");
+    session.species = [pigeon];
+    session.counts = {};
+    C.increment(session, code, "total", 6);
+    assert.equal(C.exportText(session).text.split("\n").at(-1), "野鴿 6");
+  }
+  for (const name of ["野鴿", "原鴿", "野鴿(馴化)", "野鴿(野化)"]) {
+    assert.equal(parse(name + " 6").value.name, "野鴿");
+  }
+});

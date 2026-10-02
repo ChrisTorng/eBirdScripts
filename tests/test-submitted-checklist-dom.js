@@ -40,7 +40,7 @@ function fixture(dateText, english = false) {
 function load(html) {
     const { document } = parseHTML(html);
     Object.defineProperty(document, 'readyState', { value: 'loading' });
-    const context = { document, console, URL, setTimeout, clearTimeout };
+    const context = { document, console, URL, URLSearchParams, location: new URL('https://ebird.org/atlastw/checklist/S123456789'), setTimeout, clearTimeout };
     vm.runInNewContext(source, context);
     const api = context.__ebirdTextInputAssistant;
     const observations = [api.parseObservationLine('白面2').value, api.parseObservationLine('黑領5聽到2唱歌').value];
@@ -171,3 +171,96 @@ if (process.env.EBIRD_CAPTURE_PATH) {
         assert.equal(result.allMatched, true, JSON.stringify(result));
     });
 }
+
+
+for (const code of ['rocpig', 'rocpig1', '']) {
+    test(`recognizes submitted pigeon synonyms with species link ${code || 'absent'}`, () => {
+        const { document, api, record, pre } = load(fixture('2026/9/5'));
+        document.querySelectorAll('.Observation').forEach(row => row.remove());
+        for (const name of ['野鴿(野化)', '野鴿(馴化)', '原鴿', '野鴿', 'Rock Pigeon (Feral Pigeon)']) {
+            document.body.insertAdjacentHTML('beforeend', `<section class="Observation" id="pigeon">
+              <a ${code ? `href="/atlastw/species/${code}"` : ''}>${name}</a>
+              <div class="Observation-numberObserved">6</div>
+            </section>`);
+            const observation = api.parseObservationLine('原鴿 6').value;
+            record.observations = [observation];
+            pre.totalCount = 1;
+            pre.items = [{ observation, code: 'rocpig1', status: 'filled' }];
+            const result = api.verifySubmittedChecklist(record, pre);
+            assert.equal(result.allMatched, true, name);
+            assert.equal(result.items[0].display, '6 野鴿');
+            document.getElementById('pigeon').remove();
+        }
+    });
+}
+
+test('existing checklist preview ignores location and shares time and distance tolerance boundaries', () => {
+    const { document, api } = load(fixture('2026/9/5'));
+    for (const [time, distance, warning] of [
+        ['07:59', '1.1', false], ['07:49', '0.9', false],
+        ['08:00', '1', true], ['07:48', '1', true], ['07:54', '1.11', true]
+    ]) {
+        document.querySelector('.Icon--track').parentElement.querySelector('.Badge-label').textContent = distance + ' km';
+        const text = `2026/9/5\nDifferent Wetland\n${time} 開始 25 分鐘 1 km\n麻雀 2`;
+        const preview = api.analyzeExistingRecordLines(text, new Date(2026, 8, 5));
+        assert.equal(preview.lines[1].warning, false, 'location is not checked');
+        assert.equal(preview.lines[2].warning, warning, `${time} / ${distance}`);
+        assert.equal(preview.blockingFailureCount, 0);
+    }
+});
+
+test('rechecks old existing-record advisories and verifies the list was saved as complete', () => {
+    const { document, api, record, pre } = load(fixture('2026/9/5'));
+    record.editExisting = true;
+    record.source = '2026/9/5\nDifferent Wetland\n07:55 開始 25 分鐘\n黑領 5 聽到 2 唱歌\n白面 2';
+    record.editAdvisories = ['地點與原清單不符', '時間／努力量與原清單不符'];
+    record.editWarnings = ['原清單已有鳥種紀錄'];
+    const result = api.verifySubmittedChecklist(record, pre);
+    assert.equal(result.allMatched, true);
+    assert.equal(result.metadata.filter(item => !item.matched).length, 0);
+    document.querySelector('[aria-controls="status-info"] .Badge-label').textContent = '不完整紀錄清單';
+    assert.equal(api.verifySubmittedChecklist(record, pre).allMatched, false);
+});
+
+
+test('the reported eleven-bird checklist passes with pigeon synonyms and a one-minute time difference', () => {
+    const { document, api } = load(fixture('2026/9/29'));
+    document.querySelector('time').setAttribute('datetime', '2026-09-29T11:24');
+    document.querySelector('time[datetime="PT25M"]').setAttribute('datetime', 'PT27M');
+    document.querySelectorAll('.Observation').forEach(row => row.remove());
+    const record = api.parseExistingRecord(`2026/9/29
+台北--新海第二期人工濕地(Taipei--Xinhai Constructed Wetland Second Phase)
+11:25 開始 27 分鐘
+原鴿 6
+樹鵲 2
+白頭翁 5 3 聽到
+斯氏繡眼(綠繡眼) 1 1 聽到
+家八哥 13
+白尾八哥 9
+麻雀 13
+紅冠水雞 2 1 聽到
+黃頭鷺 2
+黑領椋鳥 6 唱歌，3 聽到
+八哥(冠八哥) 1`, new Date(2026, 8, 29));
+    assert.equal(record.observations.length, 11);
+    for (const observation of record.observations) {
+        const pigeon = observation.code === 'rocpig1';
+        document.body.insertAdjacentHTML('beforeend', `<section class="Observation">
+          <a href="/atlastw/species/${pigeon ? 'rocpig' : observation.code}">${pigeon ? '野鴿(野化)' : observation.name}</a>
+          <div class="Observation-numberObserved">${observation.count}</div>
+          <section class="Observation-comments"><p>${observation.comments || ''}</p></section>
+          <section class="Observation-meta"><span class="Observation-meta-item-value">${observation.breedingCode ? 'S 唱歌中鳥 (有可能)' : ''}</span></section>
+        </section>`);
+    }
+    const pre = { preSubmitPassed: true, totalCount: 11, items: record.observations.map(observation => ({
+        observation, code: observation.code, status: 'filled'
+    })) };
+    const result = api.verifySubmittedChecklist(record, pre);
+    assert.equal(result.allMatched, true);
+    assert.equal(result.filledCount, 11);
+    assert.equal(result.metadata.filter(item => !item.matched).length, 0);
+    document.querySelector('time[datetime="PT27M"]').setAttribute('datetime', 'PT99M');
+    const preview = api.analyzeExistingRecordLines(record.source, new Date(2026, 8, 29));
+    assert.equal(preview.lines[2].warning, true, 'an actual duration mismatch is still advisory');
+    assert.equal(preview.blockingFailureCount, 0);
+});

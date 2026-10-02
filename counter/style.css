@@ -651,8 +651,7 @@ details a {
     background: transparent;
   }
 }
-.heard-flash .total,
-.heard-flash .total-plus {
+.count-changed {
   animation: count-flash 0.8s ease-out;
   border-radius: 4px;
 }

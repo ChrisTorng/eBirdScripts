@@ -97,7 +97,7 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(api.resultFullyVerified(record, result), false);
     });
 
-    test('completed checklist continues on the actual edit URL and fills pending birds despite advisory warnings', async () => {
+    test('completed checklist continues on the actual edit URL and fills pending birds with tolerant time checks and a complete checklist', async () => {
         const { harness } = loadAssistant({
             url: 'https://ebird.org/atlastw/checklist/S123456789?continue',
             readyState: 'complete',
@@ -125,7 +125,7 @@ describe('eBird assistant fast entry workflow', () => {
         input.value = '2026/9/28\n桃園--瑞興濕地公園\n15:24 開始 49 分鐘\n麻雀 2';
         input.dispatchEvent({ type: 'input' });
         const preview = harness.document.querySelector('.tm-ebird-preview');
-        assert.ok(preview.children.at(-2).className.includes('tm-ebird-warning'));
+        assert.ok(!preview.children.at(-2).className.includes('tm-ebird-warning'));
         assert.ok(!preview.children.at(-1).className.includes('tm-ebird-error'));
         assert.equal(harness.document.querySelector('.tm-ebird-error').textContent, '');
         harness.document.querySelector('.tm-ebird-action-row button').click();
@@ -134,7 +134,7 @@ describe('eBird assistant fast entry workflow', () => {
             'https://ebird.org/atlastw/edit/checklist?subID=S123456789');
         const pending = JSON.parse(harness.sessionStorage.getItem('ebirdTextInputAssistant:pendingRecord'));
         assert.equal(pending.editExisting, true);
-        assert.equal(pending.editAdvisories.length, 1);
+        assert.equal(pending.editAdvisories.length, 0);
 
         let submitClicks = 0;
         let completenessClicks = 0;
@@ -155,7 +155,7 @@ describe('eBird assistant fast entry workflow', () => {
                 doc.body.appendChild(row);
                 const complete = doc.createElement('input');
                 complete.id = 'all-spp-y';
-                complete.checked = true;
+                complete.checked = false;
                 complete.addEventListener('click', function() { completenessClicks += 1; });
                 doc.body.appendChild(complete);
                 const submit = doc.createElement('button');
@@ -169,7 +169,7 @@ describe('eBird assistant fast entry workflow', () => {
         await new Promise(setImmediate);
         assert.equal(edited.harness.document.getElementById('eutspa').value, '2');
         assert.equal(edited.harness.document.getElementById('all-spp-y').checked, true);
-        assert.equal(completenessClicks, 0);
+        assert.equal(completenessClicks, 1);
         assert.equal(submitClicks, 1);
         const confirmation = JSON.parse(edited.harness.sessionStorage.getItem(
             'ebirdTextInputAssistant:lastConfirmation'
