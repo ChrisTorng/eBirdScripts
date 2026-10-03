@@ -426,3 +426,46 @@ test("group counts discard unavailable and duplicate codes while preserving cust
   assert.equal(profile.groups[0].collapsed, false);
   assert.equal(profile.customized, true);
 });
+
+
+test("the fourteen reported import names stay recognized and confirmed parent frequencies union checklist IDs", () => {
+  const children = [
+    ["鴻雁(馴化)", "swagoo2", "鴻雁"], ["番鴨(馴化)(薑母鴨)", "musduc3", "疣鼻棲鴨"],
+    ["綠頭鴨(馴化)", "mallar2", "綠頭鴨"], ["虎皮鸚鵡(馴化)", "budger1", "虎皮鸚鵡"],
+    ["紅尾伯勞(褐頭)", "brnshr1", "紅尾伯勞"], ["紅尾伯勞(灰頭)", "brnshr3", "紅尾伯勞"],
+    ["賽氏短趾百靈", "sstlar4", null], ["白頭翁(formosae/orii)", "livbul4", "白頭翁"],
+    ["藍磯鶇(栗腹)", "blurot2", "藍磯鶇"], ["東方黃鶺鴒(白眉)", "eaywag2", "東方黃鶺鴒"],
+    ["東方黃鶺鴒(黃眉)", "weywag8", "東方黃鶺鴒"], ["東方黃鶺鴒(藍頭)", "weywag9", "東方黃鶺鴒"],
+    ["白鶺鴒(灰背眼紋)", "whiwag2", "白鶺鴒"], ["白鶺鴒(黑背眼紋)", "bkbwag", "白鶺鴒"]
+  ];
+  const publicData = JSON.parse(fs.readFileSync(new URL("../counter/data/taiwan-index.json", import.meta.url)));
+  const parents = [...new Set(children.map(c => c[2]).filter(Boolean))];
+  const lines = ["Submission ID,Common Name,Date,All Obs Reported"];
+  for (const [name] of children) {
+    lines.push(`S1,${name},2026-01-01,1`, `S3,${name},2026-02-02,1`);
+  }
+  for (const name of parents) lines.push(`S1,${name},2026-01-01,1`, `S2,${name},2026-02-01,1`);
+  lines.push("S4,麻雀,2026-03-01,1");
+  const { cache } = parsePersonalCSV(lines.join("\n"), publicData.species);
+  assert.equal(cache.sampleSize, 4);
+  assert.equal(cache.mappedNames.length, 13);
+  assert.deepEqual(cache.unmatchedNames, ["賽氏短趾百靈"]);
+  for (const [name, code] of children) {
+    const own = cache.species.find(s => s.code === code);
+    assert.ok(own, name);
+    assert.equal(own.annual, 50, name + " stays independent");
+    assert.deepEqual(own.months.slice(0, 3), [100, 50, 0], name);
+  }
+  const s = C.initialState(); s.frequency.personal = cache;
+  const merged = O.sharedSpecies(s, publicData);
+  for (const name of parents) {
+    const original = publicData.species.find(s => s.name === name);
+    const parent = cache.species.find(s => s.code === original.code);
+    assert.equal(parent.annual, 75, name + " must not double count the same checklist");
+    assert.deepEqual(parent.months.slice(0, 3), [100, 100, 0], name);
+    assert.equal(merged.find(s => s.code === original.code).annual, 75, name);
+  }
+  assert.equal(merged.find(s => s.name === "大短趾百靈/賽氏短趾百靈").annual, 0);
+  assert.equal(C.displayAlias(cache.species.find(s => s.code === "weywag8")), "東方黃");
+  assert.equal(cache.frequencyAggregationVersion, 1);
+});

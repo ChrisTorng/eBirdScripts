@@ -731,3 +731,26 @@ test('form note readback tolerates boundary whitespace and line endings without 
         assert.equal(api.verifyObservationOutcome({ observation, code: 'magrob', status: 'filled' }).status, status, note);
     }
 });
+
+
+test('swallow family counts must read back correctly before an existing checklist can auto-save', async () => {
+    for (const changed of [false, true]) {
+        const { harness, api } = loadAssistant();
+        const record = api.parseExistingRecord('燕科 2', new Date(2026, 9, 3));
+        record.autoSubmit = true;
+        const count = harness.document.createElement('input');
+        count.id = 'swallo'; count.className = 'sc';
+        if (changed) count.addEventListener('blur', () => { count.value = '1'; });
+        harness.appendToBody(count);
+        const complete = harness.document.createElement('input');
+        complete.id = 'all-spp-y'; harness.appendToBody(complete);
+        const submit = harness.document.createElement('button');
+        submit.id = 'btn-continue'; harness.appendToBody(submit);
+        let saves = 0;
+        submit.addEventListener('click', () => { saves++; });
+        const result = await api.fillSpecies(record, { elementTimeoutMs: 0 });
+        assert.equal(result.preSubmitPassed, !changed, JSON.stringify(result));
+        assert.equal(api.tryAutoSubmit(record, result), !changed);
+        assert.equal(saves, changed ? 0 : 1);
+    }
+});

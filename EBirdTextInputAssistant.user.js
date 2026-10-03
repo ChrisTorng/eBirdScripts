@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-10-02_1.12.4
+// @version      2026-10-03_1.12.5
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -19373,9 +19373,26 @@
         if (observation.code === 'whiwag8') names.push('White Wagtail (Chinese)');
         if (observation.code === 'brnshr3') names.push('Brown Shrike (Philippine)');
         if (observation.code === 'brnshr1') names.push('Brown Shrike (Brown)');
+        const rows = Array.from(document.querySelectorAll('.Observation'))
+            .filter(function(row) { return !row.closest('#' + panelId); });
+        // Unidentified groups such as swallo have a heading but no species link.
+        // Read the whole observation, not its smaller name-only child element.
+        const structuredRow = rows.find(function(row) { return codes.includes(row.id); })
+            || rows.find(function(row) {
+                const heading = row.querySelector('.Observation-species .Heading-main') || row.querySelector('h3');
+                return heading && names.some(function(name) {
+                    return normalizeName(heading.textContent) === normalizeName(name);
+                });
+            });
+        if (structuredRow) {
+            const heading = structuredRow.querySelector('.Observation-species .Heading-main') || structuredRow.querySelector('h3');
+            return { row: structuredRow, name: pigeon ? '野鴿'
+                : heading ? heading.textContent.replace(/\s+/g, ' ').trim() : observation.name };
+        }
         const anchors = Array.from(document.querySelectorAll('a'));
         const anchor = anchors.find(function(item) {
             if (item.closest('#' + panelId)) return false;
+            if (rows.length && !item.closest('.Observation')) return false;
             const href = String(item.href || item.getAttribute('href') || '');
             const linkedCode = (href.match(/\/species\/([^/?#]+)/) || [])[1];
             return (linkedCode && codes.includes(linkedCode))
@@ -19400,6 +19417,8 @@
             }
             return { row: best, name: pigeon ? '野鴿' : anchor.textContent.replace(/\s+/g, ' ').trim() || observation.name };
         }
+        // Structured lists must match a taxon heading or code, never comments.
+        if (rows.length) return null;
         const candidates = Array.from(document.querySelectorAll('li,article,section,div'))
             .filter(function(item) {
                 if (item.closest('#' + panelId) || item.querySelector('#' + panelId)) return false;

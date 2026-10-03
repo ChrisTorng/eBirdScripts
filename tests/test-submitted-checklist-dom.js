@@ -285,3 +285,41 @@ test('completed note readback accepts trimmed notes and normalized newlines but 
         assert.equal(result.allMatched, matched, JSON.stringify(result));
     }
 });
+
+
+test('reads the saved swallow family without a species link and checks its own count strictly', () => {
+    const { document, api, record, pre } = load(fixture('2026/9/5'));
+    document.querySelectorAll('.Observation').forEach(row => row.remove());
+    // Reduced actual structure from S398558074: the unidentified taxon has no anchor.
+    document.body.insertAdjacentHTML('beforeend', `<section id="swallo" class="Observation" aria-labelledby="swallo-heading">
+      <div class="Observation-species"><h3 id="swallo-heading"><span class="Heading-main">燕科</span></h3></div>
+      <div class="Observation-numberObserved"><span><span class="is-visuallyHidden">Number observed:</span><span>2</span></span></div>
+      <section class="Observation-meta"></section></section>`);
+    const observation = api.parseObservationLine('燕科 2').value;
+    record.observations = [observation];
+    pre.totalCount = 1;
+    pre.items = [{ observation, code: 'swallo', status: 'filled' }];
+    let result = api.verifySubmittedChecklist(record, pre);
+    assert.equal(result.allMatched, true, JSON.stringify(result));
+    assert.equal(result.items[0].display, '2 燕科');
+    // A missing code still has an exact taxon heading, so name matching must use the whole row.
+    document.getElementById('swallo').id = 'unlinked-taxon';
+    assert.equal(api.verifySubmittedChecklist(record, pre).allMatched, true);
+    document.querySelector('.Observation-numberObserved').textContent = '1';
+    assert.equal(api.verifySubmittedChecklist(record, pre).allMatched, false);
+    document.querySelector('.Observation-numberObserved').remove();
+    document.body.insertAdjacentHTML('beforeend', '<div>燕科 2</div>');
+    assert.equal(api.verifySubmittedChecklist(record, pre).allMatched, false);
+});
+
+test('a swallow family mentioned in another bird note is not a saved taxon', () => {
+    const { document, api, record, pre } = load(fixture('2026/9/5'));
+    document.querySelector('#bkcsta1 .Observation-comments p').textContent = '燕科 2';
+    const observation = api.parseObservationLine('燕科 2').value;
+    record.observations = [observation];
+    pre.totalCount = 1;
+    pre.items = [{ observation, code: 'swallo', status: 'filled' }];
+    const result = api.verifySubmittedChecklist(record, pre);
+    assert.equal(result.allMatched, false);
+    assert.match(result.items[0].error, /找不到此鳥種/);
+});

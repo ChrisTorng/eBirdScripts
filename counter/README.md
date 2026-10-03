@@ -1,6 +1,6 @@
 # eBird Mobile Counter
 
-純 HTML / CSS / JavaScript 手機計鳥工具，部署在 GitHub Pages，不需要 Tampermonkey。文字輸出可交給本 repo 的 `EBirdTextInputAssistant.user.js`（請更新至 1.12.4，支援完整鳥名、GPS 距離、中文繁殖簡稱與編輯既有清單）。
+純 HTML / CSS / JavaScript 手機計鳥工具，部署在 GitHub Pages，不需要 Tampermonkey。文字輸出可交給本 repo 的 `EBirdTextInputAssistant.user.js`（請更新至 1.12.5，支援完整鳥名、GPS 距離、中文繁殖簡稱與編輯既有清單）。
 
 ## 開啟
 
@@ -136,3 +136,5 @@ npm run generate:index
 舊版個人資料中曾用寬鬆名稱合併的亞種，需要重新匯入個人 ZIP／CSV 才能依正式亞種對照重算；手動排序不會被自動清除。
 
 顯示與輸出簡稱「野鴿」「花嘴」「東方」；「東方黃」專指東方黃鶺鴒(黃眉)，保留東方黃鶺鴒及紅尾伯勞各亞種的獨立分類。無紀錄區塊會移除失效排序項目，標示數與實際列數一致。排序頁採左右四欄，完成頁四個操作鈕在窄手機維持同一列。
+
+個人 CSV 依官方已確認的 `reportAs` 對應，將 13 個亞種／馴化型的鳥單合併計入親種頻率，同一張鳥單只計一次；各亞種仍保留獨立頻率及輸入／輸出名稱。賽氏短趾百靈保持獨立分類。索引外分類也會保留及計算；舊個人快取需要重新匯入原 CSV，才能重算親種頻率，不能直接相加已有比例。

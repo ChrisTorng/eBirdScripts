@@ -221,24 +221,32 @@ export function parsePersonalCSV(text, publicSpecies = []) {
   for (const m of checklists.values()) samples[m]++;
   let unmatched = 0;
   const unmatchedNames = [];
+  const mappedNames = [];
   const resolved = new Map();
+  const include = (identity, ids) => {
+    const previous = resolved.get(identity.code);
+    if (previous) for (const id of ids) previous.ids.add(id);
+    else resolved.set(identity.code, {
+      code: identity.code, name: identity.name, ids: new Set(ids),
+    });
+  };
   for (const bird of [...birds.values()].sort((a, b) => a.order - b.order)) {
     const known = names.get(normalizeName(bird.name));
-    const identity = known || identityForName(bird.name);
-    if (!known && !resolved.has(identity.code)) {
+    const original = identityForName(bird.name);
+    const identity = known || original;
+    const parent = original.frequencyParent
+      && names.get(normalizeName(original.frequencyParent.name));
+    if (!known && !parent && !resolved.has(identity.code)) {
       unmatched++;
       unmatchedNames.push(bird.name);
     }
-    // Historical names/subspecies may resolve to one species. Union checklist IDs,
-    // never sum frequencies or count the same checklist twice.
-    const previous = resolved.get(identity.code);
-    if (previous) for (const id of bird.ids) previous.ids.add(id);
-    else
-      resolved.set(identity.code, {
-        code: identity.code,
-        name: known?.name || identity.name || bird.name,
-        ids: new Set(bird.ids),
-      });
+    // Keep each taxon's own frequency and union IDs for confirmed parent totals.
+    // Frequency aggregation never changes the taxon used for input/export.
+    include(identity, bird.ids);
+    if (parent && parent.code !== identity.code) {
+      include(parent, bird.ids);
+      mappedNames.push(bird.name);
+    }
   }
   const species = [...resolved.values()].map((bird) => {
     const counts = Array(12).fill(0);
@@ -262,6 +270,8 @@ export function parsePersonalCSV(text, publicSpecies = []) {
       sampleSize: checklists.size,
       unmatched,
       unmatchedNames,
+      mappedNames,
+      frequencyAggregationVersion: 1,
     },
     "TW",
   );
