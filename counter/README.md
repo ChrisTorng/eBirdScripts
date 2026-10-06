@@ -1,6 +1,6 @@
 # eBird Mobile Counter
 
-純 HTML / CSS / JavaScript 手機計鳥工具，部署在 GitHub Pages，不需要 Tampermonkey。文字輸出可交給本 repo 的 `EBirdTextInputAssistant.user.js`（請更新至 1.12.5，支援完整鳥名、GPS 距離、中文繁殖簡稱與編輯既有清單）。
+純 HTML / CSS / JavaScript 手機計鳥工具，部署在 GitHub Pages，不需要 Tampermonkey。文字輸出可交給本 repo 的 `EBirdTextInputAssistant.user.js`（請更新至 1.12.6，支援完整鳥名、GPS 距離、中文繁殖簡稱與編輯既有清單）。
 
 ## 開啟
 

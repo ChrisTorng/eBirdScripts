@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-10-03_1.12.5
+// @version      2026-10-06_1.12.6
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -18789,6 +18789,12 @@
         return selected ? selected.textContent.replace(/\s+/g, ' ').trim() : '';
     }
 
+    function breedingCodeFromText(value) {
+        const match = String(value || '').normalize('NFKC').trim()
+            .match(/^([A-Za-z]{1,3}\d?)(?=\s|[^A-Za-z0-9]|$)/);
+        return match ? match[1].toUpperCase() : null;
+    }
+
     function fallbackBreedingLabel(code) {
         if (code === 'C') return 'C 求偶、展示或交配';
         if (code === 'S') {
@@ -18844,7 +18850,7 @@
             const breedingSelect = await waitForElement('p-' + observation.code + '_bcode');
             const option = Array.from(breedingSelect.options || []).find(function(item) {
                 const text = item.textContent.trim();
-                return (text.match(/^([A-Z]{1,2}\d?)(?=\s|[^A-Za-z]|$)/) || [])[1] === observation.breedingCode;
+                return breedingCodeFromText(text) === observation.breedingCode;
             });
             if (!option) {
                 throw new Error('找不到 ' + observation.name + ' 的繁殖代碼 ' + observation.breedingCode + '。');
@@ -18907,13 +18913,10 @@
         const breedingSelect = document.getElementById('p-' + code + '_bcode');
         const rawBreedingValue = breedingSelect ? String(breedingSelect.value || '').trim() : '';
         const selectedBreedingText = rawBreedingValue ? selectedOptionText(breedingSelect) : '';
-        const breedingSource = (rawBreedingValue + ' ' + selectedBreedingText).trim();
-        const expectedBreedingCode = String(observation.breedingCode || '').trim().toUpperCase();
-        const breedingMatch = breedingSource.match(/^([A-Za-z]{1,3})(?:\s|$)/);
-        const breedingValue = expectedBreedingCode
-            && breedingSource.toUpperCase().startsWith(expectedBreedingCode)
-            ? expectedBreedingCode
-            : breedingMatch ? breedingMatch[1].toUpperCase() : rawBreedingValue;
+        // Option values may be internal IDs. Read the visible selected code first,
+        // without using the expected code or equating C with CN/CF (or N with NB).
+        const breedingValue = breedingCodeFromText(selectedBreedingText)
+            || breedingCodeFromText(rawBreedingValue) || rawBreedingValue;
         const breedingText = rawBreedingValue ? selectedBreedingText : '';
         const commentsField = document.getElementById('p-' + code + '_comments');
         const comments = normalizeObservationComments(commentsField && commentsField.value);
@@ -18956,7 +18959,8 @@
         }
         if (expected.breedingCode) {
             if (!actual.hasBreedingField || actual.breedingCode !== expected.breedingCode) {
-                mismatches.push('繁殖代碼讀回不符');
+                mismatches.push('繁殖代碼讀回不符（預期 ' + expected.breedingCode
+                    + '，讀回 ' + (actual.hasBreedingField ? actual.breedingCode || '空白' : '找不到欄位') + '）');
             }
         } else if (actual.breedingCode) {
             mismatches.push('出現未預期的繁殖代碼');

@@ -754,3 +754,60 @@ test('swallow family counts must read back correctly before an existing checklis
         assert.equal(saves, changed ? 0 : 1);
     }
 });
+
+
+test('reads the selected breeding code independently of internal option values and never equates code prefixes', () => {
+    const { harness, api } = loadAssistant();
+    const count = harness.document.createElement('input');
+    count.id = 'commyn'; count.value = '5'; harness.appendToBody(count);
+    const select = harness.document.createElement('select');
+    select.id = 'p-commyn_bcode'; harness.appendToBody(select);
+    for (const [value, label, expected, status] of [
+        ['17', 'CN 攜帶築巢材料', 'CN', 'filled'],
+        ['C', 'CN 攜帶築巢材料', 'CN', 'filled'],
+        ['17', 'CN攜帶築巢材料', 'CN', 'filled'],
+        ['CN', 'CN 攜帶築巢材料', 'C', 'failed'],
+        ['CF', 'CF 攜帶食物', 'C', 'failed'],
+        ['NB', 'NB 築巢', 'N', 'failed'],
+        ['NY', 'NY 巢中有幼鳥', 'N', 'failed'],
+        ['S唱歌中鳥', 'S 唱歌中鳥', 'S', 'filled'],
+        ['CN', 'Carrying nesting material', 'CN', 'filled']
+    ]) {
+        select.options = [{ value, textContent: label }]; select.value = value;
+        const observation = api.parseObservationLine('家八 5 [' + expected + ']').value;
+        const outcome = api.verifyObservationOutcome({ observation, code: 'commyn', status: 'filled' });
+        assert.equal(outcome.status, status, `${value} / ${label} / ${expected}`);
+        if (status === 'failed') assert.match(outcome.error, /繁殖代碼讀回不符/);
+    }
+});
+
+test('numeric breeding option values fill, read back and pass the auto-save gate for all supported codes', async () => {
+    const { harness, api } = loadAssistant();
+    const labels = ['C 求偶', 'S 唱歌', 'P 一對', 'H 棲地', 'T 領域', 'N 訪巢', 'A 焦躁',
+        'B 啄鷦築巢', 'PE 生理證據', 'CN 攜帶築巢材料', 'NB 築巢', 'DD 誘敵', 'UN 舊巢',
+        'FL 離巢', 'ON 佔巢', 'CF 攜食', 'FY 餵雛', 'NE 巢蛋', 'NY 巢雛'];
+    const count = harness.document.createElement('input');
+    count.id = 'commyn'; count.className = 'sc'; harness.appendToBody(count);
+    const detail = harness.document.createElement('a');
+    detail.id = 'add_commyn'; harness.appendToBody(detail);
+    const select = harness.document.createElement('select');
+    select.id = 'p-commyn_bcode';
+    select.options = labels.map((textContent, index) => ({ value: String(index + 1), textContent }));
+    harness.appendToBody(select);
+    const complete = harness.document.createElement('input');
+    complete.id = 'all-spp-y'; harness.appendToBody(complete);
+    const submit = harness.document.createElement('button');
+    submit.id = 'btn-continue'; harness.appendToBody(submit);
+    let saves = 0; submit.addEventListener('click', () => { saves++; });
+    for (const label of labels) {
+        const code = label.split(' ')[0];
+        const text = code === 'CN' ? '家八 5，巢材' : '家八 5 [' + code + ']';
+        const record = api.parseExistingRecord(text, new Date(2026, 9, 6)); record.autoSubmit = true;
+        const result = await api.fillSpecies(record, { elementTimeoutMs: 0 });
+        assert.equal(result.allMatched, true, JSON.stringify(result));
+        assert.match(result.items[0].display, new RegExp('; ' + code + ' '));
+        harness.sessionStorage.removeItem(api.autoSubmitGuardKey);
+        assert.equal(api.tryAutoSubmit(record, result), true, code);
+    }
+    assert.equal(saves, labels.length);
+});
