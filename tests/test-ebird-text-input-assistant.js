@@ -358,8 +358,25 @@ describe('eBird species form safety', () => {
         complete.addEventListener('click', () => { completeClicks += 1; });
         submit.addEventListener('click', () => { submitClicks += 1; });
 
-        const result = await api.fillSpecies(record);
+        const progressEvents = [];
+        const result = await api.fillSpecies(record, {
+            onProgress(event) { progressEvents.push(event); }
+        });
 
+        assert.deepEqual(
+            plain(progressEvents.map(({ phase, processed, total }) => [phase, processed, total])),
+            [
+                ['filling', 0, 2],
+                ['filling', 1, 2],
+                ['filling', 2, 2],
+                ['verifying', 2, 2],
+                ['done', 2, 2]
+            ]
+        );
+        assert.equal(progressEvents.at(-1).verified, 2);
+        // These test fields have no real eBird effort-readback metadata;
+        // filling both species must not imply a fully verified checklist.
+        assert.equal(progressEvents.at(-1).allMatched, false);
         assert.equal(result.filledCount, 2);
         assert.deepEqual(plain(result.errors), []);
         assert.equal(harness.document.getElementById('magrob').value, '2');
@@ -466,8 +483,18 @@ describe('eBird species form safety', () => {
         complete.addEventListener('click', () => { completeClicks += 1; });
         submit.addEventListener('click', () => { submitClicks += 1; });
 
-        const result = await api.fillSpecies(record, { elementTimeoutMs: 0 });
+        const progressEvents = [];
+        const result = await api.fillSpecies(record, {
+            elementTimeoutMs: 0,
+            onProgress(event) { progressEvents.push(event); }
+        });
 
+        assert.deepEqual(
+            plain(progressEvents.map(({ phase, processed }) => [phase, processed])),
+            [['filling', 0], ['filling', 1], ['filling', 2], ['verifying', 2], ['done', 2]]
+        );
+        assert.equal(progressEvents.at(-1).verified, 1);
+        assert.equal(progressEvents.at(-1).allMatched, false);
         assert.equal(harness.document.getElementById('eutspa').value, '4');
         assert.deepEqual([result.filledCount, result.totalCount], [1, 2]);
         assert.match(result.errors.join('\n'), /小雨燕（houswi1）/);

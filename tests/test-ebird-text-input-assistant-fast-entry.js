@@ -305,7 +305,15 @@ describe('eBird assistant fast entry workflow', () => {
         });
         assert.ok(edited.harness.document.querySelector('.tm-ebird-header'));
         edited.harness.runAllTimeouts();
+        const progress = edited.harness.document.querySelector('.tm-ebird-fill-progress');
+        assert.ok(progress);
+        assert.equal(progress.hidden, false);
+        assert.match(progress.querySelector('.tm-ebird-fill-progress-label').textContent,
+            /正在填寫：0\/1 種（0%）/);
         await new Promise(setImmediate);
+        assert.match(progress.querySelector('.tm-ebird-fill-progress-label').textContent,
+            /已完成並驗證：1\/1 種（100%）/);
+        assert.equal(progress.querySelector('.tm-ebird-fill-progress-bar').value, 1);
         assert.equal(edited.harness.document.getElementById('eutspa').value, '2');
         assert.equal(edited.harness.document.getElementById('all-spp-y').checked, true);
         assert.equal(completenessClicks, 1);
