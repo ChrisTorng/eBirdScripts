@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-11-04_1.12.7
+// @version      2026-11-04_1.12.8
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -20225,8 +20225,8 @@
             '#' + panelId + ' { box-sizing:border-box;position:fixed;z-index:2147483647;right:64px;top:8px;width:min(520px,calc(100vw - 72px));max-height:calc(100dvh - 16px);overflow-y:auto;overscroll-behavior:contain;padding:0;border:2px solid #2f7f45;border-radius:8px;background:#fff;color:#222;box-shadow:0 4px 18px #0004;font:13px/1.4 sans-serif; }',
             '#' + panelId + '.tm-ebird-collapsed { width:auto!important;height:auto!important;max-height:none;overflow:hidden; }',
             '#' + panelId + '.tm-ebird-review-panel { width:min(380px,calc(100vw - 16px));max-height:calc(100dvh - 120px); }',
-            '#' + panelId + ' .tm-ebird-header { position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;justify-content:flex-start;padding:4px 6px;background:#fff;border-bottom:1px solid #ddd;white-space:nowrap; }',
-            '#' + panelId + ' .tm-ebird-collapse { min-width:36px;padding:5px 9px;font-size:16px; }',
+            '#' + panelId + ' .tm-ebird-header { position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;justify-content:space-between;padding:4px 6px;background:#fff;border-bottom:1px solid #ddd;white-space:nowrap;cursor:move;touch-action:none;user-select:none; }',
+            '#' + panelId + ' .tm-ebird-collapse { min-width:36px;padding:5px 9px;font-size:16px;margin-left:auto;flex-shrink:0;cursor:pointer; }',
             '#' + panelId + ' .tm-ebird-body { padding:7px 9px 9px; }',
             '#' + panelId + ' .tm-ebird-body[hidden] { display:none; }',
             '#' + panelId + ' button { padding:7px 12px;border:0;border-radius:5px;background:#2f7f45;color:#fff;cursor:pointer; }',
@@ -20241,10 +20241,10 @@
             '#' + panelId + ' .tm-ebird-effort-override { display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:8px;margin:8px 0;padding:8px;border:1px solid #ccc;border-radius:5px;background:#fafafa; }',
             '#' + panelId + ' .tm-ebird-effort-override label { margin:0; }',
             '#' + panelId + ' .tm-ebird-effort-derived { min-width:64px;padding:7px 0;color:#176b2c;font-weight:600; }',
-            '#' + panelId + ' .tm-ebird-record-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0; }',
-            '#' + panelId + ' .tm-ebird-input-column { min-width:0; }',
-            '#' + panelId + ' .tm-ebird-species-summary { padding:3px 1px 0;color:#176b2c;font-weight:600;font-size:12px; }',
-            '#' + panelId + ' textarea { box-sizing:border-box;width:100%;min-height:min(260px,42vh);margin:0;padding:8px;resize:vertical;line-height:1.5;white-space:pre;overflow:auto; }',
+            '#' + panelId + ' .tm-ebird-record-grid { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch;gap:8px;margin:8px 0; }',
+            '#' + panelId + ' .tm-ebird-input-column { min-width:0;display:flex;flex-direction:column;position:relative;align-self:stretch; }',
+            '#' + panelId + ' .tm-ebird-species-summary { position:absolute;left:8px;bottom:6px;z-index:1;padding:2px 5px;border-radius:3px;background:#fffffff0;color:#176b2c;font-weight:600;font-size:12px;pointer-events:none; }',
+            '#' + panelId + ' textarea { box-sizing:border-box;flex:1;width:100%;min-height:min(260px,42vh);margin:0;padding:8px 8px 30px;resize:vertical;line-height:1.5;white-space:pre;overflow:auto; }',
             '#' + panelId + ' .tm-ebird-preview { box-sizing:border-box;min-height:min(260px,42vh);overflow:auto;padding:8px;border:1px solid #aaa;background:#f7f7f7;white-space:pre;line-height:1.5; }',
             '#' + panelId + ' .tm-ebird-preview-line { min-height:1.5em; }',
             '#' + panelId + ' .tm-ebird-preview-line.tm-ebird-error { font-weight:600; }',
@@ -21149,6 +21149,13 @@
         const mobile = (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) || window.innerWidth <= 700;
         let initialCollapsed = mobile;
         let editorTextarea = null;
+        // A shared top-right anchor keeps the toggle in one position in both states.
+        const positionKey = 'ebirdTextInputAssistant:panelPosition';
+        const savedPosition = typeof GM_getValue === 'function' ? GM_getValue(positionKey, null) : null;
+        let panelRight = savedPosition && Number.isFinite(savedPosition.right)
+            ? savedPosition.right : (mobile ? 56 : 64);
+        let panelTop = savedPosition && Number.isFinite(savedPosition.top)
+            ? savedPosition.top : (mobile ? 6 : 8);
         const heightKey = 'ebirdTextInputAssistant:panelHeight:'
             + (isChecklistPage || isEditSpeciesPage ? 'submit' : 'other');
         let preferredHeight = typeof GM_getValue === 'function' ? Number(GM_getValue(heightKey, 0)) : 0;
@@ -21158,7 +21165,8 @@
         resizeHandle.style.cssText = 'position:sticky;bottom:0;text-align:center;cursor:ns-resize;touch-action:none;background:#e7eee8;color:#222;height:18px;flex-shrink:0';
         function applyHeight() {
             if (mobile) return;
-            const max = Math.max(120, window.innerHeight - (isChecklistPage || isEditSpeciesPage ? 120 : 16));
+            const max = Math.max(120, Math.min(window.innerHeight - panelTop - 8,
+                window.innerHeight - (isChecklistPage || isEditSpeciesPage ? 120 : 16)));
             panel.style.display = 'flex';
             panel.style.flexDirection = 'column';
             body.style.minHeight = '0';
@@ -21169,6 +21177,53 @@
             panel.style.height = body.hidden ? 'auto' : Math.min(max, Math.max(120, Number.isFinite(preferredHeight) && preferredHeight > 0 ? preferredHeight : max)) + 'px';
             resizeHandle.hidden = body.hidden;
         }
+        function applyPosition() {
+            const review = isChecklistPage || isEditSpeciesPage || isSubmittedChecklistPage;
+            const width = Math.min(mobile ? (review ? 360 : 420) : (review ? 380 : 520),
+                Math.max(0, window.innerWidth - (mobile ? 62 : (review ? 16 : 72))));
+            panelRight = Math.round(Math.max(0, Math.min(panelRight, window.innerWidth - width - 6)));
+            panelTop = Math.round(Math.max(4, Math.min(panelTop, window.innerHeight - 140)));
+            panel.style.right = panelRight + 'px';
+            panel.style.top = panelTop + 'px';
+            applyHeight();
+        }
+
+        // Only the header background/title is draggable; the toggle remains clickable.
+        header.title = '拖曳標題列可移動面板；位置會自動記住';
+        header.addEventListener('pointerdown', function(event) {
+            if (event.button !== 0 || event.target === collapse
+                || (event.target && event.target.closest && event.target.closest('button'))) return;
+            event.preventDefault();
+            const startX = event.clientX;
+            const startY = event.clientY;
+            const startRight = panelRight;
+            const startTop = panelTop;
+            const pointerId = event.pointerId;
+            let moved = false;
+            const move = function(e) {
+                if (pointerId !== undefined && e.pointerId !== undefined && e.pointerId !== pointerId) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+                moved = true;
+                panelRight = startRight - dx;
+                panelTop = startTop + dy;
+                applyPosition();
+            };
+            const stop = function(e) {
+                if (pointerId !== undefined && e.pointerId !== undefined && e.pointerId !== pointerId) return;
+                document.removeEventListener('pointermove', move);
+                document.removeEventListener('pointerup', stop);
+                document.removeEventListener('pointercancel', stop);
+                if (moved && typeof GM_setValue === 'function') {
+                    GM_setValue(positionKey, { right: panelRight, top: panelTop });
+                }
+            };
+            document.addEventListener('pointermove', move);
+            document.addEventListener('pointerup', stop);
+            document.addEventListener('pointercancel', stop);
+        });
+
         resizeHandle.addEventListener('pointerdown', function(event) {
             if (event.button !== 0 || mobile) return;
             event.preventDefault();
@@ -21184,12 +21239,14 @@
             document.addEventListener('pointerup', stop);
             document.addEventListener('pointercancel', stop);
         });
-        window.addEventListener('resize', applyHeight);
+        window.addEventListener('resize', applyPosition);
+        let cancelInitialFocusGuard = null;
 
         function setCollapsed(collapsed) {
+            if (collapsed && cancelInitialFocusGuard) cancelInitialFocusGuard();
             body.hidden = collapsed;
             panel.classList.toggle('tm-ebird-collapsed', collapsed);
-            applyHeight();
+            applyPosition();
             collapse.textContent = collapsed ? '▼' : '▲';
             collapse.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         }
@@ -21199,6 +21256,36 @@
                 && typeof editorTextarea.focus === 'function') {
                 editorTextarea.focus({ preventScroll: true });
             }
+        }
+
+        // Other page scripts may autofocus a field after DOMContentLoaded. Reclaim
+        // only programmatic focus changes during startup; never override a user's
+        // first pointer, touch or keyboard interaction.
+        function protectInitialFocus() {
+            if (body.hidden || !editorTextarea) return;
+            let reclaiming = false;
+            const onFocus = function(event) {
+                const target = event.target;
+                if (reclaiming || body.hidden || !target || target === editorTextarea
+                    || (target.closest && target.closest('#' + panelId))) return;
+                reclaiming = true;
+                try { focusEditor(); } finally { reclaiming = false; }
+            };
+            const cancel = function() {
+                document.removeEventListener('focusin', onFocus, true);
+                document.removeEventListener('pointerdown', cancel, true);
+                document.removeEventListener('touchstart', cancel, true);
+                document.removeEventListener('keydown', cancel, true);
+                clearTimeout(timer);
+                if (cancelInitialFocusGuard === cancel) cancelInitialFocusGuard = null;
+            };
+            const timer = setTimeout(cancel, 5000);
+            document.addEventListener('focusin', onFocus, true);
+            document.addEventListener('pointerdown', cancel, true);
+            document.addEventListener('touchstart', cancel, true);
+            document.addEventListener('keydown', cancel, true);
+            cancelInitialFocusGuard = cancel;
+            setTimeout(focusEditor, 0);
         }
 
         function setHeaderState(text, successful) {
@@ -21371,7 +21458,7 @@
         document.body.appendChild(panel);
         setCollapsed(initialCollapsed);
         if (!initialCollapsed && editorTextarea) {
-            setTimeout(focusEditor, 0);
+            protectInitialFocus();
         }
         return panel;
     }
