@@ -21,11 +21,11 @@ function loadAssistant(options = {}) {
     }
     harness.context.globalThis = harness.context;
     harness.context.global = harness.context;
-    const gmStorage = new Map();
+    const gmStorage = new Map(options.gmStorageSeed || []);
     harness.context.GM_getValue = (key, fallback) => gmStorage.has(key) ? gmStorage.get(key) : fallback;
     harness.context.GM_setValue = (key, value) => gmStorage.set(key, value);
     vm.runInNewContext(scriptContents, harness.context, { filename: scriptPath });
-    return { harness, api: harness.context.__ebirdTextInputAssistant };
+    return { harness, api: harness.context.__ebirdTextInputAssistant, gmStorage };
 }
 
 function plain(value) {
@@ -51,6 +51,80 @@ describe('eBird assistant fast entry workflow', () => {
         toggle.click();
         assert.equal(body.hidden, false);
         assert.equal(focuses, 2);
+    });
+
+
+    test('reclaims page-script autofocus during startup without overriding user interaction', () => {
+        const { harness } = loadAssistant({
+            url: 'https://ebird.org/atlastw/edit/checklist?subID=S123',
+            readyState: 'complete'
+        });
+        const input = harness.document.querySelector('.tm-ebird-record-grid textarea');
+        const outside = harness.document.createElement('input');
+        harness.appendToBody(outside);
+        let focuses = 0;
+        input.focus = function() { focuses += 1; };
+        harness.document.dispatchEvent({ type: 'focusin', target: outside });
+        assert.equal(focuses, 1);
+        harness.document.dispatchEvent({ type: 'pointerdown', target: outside, button: 0 });
+        harness.document.dispatchEvent({ type: 'focusin', target: outside });
+        assert.equal(focuses, 1);
+    });
+
+    test('drags and persists one top-right anchor for expanded and collapsed modes', () => {
+        const options = {
+            url: 'https://ebird.org/atlastw/edit/checklist?subID=S123',
+            readyState: 'complete'
+        };
+        const { harness, gmStorage } = loadAssistant(options);
+        const panel = harness.document.getElementById('tm-ebird-text-input-assistant');
+        const header = panel.querySelector('.tm-ebird-header');
+        const toggle = panel.querySelector('.tm-ebird-collapse');
+        assert.equal(panel.style.right, '64px');
+        assert.equal(panel.style.top, '8px');
+        let prevented = false;
+        header.dispatchEvent({ type: 'pointerdown', target: header, button: 0,
+            clientX: 700, clientY: 25, pointerId: 1,
+            preventDefault() { prevented = true; } });
+        harness.document.dispatchEvent({ type: 'pointermove', pointerId: 1, clientX: 640, clientY: 105 });
+        harness.document.dispatchEvent({ type: 'pointerup', pointerId: 1 });
+        assert.equal(prevented, true);
+        assert.equal(panel.style.right, '124px');
+        assert.equal(panel.style.top, '88px');
+        assert.deepEqual(plain(gmStorage.get('ebirdTextInputAssistant:panelPosition')),
+            { right: 124, top: 88 });
+        toggle.click();
+        assert.equal(panel.style.right, '124px');
+        assert.equal(panel.style.top, '88px');
+        toggle.click();
+        assert.equal(panel.style.right, '124px');
+        assert.equal(panel.style.top, '88px');
+
+        // A pointer on the toggle must not start dragging.
+        header.dispatchEvent({ type: 'pointerdown', target: toggle, button: 0,
+            clientX: 640, clientY: 105, pointerId: 2, preventDefault() {} });
+        harness.document.dispatchEvent({ type: 'pointermove', pointerId: 2, clientX: 300, clientY: 300 });
+        harness.document.dispatchEvent({ type: 'pointerup', pointerId: 2 });
+        assert.equal(panel.style.right, '124px');
+        const restored = loadAssistant({ ...options, gmStorageSeed: [...gmStorage.entries()] });
+        const reloadedPanel = restored.harness.document.getElementById('tm-ebird-text-input-assistant');
+        assert.equal(reloadedPanel.style.right, '124px');
+        assert.equal(reloadedPanel.style.top, '88px');
+    });
+
+    test('keeps the count inside the input box and both columns stretch together', () => {
+        const { harness } = loadAssistant({
+            url: 'https://ebird.org/atlastw/edit/checklist?subID=S123',
+            readyState: 'complete'
+        });
+        const column = harness.document.querySelector('.tm-ebird-input-column');
+        assert.equal(column.children[0].tagName, 'TEXTAREA');
+        assert.equal(column.children[1].className, 'tm-ebird-species-summary');
+        const css = harness.document.getElementById('tm-ebird-text-input-assistant-style').textContent;
+        assert.match(css, /\.tm-ebird-input-column \{[^}]*display:flex;flex-direction:column;position:relative/);
+        assert.match(css, /\.tm-ebird-species-summary \{[^}]*position:absolute/);
+        assert.match(css, /\.tm-ebird-collapse \{[^}]*margin-left:auto/);
+        assert.match(css, /textarea \{[^}]*flex:1/);
     });
 
     test('shows the live unique species count and bird total, ignoring duplicate and unknown lines', () => {
