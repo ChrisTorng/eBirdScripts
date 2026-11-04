@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-11-04_1.12.8
+// @version      2026-11-04_1.12.9
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -19575,6 +19575,18 @@
 
     async function fillSpecies(record, options = {}) {
         assertRecordReady(record);
+        const totalSpecies = record.observations.length;
+        let processedSpecies = 0;
+        function reportProgress(phase, details = {}) {
+            if (typeof options.onProgress === 'function') {
+                options.onProgress(Object.assign({
+                    phase: phase,
+                    processed: processedSpecies,
+                    total: totalSpecies
+                }, details));
+            }
+        }
+        reportProgress('filling');
         const errors = [];
         const outcomes = record.observations.map(function(observation) {
             return {
@@ -19619,27 +19631,31 @@
         });
 
         for (const outcome of outcomes) {
-            if (outcome.status === 'failed') {
-                continue;
-            }
-            try {
-                const details = await applyObservationDetails(
-                    Object.assign({}, outcome.observation, { code: outcome.code })
-                );
-                outcome.breedingText = details.breedingText;
-                if (outcome.observation.requiresConfirmation) {
-                    Object.assign(outcome.observation, { breedingCode: details.breedingCode,
-                        breedingSuggestion: details.breedingSuggestion, warning: details.warning });
+            if (outcome.status !== 'failed') {
+                try {
+                    const details = await applyObservationDetails(
+                        Object.assign({}, outcome.observation, { code: outcome.code })
+                    );
+                    outcome.breedingText = details.breedingText;
+                    if (outcome.observation.requiresConfirmation) {
+                        Object.assign(outcome.observation, { breedingCode: details.breedingCode,
+                            breedingSuggestion: details.breedingSuggestion, warning: details.warning });
+                    }
+                } catch (error) {
+                    outcome.status = 'failed';
+                    outcome.error = error.message;
+                    errors.push(
+                        outcome.observation.name + '（' + outcome.observation.code + '）：'
+                        + error.message
+                    );
                 }
-            } catch (error) {
-                outcome.status = 'failed';
-                outcome.error = error.message;
-                errors.push(
-                    outcome.observation.name + '（' + outcome.observation.code + '）：'
-                    + error.message
-                );
             }
+            // Count each processed species, including failures; success is established
+            // only by the final readback verification, not by this progress bar.
+            processedSpecies += 1;
+            reportProgress('filling', { species: outcome.observation.name });
         }
+        reportProgress('verifying');
 
         const unresolved = Array.isArray(record.unresolvedObservations)
             ? record.unresolvedObservations
@@ -19713,6 +19729,11 @@
         };
         result.preSubmitPassed = resultFullyVerified(record, result);
         result.allMatched = result.preSubmitPassed;
+        reportProgress('done', {
+            verified: result.filledCount,
+            allMatched: result.allMatched,
+            unresolved: unresolved.length
+        });
         return result;
     }
 
@@ -20229,6 +20250,10 @@
             '#' + panelId + ' .tm-ebird-collapse { min-width:36px;padding:5px 9px;font-size:16px;margin-left:auto;flex-shrink:0;cursor:pointer; }',
             '#' + panelId + ' .tm-ebird-body { padding:7px 9px 9px; }',
             '#' + panelId + ' .tm-ebird-body[hidden] { display:none; }',
+            '#' + panelId + ' .tm-ebird-fill-progress { position:sticky;top:0;z-index:1;margin:0 0 8px;padding:7px 9px;border:1px solid #9ccea8;border-radius:5px;background:#f1faf3;color:#20542b; }',
+            '#' + panelId + ' .tm-ebird-fill-progress[hidden] { display:none; }',
+            '#' + panelId + ' .tm-ebird-fill-progress-label { font-size:12px;font-weight:600;line-height:1.5; }',
+            '#' + panelId + ' .tm-ebird-fill-progress-bar { display:block;width:100%;height:12px;margin-top:5px;accent-color:#2f7f45; }',
             '#' + panelId + ' button { padding:7px 12px;border:0;border-radius:5px;background:#2f7f45;color:#fff;cursor:pointer; }',
             '#' + panelId + ' button:disabled { opacity:.55;cursor:default; }',
             '#' + panelId + ' input,#' + panelId + ' select { box-sizing:border-box;width:100%;padding:7px; }',
@@ -20884,7 +20909,8 @@
                 } else if (editExisting) {
                     sessionStorage.setItem(storageKey, JSON.stringify(record));
                     if (document.querySelector('.SubmitChecklist-species input.sc')) {
-                        const result = await fillSpecies(record);
+                        const progress = createFillProgress(body);
+                        const result = await fillSpecies(record, { onProgress: progress.update });
                         renderChecklistSummary(status, record, result);
                         saveChecklistConfirmation(record, result, {
                             awaitingSubmittedPage: false, submittedPath: null
@@ -20950,6 +20976,48 @@
         });
         parent.appendChild(button);
         return { button: button, apply: apply };
+    }
+
+    function createFillProgress(body) {
+        const element = document.createElement('div');
+        element.className = 'tm-ebird-fill-progress';
+        element.hidden = true;
+        const label = document.createElement('div');
+        label.className = 'tm-ebird-fill-progress-label';
+        label.setAttribute('role', 'status');
+        label.setAttribute('aria-live', 'polite');
+        const bar = document.createElement('progress');
+        bar.className = 'tm-ebird-fill-progress-bar';
+        bar.setAttribute('aria-label', '鳥種填寫進度');
+        bar.max = 1;
+        bar.value = 0;
+        element.append(label, bar);
+        body.insertBefore(element, body.firstChild);
+        return {
+            element: element,
+            label: label,
+            bar: bar,
+            update: function(progress) {
+                const total = progress.total;
+                const completed = Math.max(0, Math.min(total, progress.processed));
+                const percentage = total ? Math.round(completed * 100 / total) : 100;
+                bar.max = Math.max(1, total);
+                bar.value = completed;
+                const position = completed + '/' + total + ' 種（' + percentage + '%）';
+                if (progress.phase === 'done') {
+                    label.textContent = progress.allMatched
+                        ? '已完成並驗證：' + position
+                        : '已處理 ' + position + '；驗證符合 ' + progress.verified + '/' + total
+                            + ' 種，請檢查下方異常項目。';
+                } else if (progress.phase === 'verifying') {
+                    label.textContent = '已處理 ' + position + '，正在讀回驗證…';
+                } else {
+                    label.textContent = '正在填寫：' + position
+                        + (progress.species ? ' · ' + progress.species : '');
+                }
+                element.hidden = false;
+            }
+        };
     }
 
     function renderChecklistSummary(container, record, result) {
@@ -21387,11 +21455,12 @@
                 initialCollapsed = false;
             } else {
                 const record = JSON.parse(pending);
+                const progress = createFillProgress(body);
                 const run = async function() {
                     button.disabled = true;
                     try {
                         setUnobservedVisibility(false);
-                        const result = await fillSpecies(record);
+                        const result = await fillSpecies(record, { onProgress: progress.update });
                         visibility.apply(result);
                         renderChecklistSummary(status, record, result);
                         saveChecklistConfirmation(record, result, {
