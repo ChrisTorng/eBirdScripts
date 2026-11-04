@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-10-06_1.12.6
+// @version      2026-11-04_1.12.7
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -20087,6 +20087,7 @@
 
         const seenObservations = new Map();
         let speciesLineCount = 0;
+        let birdCount = 0;
         for (; cursor < indexes.length; cursor += 1) {
             speciesLineCount += 1;
             const index = indexes[cursor];
@@ -20099,6 +20100,7 @@
             const observation = parsed.value;
             const previous = seenObservations.get(observation.code);
             const duplicate = Boolean(previous);
+            if (!duplicate) birdCount += observation.count;
             const conflicts = previous
                 && (previous.count !== observation.count
                     || previous.breedingCode !== observation.breedingCode
@@ -20125,7 +20127,9 @@
             failureCount: failureCount,
             blockingFailureCount: blockingFailureCount,
             parsedDate: parsedDate,
-            locationOmitted: locationOmitted
+            locationOmitted: locationOmitted,
+            speciesCount: seenObservations.size,
+            birdCount: birdCount
         };
     }
 
@@ -20183,6 +20187,7 @@
             };
         }
         let failureCount = 0;
+        let birdCount = 0;
         const seen = new Set();
         sections.indexes.forEach(function(index) {
             const parsed = parseObservationLine(sections.lines[index].trim());
@@ -20192,6 +20197,7 @@
                 return;
             }
             const duplicate = seen.has(parsed.value.code);
+            if (!duplicate) birdCount += parsed.value.count;
             seen.add(parsed.value.code);
             results[index] = {
                 text: formatObservationForEbird(parsed.value)
@@ -20203,7 +20209,9 @@
         return {
             lines: results,
             failureCount: failureCount,
-            blockingFailureCount: sections.indexes.length ? 0 : 1
+            blockingFailureCount: sections.indexes.length ? 0 : 1,
+            speciesCount: seen.size,
+            birdCount: birdCount
         };
     }
 
@@ -20234,6 +20242,8 @@
             '#' + panelId + ' .tm-ebird-effort-override label { margin:0; }',
             '#' + panelId + ' .tm-ebird-effort-derived { min-width:64px;padding:7px 0;color:#176b2c;font-weight:600; }',
             '#' + panelId + ' .tm-ebird-record-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0; }',
+            '#' + panelId + ' .tm-ebird-input-column { min-width:0; }',
+            '#' + panelId + ' .tm-ebird-species-summary { padding:3px 1px 0;color:#176b2c;font-weight:600;font-size:12px; }',
             '#' + panelId + ' textarea { box-sizing:border-box;width:100%;min-height:min(260px,42vh);margin:0;padding:8px;resize:vertical;line-height:1.5;white-space:pre;overflow:auto; }',
             '#' + panelId + ' .tm-ebird-preview { box-sizing:border-box;min-height:min(260px,42vh);overflow:auto;padding:8px;border:1px solid #aaa;background:#f7f7f7;white-space:pre;line-height:1.5; }',
             '#' + panelId + ' .tm-ebird-preview-line { min-height:1.5em; }',
@@ -20646,7 +20656,14 @@
         const preview = document.createElement('div');
         preview.className = 'tm-ebird-preview';
         preview.setAttribute('aria-label', '逐行辨識結果');
-        grid.append(textarea, preview);
+        const inputColumn = document.createElement('div');
+        inputColumn.className = 'tm-ebird-input-column';
+        const speciesSummary = document.createElement('div');
+        speciesSummary.className = 'tm-ebird-species-summary';
+        speciesSummary.setAttribute('role', 'status');
+        speciesSummary.setAttribute('aria-live', 'polite');
+        inputColumn.append(textarea, speciesSummary);
+        grid.append(inputColumn, preview);
         const actionRow = document.createElement('div');
         actionRow.className = 'tm-ebird-action-row';
         const button = document.createElement('button');
@@ -20675,6 +20692,7 @@
         }
 
         function renderPreview(analysis) {
+            speciesSummary.textContent = '已辨識 ' + analysis.speciesCount + ' 種、共 ' + analysis.birdCount + ' 隻';
             preview.textContent = '';
             analysis.lines.forEach(function(item) {
                 const row = document.createElement('div');
@@ -20817,6 +20835,12 @@
         }
 
         textarea.addEventListener('input', refresh);
+        textarea.addEventListener('keydown', function(event) {
+            if (event.key !== 'Enter' || !event.ctrlKey || event.shiftKey || event.altKey
+                || event.metaKey || event.isComposing || event.repeat) return;
+            event.preventDefault();
+            if (!button.disabled) button.click();
+        });
         textarea.addEventListener('scroll', function() {
             preview.scrollTop = textarea.scrollTop;
             preview.scrollLeft = textarea.scrollLeft;
@@ -21124,6 +21148,7 @@
         status.className = 'tm-ebird-status';
         const mobile = (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) || window.innerWidth <= 700;
         let initialCollapsed = mobile;
+        let editorTextarea = null;
         const heightKey = 'ebirdTextInputAssistant:panelHeight:'
             + (isChecklistPage || isEditSpeciesPage ? 'submit' : 'other');
         let preferredHeight = typeof GM_getValue === 'function' ? Number(GM_getValue(heightKey, 0)) : 0;
@@ -21169,12 +21194,22 @@
             collapse.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         }
 
+        function focusEditor() {
+            if (!body.hidden && editorTextarea && editorTextarea.isConnected
+                && typeof editorTextarea.focus === 'function') {
+                editorTextarea.focus({ preventScroll: true });
+            }
+        }
+
         function setHeaderState(text, successful) {
             title.textContent = text;
             title.className = successful ? 'tm-ebird-header-ok' : '';
         }
 
-        collapse.addEventListener('click', function() { setCollapsed(!body.hidden); });
+        collapse.addEventListener('click', function() {
+            setCollapsed(!body.hidden);
+            if (!body.hidden) focusEditor();
+        });
         header.append(title, collapse);
         panel.append(header, body);
 
@@ -21195,13 +21230,13 @@
                 },
                 startRecord: function(record) { startEditingRecord(record, subId); }
             });
+            editorTextarea = controls.textarea;
             initialCollapsed = hasExistingSpecies;
             setHeaderState('編輯既有紀錄', false);
             if (hasExistingSpecies) {
                 status.textContent = '⚠ 目標清單已有鳥種紀錄；可繼續填入，但不會自動儲存。';
                 status.className = 'tm-ebird-status tm-ebird-warning';
             }
-            if (!hasExistingSpecies) setTimeout(function() { controls.textarea.focus(); }, 0);
         } else if (isSubmittedChecklistPage) {
             const confirmation = submittedConfirmation;
             body.appendChild(status);
@@ -21310,6 +21345,7 @@
             }
         } else {
             const controls = createRecordEditor(body, status, isEffortPage, { editExisting: canEditExisting });
+            editorTextarea = controls.textarea;
             const pending = sessionStorage.getItem(storageKey);
             if (isEffortPage && pending && sessionStorage.getItem(autoEffortKey) === 'true') {
                 sessionStorage.removeItem(autoEffortKey);
@@ -21329,12 +21365,14 @@
             }
             if (!isEffortPage) {
                 initialCollapsed = false;
-                setTimeout(function() { controls.textarea.focus(); }, 0);
             }
         }
         if (!mobile) panel.appendChild(resizeHandle);
         document.body.appendChild(panel);
         setCollapsed(initialCollapsed);
+        if (!initialCollapsed && editorTextarea) {
+            setTimeout(focusEditor, 0);
+        }
         return panel;
     }
 
