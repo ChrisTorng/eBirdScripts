@@ -33,6 +33,71 @@ function plain(value) {
 }
 
 describe('eBird assistant fast entry workflow', () => {
+
+    test('focuses the input when the panel starts expanded and after expanding it again', () => {
+        const { harness } = loadAssistant({
+            url: 'https://ebird.org/atlastw/edit/checklist?subID=S123',
+            readyState: 'complete'
+        });
+        const input = harness.document.querySelector('.tm-ebird-record-grid textarea');
+        const toggle = harness.document.querySelector('.tm-ebird-collapse');
+        const body = harness.document.querySelector('.tm-ebird-body');
+        let focuses = 0;
+        input.focus = function() { focuses += 1; };
+        harness.runAllTimeouts();
+        assert.equal(focuses, 1);
+        toggle.click();
+        assert.equal(body.hidden, true);
+        toggle.click();
+        assert.equal(body.hidden, false);
+        assert.equal(focuses, 2);
+    });
+
+    test('shows the live unique species count and bird total, ignoring duplicate and unknown lines', () => {
+        const { harness, api } = loadAssistant({
+            url: 'https://ebird.org/atlastw/edit/checklist?subID=S123',
+            readyState: 'complete'
+        });
+        const input = harness.document.querySelector('.tm-ebird-record-grid textarea');
+        const summary = harness.document.querySelector('.tm-ebird-species-summary');
+        assert.equal(summary.textContent, '已辨識 0 種、共 0 隻');
+        input.value = '麻雀 2\n珠頸 3\n麻雀 2\n神秘鳥 9';
+        input.dispatchEvent({ type: 'input' });
+        assert.equal(summary.textContent, '已辨識 2 種、共 5 隻');
+        input.value = '麻雀 7';
+        input.dispatchEvent({ type: 'input' });
+        assert.equal(summary.textContent, '已辨識 1 種、共 7 隻');
+
+        const newAnalysis = api.analyzeRecordLines(
+            '2026/10/1\n測試公園\n08:30 開始 10 分鐘\n麻雀 2\n珠頸 3\n麻雀 2\n神秘鳥 9',
+            new Date(2026, 9, 4), null,
+            { locId: 'L1001', pageName: '測試公園' }, {}
+        );
+        assert.equal(newAnalysis.speciesCount, 2);
+        assert.equal(newAnalysis.birdCount, 5);
+    });
+
+    test('Ctrl+Enter in the editor uses the existing start button while plain Enter does not', async () => {
+        const { harness } = loadAssistant({
+            url: 'https://ebird.org/atlastw/checklist/S123456789',
+            readyState: 'complete'
+        });
+        const input = harness.document.querySelector('.tm-ebird-record-grid textarea');
+        input.value = '麻雀 2';
+        input.dispatchEvent({ type: 'input' });
+        let prevented = false;
+        input.dispatchEvent({ type: 'keydown', key: 'Enter', ctrlKey: false,
+            preventDefault() { prevented = true; } });
+        assert.equal(prevented, false);
+        assert.ok(!harness.location.assignedUrl);
+
+        input.dispatchEvent({ type: 'keydown', key: 'Enter', ctrlKey: true,
+            preventDefault() { prevented = true; } });
+        await Promise.resolve();
+        assert.equal(prevented, true);
+        assert.equal(harness.location.assignedUrl,
+            'https://ebird.org/atlastw/edit/checklist?subID=S123456789');
+    });
     test('userscript includes the root and portal edit checklist URLs', () => {
         const patterns = Array.from(scriptContents.matchAll(/^\/\/ @match\s+(\S+)/gm), function(match) {
             return new RegExp('^' + match[1].split('*').map(function(part) {
