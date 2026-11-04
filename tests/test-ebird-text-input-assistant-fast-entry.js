@@ -61,7 +61,7 @@ describe('eBird assistant fast entry workflow', () => {
         const input = harness.document.querySelector('.tm-ebird-record-grid textarea');
         const summary = harness.document.querySelector('.tm-ebird-species-summary');
         assert.equal(summary.textContent, '已辨識 0 種、共 0 隻');
-        input.value = '麻雀 2\\n珠頸 3\\n麻雀 2\\n神秘鳥 9';
+        input.value = '麻雀 2\n珠頸 3\n麻雀 2\n神秘鳥 9';
         input.dispatchEvent({ type: 'input' });
         assert.equal(summary.textContent, '已辨識 2 種、共 5 隻');
         input.value = '麻雀 7';
@@ -69,7 +69,7 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(summary.textContent, '已辨識 1 種、共 7 隻');
 
         const newAnalysis = api.analyzeRecordLines(
-            '2026/10/1\\n測試公園\\n08:30 開始 10 分鐘\\n麻雀 2\\n珠頸 3\\n麻雀 2\\n神秘鳥 9',
+            '2026/10/1\n測試公園\n08:30 開始 10 分鐘\n麻雀 2\n珠頸 3\n麻雀 2\n神秘鳥 9',
             new Date(2026, 9, 4), null,
             { locId: 'L1001', pageName: '測試公園' }, {}
         );
