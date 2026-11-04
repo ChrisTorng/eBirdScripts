@@ -374,7 +374,9 @@ describe('eBird species form safety', () => {
             ]
         );
         assert.equal(progressEvents.at(-1).verified, 2);
-        assert.equal(progressEvents.at(-1).allMatched, true);
+        // These test fields have no real eBird effort-readback metadata;
+        // filling both species must not imply a fully verified checklist.
+        assert.equal(progressEvents.at(-1).allMatched, false);
         assert.equal(result.filledCount, 2);
         assert.deepEqual(plain(result.errors), []);
         assert.equal(harness.document.getElementById('magrob').value, '2');
