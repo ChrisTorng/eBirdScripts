@@ -20979,6 +20979,8 @@
     }
 
     function createFillProgress(body) {
+        const previous = body.querySelector('.tm-ebird-fill-progress');
+        if (previous) previous.remove();
         const element = document.createElement('div');
         element.className = 'tm-ebird-fill-progress';
         element.hidden = true;
