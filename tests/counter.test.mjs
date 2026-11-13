@@ -77,7 +77,8 @@ test('counter output is parsed by the real assistant including heard-only and br
   session.stop = Date.now(); const output = c.exportText(session, { [unknown.code]: '新簡稱' });
   assert.equal(output.unmapped.length, 0); assert.ok(output.text.includes(unknown.name)); assert.ok(!output.text.includes('新簡稱'));
   const lines = output.text.split('\n'); assert.equal(assistant.parseEffortLine(lines[2]).valid, true);
-  const parsed = lines.slice(3).map(line => assistant.parseObservationLine(line));
+  assert.equal(lines.at(-1), '3 種共 12 隻');
+  const parsed = lines.slice(3, -1).map(line => assistant.parseObservationLine(line));
   assert.ok(parsed.every(x => !x.error));
   assert.equal(parsed.find(x => x.value.code === 'spodov').value.count, 6);
   assert.equal(parsed.find(x => x.value.code === 'spodov').value.comments, 'Heard 1');
@@ -110,11 +111,21 @@ test('counter and assistant round-trip every output shape and derive effort from
       note: expected.note || '',
     };
     const output = c.exportText(session).text;
+    assert.match(output, /\n1 種共 3 隻$/);
     const effortLine = output.split('\n')[2];
     assert.equal(effortLine.endsWith(' km'), expected.gps, output);
     if (expected.heard) assert.match(output, /樹鵲 3，(?:唱歌，)?1 聽到/);
     const record = assistant.parseRecord(output, new Date(), presets);
     assert.equal(record.errors.length, 0, output);
+    for (const variant of [
+      output.replace(/\n1 種共 3 隻$/, ''),
+      output.replace(/\n1 種共 3 隻$/, '\n999 種共 0 隻'),
+    ]) {
+      const parsed = assistant.parseRecord(variant, new Date(), presets);
+      assert.equal(parsed.errors.length, 0, variant);
+      assert.equal(parsed.observations.length, 1, variant);
+      assert.equal(parsed.observations[0].count, 3, variant);
+    }
     assert.equal(record.effort.protocol, expected.protocol, output);
     assert.equal(record.effort.distanceKm, expected.distanceKm, output);
     assert.equal(record.observations[0].count, 3, output);

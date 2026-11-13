@@ -112,43 +112,60 @@ describe('eBird assistant fast entry workflow', () => {
         assert.equal(reloadedPanel.style.top, '88px');
     });
 
-    test('keeps the count inside the input box and both columns stretch together', () => {
+    test('keeps the editor columns stretched without an overlaid totals row', () => {
         const { harness } = loadAssistant({
             url: 'https://ebird.org/atlastw/edit/checklist?subID=S123',
             readyState: 'complete'
         });
         const column = harness.document.querySelector('.tm-ebird-input-column');
+        assert.equal(column.children.length, 1);
         assert.equal(column.children[0].tagName, 'TEXTAREA');
-        assert.equal(column.children[1].className, 'tm-ebird-species-summary');
+        assert.equal(harness.document.querySelector('.tm-ebird-species-summary'), null);
         const css = harness.document.getElementById('tm-ebird-text-input-assistant-style').textContent;
         assert.match(css, /\.tm-ebird-input-column \{[^}]*display:flex;flex-direction:column;position:relative/);
-        assert.match(css, /\.tm-ebird-species-summary \{[^}]*position:absolute/);
+        assert.doesNotMatch(css, /\.tm-ebird-species-summary/);
         assert.match(css, /\.tm-ebird-collapse \{[^}]*margin-left:auto/);
         assert.match(css, /textarea \{[^}]*flex:1/);
     });
 
-    test('shows the live unique species count and bird total, ignoring duplicate and unknown lines', () => {
+    test('accepts missing, correct, and incorrect trailing totals without checking them', () => {
         const { harness, api } = loadAssistant({
             url: 'https://ebird.org/atlastw/edit/checklist?subID=S123',
             readyState: 'complete'
         });
-        const input = harness.document.querySelector('.tm-ebird-record-grid textarea');
-        const summary = harness.document.querySelector('.tm-ebird-species-summary');
-        assert.equal(summary.textContent, '已辨識 0 種、共 0 隻');
-        input.value = '麻雀 2\n珠頸 3\n麻雀 2\n神秘鳥 9';
-        input.dispatchEvent({ type: 'input' });
-        assert.equal(summary.textContent, '已辨識 2 種、共 5 隻');
-        input.value = '麻雀 7';
-        input.dispatchEvent({ type: 'input' });
-        assert.equal(summary.textContent, '已辨識 1 種、共 7 隻');
+        const preset = { locId: 'L1001', pageName: '測試公園', distanceKm: 0.2, partySize: 1 };
+        const source = '2026/10/1\n測試公園\n08:30 開始 10 分鐘\n麻雀 2\n珠頸 3';
+        const existingSource = '麻雀 2\n珠頸 3';
+        for (const suffix of ['', '\n2 種共 5 隻', '\n999 種共 0 隻', '\n999種共0隻\n']) {
+            const analysis = api.analyzeRecordLines(
+                source + suffix, new Date(2026, 9, 4), preset,
+                { locId: 'L1001', pageName: '測試公園' }, { 測試公園: preset }
+            );
+            assert.equal(analysis.failureCount, 0, suffix);
+            assert.equal(analysis.speciesCount, 2, suffix);
+            assert.equal(analysis.birdCount, 5, suffix);
+            if (suffix) assert.equal(analysis.lines[5].text, '', suffix);
 
-        const newAnalysis = api.analyzeRecordLines(
-            '2026/10/1\n測試公園\n08:30 開始 10 分鐘\n麻雀 2\n珠頸 3\n麻雀 2\n神秘鳥 9',
-            new Date(2026, 9, 4), null,
-            { locId: 'L1001', pageName: '測試公園' }, {}
-        );
-        assert.equal(newAnalysis.speciesCount, 2);
-        assert.equal(newAnalysis.birdCount, 5);
+            const record = api.parseRecord(source + suffix, new Date(2026, 9, 4),
+                { 測試公園: preset });
+            assert.deepEqual(plain(record.errors), [], suffix);
+            assert.equal(record.observations.length, 2, suffix);
+
+            const existing = api.parseExistingRecord(existingSource + suffix, new Date(2026, 9, 4));
+            assert.deepEqual(plain(existing.errors), [], suffix);
+            assert.equal(existing.observations.length, 2, suffix);
+            const editPreview = api.analyzeExistingRecordLines(existingSource + suffix, new Date(2026, 9, 4));
+            assert.equal(editPreview.failureCount, 0, suffix);
+            assert.equal(editPreview.speciesCount, 2, suffix);
+            assert.equal(editPreview.birdCount, 5, suffix);
+        }
+
+        const input = harness.document.querySelector('.tm-ebird-record-grid textarea');
+        input.value = existingSource + '\n999 種共 0 隻';
+        input.dispatchEvent({ type: 'input' });
+        const preview = harness.document.querySelector('.tm-ebird-preview');
+        assert.equal(preview.querySelector('.tm-ebird-error'), null);
+        assert.equal(harness.document.querySelector('.tm-ebird-species-summary'), null);
     });
 
     test('Ctrl+Enter in the editor uses the existing start button while plain Enter does not', async () => {

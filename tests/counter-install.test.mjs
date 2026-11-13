@@ -73,9 +73,10 @@ test("every breeding selection exports a Chinese short label and round trips its
     session.counts.unknown.breeding = value;
     const output = C.exportText(session);
     assert.equal(output.unmapped.length, 0);
-    const line = output.text.split("\n").at(-1);
+    const line = output.text.split("\n").at(-2);
     assert.match(line, /^花嘴 2，/);
     assert.ok(!line.includes("["));
+    assert.equal(output.text.split("\n").at(-1), "1 種共 2 隻");
     assert.equal(parse(line).value.breedingCode, code, line);
     assert.equal(parse(line).value.requiresConfirmation, false, line);
   }
@@ -259,7 +260,7 @@ test("exports shortest compatible names and keeps full names only when no alias 
   const birds = JSON.parse(fs.readFileSync(new URL("counter/data/taiwan-index.json", root))).species;
   const session = C.createSession(C.DEFAULT_LOCATIONS[0], 1000, false, 1000, birds);
   for (const s of birds) C.increment(session, s.code, "total", 2);
-  const lines = C.exportText(session).text.split("\n").slice(3);
+  const lines = C.exportText(session).text.split("\n").slice(3, -1);
   for (const [i, s] of birds.entries()) {
     const name = C.compatibleAlias(s) || s.name;
     assert.equal(lines[i], name + " 2");
@@ -274,7 +275,7 @@ test("exports shortest compatible names and keeps full names only when no alias 
     session.species = [pigeon];
     session.counts = {};
     C.increment(session, code, "total", 6);
-    assert.equal(C.exportText(session).text.split("\n").at(-1), "野鴿 6");
+    assert.equal(C.exportText(session).text.split("\n").at(-2), "野鴿 6");
   }
   for (const name of ["野鴿", "原鴿", "野鴿(馴化)", "野鴿(野化)"]) {
     assert.equal(parse(name + " 6").value.name, "野鴿");

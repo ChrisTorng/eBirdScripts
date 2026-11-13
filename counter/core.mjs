@@ -583,9 +583,13 @@ export function exportText(session, local = {}) {
     `${pad(date.getHours())}:${pad(date.getMinutes())} 開始 ${Math.max(1, Math.round(elapsed(session) / 60000))} 分鐘${distance}`,
   ];
   const unmapped = [];
+  let speciesCount = 0;
+  let birdCount = 0;
   for (const s of session.species) {
     const c = session.counts[s.code];
     if (!hasInformation(c)) continue;
+    speciesCount += 1;
+    birdCount += c.total;
     const alias = compatibleAlias(s, local) || s.name;
     const breedingCode =
       BREEDING_CODES[BREEDING.findIndex(([value]) => value === c.breeding)];
@@ -599,6 +603,7 @@ export function exportText(session, local = {}) {
       `${alias} ${c.total}${details ? "，" + details : ""}${c.note?.trim() ? "；描述 " + JSON.stringify(c.note.trim()) : ""}`,
     );
   }
+  lines.push(`${speciesCount} 種共 ${birdCount} 隻`);
   return { text: lines.join("\n"), unmapped };
 }
 export function matchesQuery(spec, query, local = {}) {

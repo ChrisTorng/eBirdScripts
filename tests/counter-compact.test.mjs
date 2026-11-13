@@ -103,7 +103,7 @@ test("free descriptions survive real assistant parsing without becoming counts o
   C.increment(s, "eutspa", "heard", 2);
   s.counts.eutspa.note = '唱歌 99，求偶，聽到 500；描述 "引號"\n第二行 🐦';
   s.counts.eutspa.breeding = "[NB]";
-  const line = C.exportText(s).text.split("\n").at(-1),
+  const line = C.exportText(s).text.split("\n").at(-2),
     parsed = parser(line);
   assert.ok(!parsed.error);
   assert.equal(parsed.value.count, 2);
@@ -112,7 +112,7 @@ test("free descriptions survive real assistant parsing without becoming counts o
   assert.ok(parser('麻雀 1；描述 "破損').error);
   s.counts.eutspa.breeding = "";
   s.counts.eutspa.heard = 0;
-  const plain = parser(C.exportText(s).text.split("\n").at(-1));
+  const plain = parser(C.exportText(s).text.split("\n").at(-2));
   assert.equal(plain.value.breedingCode, null);
   assert.equal(plain.value.comments, s.counts.eutspa.note);
   for (const [value, code] of O.BREEDING_OPTIONS.slice(1))
@@ -382,7 +382,7 @@ test("legacy public names display and export the requested compatible short name
     const session = state().session;
     session.species = [species];
     C.increment(session, species.code, "total", 1);
-    const line = C.exportText(session).text.split("\n").at(-1);
+    const line = C.exportText(session).text.split("\n").at(-2);
     assert.equal(line, alias + " 1");
     assert.equal(parse(line).value.code, code);
   }
