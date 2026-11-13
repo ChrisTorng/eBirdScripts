@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-11-04_1.12.9
+// @version      2026-11-13_1.12.10
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -18332,9 +18332,15 @@
         };
     }
 
+    // Optional final tally is for the reader only; its numbers are never checked.
+    function isBirdTotalLine(line) {
+        return /^\d+\s*種\s*共\s*\d+\s*隻$/.test(String(line || '').trim().normalize('NFKC'));
+    }
+
     function parseRecord(text, fallbackDate = new Date(), locationPresets = getLocationPresets(), dateReference = fallbackDate) {
         const normalizedSource = normalizeSource(text);
         const lines = normalizedSource.split('\n').map(function(line) { return line.trim(); }).filter(Boolean);
+        if (lines.length && isBirdTotalLine(lines[lines.length - 1])) lines.pop();
         const errors = [];
         const blockingErrors = [];
         const warnings = [];
@@ -18455,6 +18461,7 @@
     function splitExistingRecord(text, fallbackDate) {
         const lines = normalizeSource(text).split('\n');
         const indexes = getNonemptyLineIndexes(lines);
+        if (indexes.length && isBirdTotalLine(lines[indexes[indexes.length - 1]])) indexes.pop();
         let cursor = 0;
         const header = {};
         const dateIndex = indexes[cursor];
@@ -20018,6 +20025,7 @@
         const source = normalizeSource(text);
         const lines = source.split('\n');
         const indexes = getNonemptyLineIndexes(lines);
+        if (indexes.length && isBirdTotalLine(lines[indexes[indexes.length - 1]])) indexes.pop();
         const results = lines.map(function() { return { text: '', error: false }; });
         let cursor = 0;
         let failureCount = 0;
@@ -20268,8 +20276,7 @@
             '#' + panelId + ' .tm-ebird-effort-derived { min-width:64px;padding:7px 0;color:#176b2c;font-weight:600; }',
             '#' + panelId + ' .tm-ebird-record-grid { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch;gap:8px;margin:8px 0; }',
             '#' + panelId + ' .tm-ebird-input-column { min-width:0;display:flex;flex-direction:column;position:relative;align-self:stretch; }',
-            '#' + panelId + ' .tm-ebird-species-summary { position:absolute;left:8px;bottom:6px;z-index:1;padding:2px 5px;border-radius:3px;background:#fffffff0;color:#176b2c;font-weight:600;font-size:12px;pointer-events:none; }',
-            '#' + panelId + ' textarea { box-sizing:border-box;flex:1;width:100%;min-height:min(260px,42vh);margin:0;padding:8px 8px 30px;resize:vertical;line-height:1.5;white-space:pre;overflow:auto; }',
+            '#' + panelId + ' textarea { box-sizing:border-box;flex:1;width:100%;min-height:min(260px,42vh);margin:0;padding:8px;resize:vertical;line-height:1.5;white-space:pre;overflow:auto; }',
             '#' + panelId + ' .tm-ebird-preview { box-sizing:border-box;min-height:min(260px,42vh);overflow:auto;padding:8px;border:1px solid #aaa;background:#f7f7f7;white-space:pre;line-height:1.5; }',
             '#' + panelId + ' .tm-ebird-preview-line { min-height:1.5em; }',
             '#' + panelId + ' .tm-ebird-preview-line.tm-ebird-error { font-weight:600; }',
@@ -20683,11 +20690,7 @@
         preview.setAttribute('aria-label', '逐行辨識結果');
         const inputColumn = document.createElement('div');
         inputColumn.className = 'tm-ebird-input-column';
-        const speciesSummary = document.createElement('div');
-        speciesSummary.className = 'tm-ebird-species-summary';
-        speciesSummary.setAttribute('role', 'status');
-        speciesSummary.setAttribute('aria-live', 'polite');
-        inputColumn.append(textarea, speciesSummary);
+        inputColumn.appendChild(textarea);
         grid.append(inputColumn, preview);
         const actionRow = document.createElement('div');
         actionRow.className = 'tm-ebird-action-row';
@@ -20717,7 +20720,6 @@
         }
 
         function renderPreview(analysis) {
-            speciesSummary.textContent = '已辨識 ' + analysis.speciesCount + ' 種、共 ' + analysis.birdCount + ' 隻';
             preview.textContent = '';
             analysis.lines.forEach(function(item) {
                 const row = document.createElement('div');
