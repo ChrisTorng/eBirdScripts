@@ -10,6 +10,14 @@ const repoRoot = path.join(__dirname, '..');
 const scriptPath = path.join(repoRoot, 'EBirdTextInputAssistant.user.js');
 const scriptContents = fs.readFileSync(scriptPath, 'utf8');
 
+function addTaxonName(harness, code, name) {
+    const node = harness.document.createElement('div');
+    node.id = 'name_' + code;
+    node.textContent = name;
+    harness.appendToBody(node);
+    return node;
+}
+
 const testLocationPresets = {
     '測試公園': {
         locId: 'L10000001',
@@ -116,7 +124,7 @@ const requestedAliasMappings = {
     '小啄木': 'gycwoo1',
     '薑母鴨': 'musduc',
     '黑頭文鳥': 'chemun',
-    '小雨燕': 'houswi1',
+    '小雨燕': 'litswi1',
     '白腰草鷸': 'grnsan',
     '灰鶺鴒': 'grywag'
 };
@@ -338,6 +346,7 @@ describe('eBird species form safety', () => {
 
         for (const observation of record.observations) {
             const count = addElement('input', observation.code);
+            addTaxonName(harness, observation.code, observation.name);
             count.addEventListener('click', () => {
                 if (!harness.document.getElementById(`add_${observation.code}`)) {
                     addElement('a', `add_${observation.code}`);
@@ -476,6 +485,7 @@ describe('eBird species form safety', () => {
         }
 
         addElement('input', 'eutspa');
+        addTaxonName(harness, 'eutspa', '麻雀');
         const complete = addElement('input', 'all-spp-y');
         const submit = addElement('button', 'btn-continue');
         let completeClicks = 0;
@@ -497,7 +507,7 @@ describe('eBird species form safety', () => {
         assert.equal(progressEvents.at(-1).allMatched, false);
         assert.equal(harness.document.getElementById('eutspa').value, '4');
         assert.deepEqual([result.filledCount, result.totalCount], [1, 2]);
-        assert.match(result.errors.join('\n'), /小雨燕（houswi1）/);
+        assert.match(result.errors.join('\n'), /小雨燕（litswi1）/);
         assert.equal(completeClicks, 0);
         assert.equal(submitClicks, 0);
     });
@@ -518,12 +528,14 @@ describe('eBird species form safety', () => {
         }
 
         addElement('input', 'eutspa');
+        addTaxonName(harness, 'eutspa', '麻雀');
         const uncommon = addElement('button', 'uncommon-section');
         uncommon.textContent = '不常見';
         uncommon.setAttribute('aria-expanded', 'false');
         uncommon.addEventListener('click', () => {
             uncommon.setAttribute('aria-expanded', 'true');
-            addElement('input', 'houswi1');
+            addElement('input', 'litswi1');
+            addTaxonName(harness, 'litswi1', '小雨燕');
         });
         const complete = addElement('input', 'all-spp-y');
         let completeClicks = 0;
@@ -531,30 +543,33 @@ describe('eBird species form safety', () => {
 
         const result = await api.fillSpecies(record, { elementTimeoutMs: 0 });
 
-        assert.equal(harness.document.getElementById('houswi1').value, '2');
+        assert.equal(harness.document.getElementById('litswi1').value, '2');
         assert.deepEqual([result.filledCount, result.totalCount], [2, 2]);
         assert.deepEqual(plain(result.errors), []);
         assert.equal(completeClicks, 1);
     });
 
-    test('accepts a legacy candidate taxon code when a portal uses it', async () => {
+    test('rejects the old House Swift code and group after the 2026 taxonomy merge', async () => {
         const { harness, api } = loadAssistant();
         const record = api.parseRecord(`2000.01.05
 測試公園
 7：15 開始 6 分鐘 1 km
 小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
         const count = harness.document.createElement('input');
-        count.id = 'houswi';
+        count.id = 'houswi1';
+        count.value = '';
         harness.appendToBody(count);
+        addTaxonName(harness, 'houswi1', '小雨燕(nipalensis 群)');
         const complete = harness.document.createElement('input');
         complete.id = 'all-spp-y';
         harness.appendToBody(complete);
 
         const result = await api.fillSpecies(record, { elementTimeoutMs: 0 });
 
-        assert.equal(count.value, '2');
-        assert.equal(result.filledCount, 1);
-        assert.deepEqual(plain(result.errors), []);
+        assert.equal(count.value, '');
+        assert.equal(result.filledCount, 0);
+        assert.equal(result.preSubmitPassed, false);
+        assert.match(result.errors.join('\n'), /找不到名稱及分類識別碼均相符/);
     });
 
     test('orders the confirmation result by the eBird page and reads localized breeding text', async () => {
@@ -570,6 +585,7 @@ describe('eBird species form safety', () => {
             row.className = 'SubmitChecklist-species';
             const count = harness.document.createElement('input');
             count.id = observation.code;
+            addTaxonName(harness, observation.code, observation.name);
             count.className = 'sc';
             count.addEventListener('click', () => {
                 if (!harness.document.getElementById(`add_${observation.code}`)) {
@@ -621,6 +637,7 @@ describe('eBird species form safety', () => {
 7：15 開始 6 分鐘 1 km
 神秘鳥1
 麻雀2`, new Date(2000, 0, 31), testLocationPresets);
+        addTaxonName(harness, 'eutspa', '麻雀');
         const row = harness.document.createElement('li');
         row.className = 'SubmitChecklist-species';
         const count = harness.document.createElement('input');
@@ -664,6 +681,7 @@ describe('eBird species form safety', () => {
         const count = harness.document.createElement('input');
         count.id = 'eutspa';
         harness.appendToBody(count);
+        addTaxonName(harness, 'eutspa', '麻雀');
         const incomplete = harness.document.createElement('input');
         incomplete.id = 'all-spp-n';
         harness.appendToBody(incomplete);
@@ -746,6 +764,7 @@ test('form note readback tolerates boundary whitespace and line endings without 
     const { harness, api } = loadAssistant();
     const count = harness.document.createElement('input');
     count.id = 'magrob'; count.value = '1'; harness.appendToBody(count);
+    addTaxonName(harness, 'magrob', '鵲鴝');
     const field = harness.document.createElement('textarea');
     field.id = 'p-magrob_comments'; harness.appendToBody(field);
     for (const [note, actual, status] of [
@@ -767,6 +786,7 @@ test('swallow family counts must read back correctly before an existing checklis
         record.autoSubmit = true;
         const count = harness.document.createElement('input');
         count.id = 'swallo'; count.className = 'sc';
+        addTaxonName(harness, 'swallo', '燕科');
         if (changed) count.addEventListener('blur', () => { count.value = '1'; });
         harness.appendToBody(count);
         const complete = harness.document.createElement('input');
@@ -787,6 +807,7 @@ test('reads the selected breeding code independently of internal option values a
     const { harness, api } = loadAssistant();
     const count = harness.document.createElement('input');
     count.id = 'commyn'; count.value = '5'; harness.appendToBody(count);
+    addTaxonName(harness, 'commyn', '家八哥');
     const select = harness.document.createElement('select');
     select.id = 'p-commyn_bcode'; harness.appendToBody(select);
     for (const [value, label, expected, status] of [
@@ -815,6 +836,7 @@ test('numeric breeding option values fill, read back and pass the auto-save gate
         'FL 離巢', 'ON 佔巢', 'CF 攜食', 'FY 餵雛', 'NE 巢蛋', 'NY 巢雛'];
     const count = harness.document.createElement('input');
     count.id = 'commyn'; count.className = 'sc'; harness.appendToBody(count);
+    addTaxonName(harness, 'commyn', '家八哥');
     const detail = harness.document.createElement('a');
     detail.id = 'add_commyn'; harness.appendToBody(detail);
     const select = harness.document.createElement('select');
@@ -837,4 +859,44 @@ test('numeric breeding option values fill, read back and pass the auto-save gate
         assert.equal(api.tryAutoSubmit(record, result), true, code);
     }
     assert.equal(saves, labels.length);
+});
+
+test('taxon readback independently rejects wrong group, missing name and wrong code', () => {
+    const { harness, api } = loadAssistant();
+    const observation = api.parseObservationLine('小雨燕 2').value;
+    assert.equal(observation.code, 'litswi1');
+    const count = harness.document.createElement('input');
+    count.id = 'litswi1'; count.value = '2'; harness.appendToBody(count);
+    const name = addTaxonName(harness, 'litswi1', '小雨燕');
+    assert.equal(api.verifyObservationOutcome({ observation, code: 'litswi1', status: 'filled' }).status, 'filled');
+    for (const actual of ['小雨燕(nipalensis 群)', '', '叉尾雨燕']) {
+        name.textContent = actual;
+        const outcome = api.verifyObservationOutcome({ observation, code: 'litswi1', status: 'filled' });
+        assert.equal(outcome.status, 'failed', actual);
+        assert.match(outcome.error, /鳥種讀回不符/);
+        assert.equal(api.resultFullyVerified({ observations: [observation] }, { items: [outcome], metadata: [{ matched: true }] }), false);
+    }
+    assert.equal(api.taxonIdentityMatches(observation, 'houswi1', '小雨燕'), false);
+});
+
+test('each species yields before filling and final verification yields before auto-save', async () => {
+    const { harness, api } = loadAssistant();
+    const record = api.parseExistingRecord('小雨燕 2\n麻雀 4', new Date(2026, 10, 25));
+    const fields = record.observations.map(observation => {
+        const count = harness.document.createElement('input');
+        count.id = observation.code;
+        harness.appendToBody(count);
+        addTaxonName(harness, observation.code, observation.name);
+        return count;
+    });
+    const complete = harness.document.createElement('input');
+    complete.id = 'all-spp-y'; harness.appendToBody(complete);
+    const snapshots = [];
+    const result = await api.fillSpecies(record, {
+        elementTimeoutMs: 0,
+        yieldToPaint: async () => { snapshots.push(fields.map(field => field.value)); }
+    });
+    assert.equal(result.allMatched, true);
+    assert.ok(snapshots.some(values => values[0] === '2' && !values[1]));
+    assert.ok(snapshots.some(values => values[0] === '2' && values[1] === '4'));
 });
