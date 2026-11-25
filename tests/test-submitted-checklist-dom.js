@@ -323,3 +323,24 @@ test('a swallow family mentioned in another bird note is not a saved taxon', () 
     assert.equal(result.allMatched, false);
     assert.match(result.items[0].error, /找不到此鳥種/);
 });
+
+test('saved Little Swift species and nipalensis group are not interchangeable', () => {
+    const { document, api, record, pre } = load(fixture('2026/9/5'));
+    document.querySelectorAll('.Observation').forEach(row => row.remove());
+    const observation = api.parseObservationLine('小雨燕 2').value;
+    record.observations = [observation];
+    pre.totalCount = 1;
+    pre.items = [{ observation, code: observation.code, status: 'filled' }];
+    for (const [code, name, expected] of [
+        ['litswi1', '小雨燕', true],
+        ['litswi1', 'Little Swift', true],
+        ['houswi1', '小雨燕(nipalensis 群)', false],
+        ['litswi1', '小雨燕(nipalensis 群)', false],
+        ['houswi1', '小雨燕', false]
+    ]) {
+        document.body.insertAdjacentHTML('beforeend', '<section class="Observation" id="' + code + '"><a href="/atlastw/species/' + code + '">' + name + '</a><div class="Observation-numberObserved">2</div></section>');
+        const result = api.verifySubmittedChecklist(record, pre);
+        assert.equal(result.allMatched, expected, name + ' / ' + code);
+        document.getElementById(code).remove();
+    }
+});
