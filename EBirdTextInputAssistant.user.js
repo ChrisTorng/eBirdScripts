@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-11-25_1.12.13
+// @version      2026-11-25_1.12.14
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -19453,27 +19453,62 @@
         return readStructuredSubmittedMetadata(record, primary, effort);
     }
 
+    // A completed checklist can link a qualified taxon to its parent
+    // species. Derive that parent from the exact official taxonomy name,
+    // not from the code prefix or an arbitrary substring of the heading.
+    // This exception applies ONLY to completed checklist links.
+    function submittedTaxonCodes(observation, actualName) {
+        const codes = new Set(taxonCodes(observation));
+        if (isPigeonObservation(observation)) {
+            codes.add('rocpig');
+            codes.add('rocpig1');
+        }
+        if (!taxonNameMatches(observation, actualName)) return codes;
+        const legacyParents = { whiwag8: 'whiwag', brnshr3: 'brnshr', brnshr1: 'brnshr' };
+        if (legacyParents[observation.code]) codes.add(legacyParents[observation.code]);
+        for (const name of [observation.name, actualName]) {
+            const normalized = normalizedBirdName(name).toLowerCase();
+            const match = normalized.match(/^([^()]+)\([^()]+\)$/);
+            if (!match || !codes.has(officialTaxonNames.get(normalized))) continue;
+            const parent = officialTaxonNames.get(match[1]);
+            if (parent) codes.add(parent);
+        }
+        return codes;
+    }
+
+    function submittedRowIdentity(row) {
+        const anchor = row.querySelector('a[href*="/species/"]') || row.querySelector('a');
+        const heading = row.querySelector('.Observation-species .Heading-main') || row.querySelector('h3') || anchor;
+        const name = heading && String(heading.textContent || '').replace(/\s+/g, ' ').trim();
+        const linkCode = (String(anchor && (anchor.href || anchor.getAttribute('href')) || '').match(/\/species\/([^/?#]+)/) || [])[1];
+        const rowCode = row.id && officialTaxonCodes.has(row.id) ? row.id : '';
+        return { name: name || '', linkCode: linkCode || '', rowCode };
+    }
+
+    function describeSubmittedTaxonCandidates(observation) {
+        const base = normalizedBirdName(observation.name).toLowerCase().split('(')[0];
+        return Array.from(document.querySelectorAll('.Observation'))
+            .filter(row => !row.closest('#' + panelId))
+            .map(submittedRowIdentity)
+            .filter(item => item.name && (taxonNameMatches(observation, item.name)
+                || normalizedBirdName(item.name).toLowerCase().split('(')[0] === base))
+            .map(item => item.name + '（連結：' + (item.linkCode || '無')
+                + '；列識別碼：' + (item.rowCode || '無') + '）')
+            .slice(0, 10).join('／');
+    }
+
     function findSubmittedSpeciesRow(observation, code) {
         const pigeon = isPigeonObservation(observation);
-        const codes = pigeon ? ['rocpig', 'rocpig1'] : taxonCodes(observation);
-        const parentCodes = { whiwag8: 'whiwag', brnshr3: 'brnshr', brnshr1: 'brnshr' };
         const names = [observation.name];
-        const linkedCodeOf = item => (String(item && (item.href || item.getAttribute('href')) || '').match(/\/species\/([^/?#]+)/) || [])[1];
         const rows = Array.from(document.querySelectorAll('.Observation'))
             .filter(row => !row.closest('#' + panelId));
         for (const row of rows) {
-            const anchor = row.querySelector('a[href*="/species/"]') || row.querySelector('a');
-            const heading = row.querySelector('.Observation-species .Heading-main') || row.querySelector('h3') || anchor;
-            const name = heading && heading.textContent;
+            const { name, linkCode, rowCode } = submittedRowIdentity(row);
             if (!taxonNameMatches(observation, name)) continue;
-            const linkedCode = linkedCodeOf(anchor);
-            // On completed pages some subspecies link to their parent species.
-            // Accept this only for an explicit parent relationship AND the exact
-            // qualified heading; a bare parent name never qualifies.
-            if (linkedCode && !codes.includes(linkedCode) && linkedCode !== parentCodes[observation.code]) continue;
-            if (!linkedCode && row.id && officialTaxonCodes.has(row.id) && !codes.includes(row.id)
-                && row.id !== parentCodes[observation.code]) continue;
-            return { row: row, name: pigeon ? '野鴿' : name.replace(/\s+/g, ' ').trim() };
+            const codes = submittedTaxonCodes(observation, name);
+            if (linkCode && !codes.has(linkCode)) continue;
+            if (rowCode && !codes.has(rowCode)) continue;
+            return { row: row, name: pigeon ? '野鴿' : name };
         }
         if (rows.length) return null;
         const anchors = Array.from(document.querySelectorAll('a'));
@@ -19483,7 +19518,7 @@
             const href = String(item.href || item.getAttribute('href') || '');
             const linkedCode = (href.match(/\/species\/([^/?#]+)/) || [])[1];
             return !rows.length && taxonNameMatches(observation, item.textContent)
-                && (!linkedCode || codes.includes(linkedCode));
+                && (!linkedCode || submittedTaxonCodes(observation, item.textContent).has(linkedCode));
         });
         if (anchor) {
             const structuredRow = anchor.closest('.Observation');
@@ -19525,7 +19560,8 @@
                 return Object.assign({}, previous, {
                     status: 'failed',
                     display: observation.count + ' ' + observation.name,
-                    error: '完成鳥單頁找不到此鳥種'
+                    error: '完成鳥單頁找不到此鳥種；預期 ' + observation.name + '／' + taxonCodes(observation).join('、')
+                        + '；頁面候選：' + (describeSubmittedTaxonCandidates(observation) || '無相符名稱')
                 });
             }
             const rowText = String(found.row.innerText || found.row.textContent || '')
