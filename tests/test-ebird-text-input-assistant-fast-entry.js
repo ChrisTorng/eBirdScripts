@@ -307,6 +307,10 @@ describe('eBird assistant fast entry workflow', () => {
                 const count = doc.createElement('input');
                 count.id = 'eutspa';
                 count.className = 'sc';
+                const name = doc.createElement('div');
+                name.id = 'name_eutspa';
+                name.textContent = '麻雀';
+                row.appendChild(name);
                 row.appendChild(count);
                 doc.body.appendChild(row);
                 const complete = doc.createElement('input');
