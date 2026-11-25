@@ -18597,6 +18597,9 @@
         return node ? String(node.textContent || '').replace(/\s+/g, ' ').trim() : '';
     }
 
+    const officialTaxonNames = new Map(Object.entries(fullSpeciesNames).map(([name, code]) => [normalizedBirdName(name).toLowerCase(), code]));
+    const officialTaxonCodes = new Set(officialTaxonNames.values());
+
     function taxonNameMatches(observation, name) {
         if (!name) return false;
         const expected = [observation.name];
@@ -18607,9 +18610,13 @@
         if (observation.code === 'whiwag8') expected.push('White Wagtail (Chinese)');
         if (observation.code === 'brnshr3') expected.push('Brown Shrike (Philippine)');
         if (observation.code === 'brnshr1') expected.push('Brown Shrike (Brown)');
-        return expected.some(function(value) {
-            return normalizedBirdName(value).toLowerCase() === normalizedBirdName(name).toLowerCase();
-        });
+        const normalized = normalizedBirdName(name).toLowerCase();
+        if (expected.some(value => normalizedBirdName(value).toLowerCase() === normalized)) return true;
+        // Localized official names may differ, but a group qualifier may never
+        // be added to or removed from a species name by a stale mapping.
+        const qualified = value => /[()]/.test(normalizedBirdName(value));
+        return qualified(observation.name) === qualified(name)
+            && officialTaxonNames.get(normalized) === observation.code;
     }
 
     function taxonIdentityMatches(observation, code, name) {
@@ -19403,29 +19410,28 @@
     }
 
     function findSubmittedSpeciesRow(observation, code) {
-        const normalizeName = function(value) {
-            return String(value || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
-        };
         const pigeon = isPigeonObservation(observation);
-        const codes = pigeon ? ['rocpig', 'rocpig1'] : [code];
-        const names = pigeon ? ['野鴿', '原鴿', '野鴿(馴化)', '野鴿(野化)', 'Rock Pigeon', 'Rock Pigeon (Feral Pigeon)'] : [observation.name];
-        if (observation.code === 'whiwag8') names.push('White Wagtail (Chinese)');
-        if (observation.code === 'brnshr3') names.push('Brown Shrike (Philippine)');
-        if (observation.code === 'brnshr1') names.push('Brown Shrike (Brown)');
+        const codes = pigeon ? ['rocpig', 'rocpig1'] : (observation.codes || [observation.code]);
+        const parentCodes = { whiwag8: 'whiwag', brnshr3: 'brnshr', brnshr1: 'brnshr' };
+        const names = [observation.name];
+        const linkedCodeOf = item => (String(item && (item.href || item.getAttribute('href')) || '').match(/\/species\/([^/?#]+)/) || [])[1];
         const rows = Array.from(document.querySelectorAll('.Observation'))
-            .filter(function(row) { return !row.closest('#' + panelId); });
-        // Unidentified groups such as swallo have a heading but no species link.
-        // Read the whole observation, not its smaller name-only child element.
-        const structuredRow = rows.find(function(row) {
-                const heading = row.querySelector('.Observation-species .Heading-main') || row.querySelector('h3');
-                return heading && taxonNameMatches(observation, heading.textContent)
-                    && (!row.id || codes.includes(row.id));
-            });
-        if (structuredRow) {
-            const heading = structuredRow.querySelector('.Observation-species .Heading-main') || structuredRow.querySelector('h3');
-            return { row: structuredRow, name: pigeon ? '野鴿'
-                : heading ? heading.textContent.replace(/\s+/g, ' ').trim() : observation.name };
+            .filter(row => !row.closest('#' + panelId));
+        for (const row of rows) {
+            const anchor = row.querySelector('a[href*="/species/"]') || row.querySelector('a');
+            const heading = row.querySelector('.Observation-species .Heading-main') || row.querySelector('h3') || anchor;
+            const name = heading && heading.textContent;
+            if (!taxonNameMatches(observation, name)) continue;
+            const linkedCode = linkedCodeOf(anchor);
+            // On completed pages some subspecies link to their parent species.
+            // Accept this only for an explicit parent relationship AND the exact
+            // qualified heading; a bare parent name never qualifies.
+            if (linkedCode && !codes.includes(linkedCode) && linkedCode !== parentCodes[observation.code]) continue;
+            if (!linkedCode && row.id && officialTaxonCodes.has(row.id) && !codes.includes(row.id)
+                && row.id !== parentCodes[observation.code]) continue;
+            return { row: row, name: pigeon ? '野鴿' : name.replace(/\s+/g, ' ').trim() };
         }
+        if (rows.length) return null;
         const anchors = Array.from(document.querySelectorAll('a'));
         const anchor = anchors.find(function(item) {
             if (item.closest('#' + panelId)) return false;
@@ -19647,7 +19653,6 @@
         for (let index = 0; index < outcomes.length; index += 1) {
             const outcome = outcomes[index];
             const resolved = resolvedFields[index];
-            reportProgress('filling', { species: outcome.observation.name });
             await paint();
             if (resolved.status === 'fulfilled') {
                 try {
@@ -19677,7 +19682,7 @@
             } else {
                 outcome.status = 'failed';
                 outcome.error = resolved.reason && resolved.reason.message || '找不到相符的鳥種欄位';
-                errors.push(outcome.observation.name + '：' + outcome.error);
+                errors.push(outcome.observation.name + '（' + outcome.observation.code + '）：' + outcome.error);
             }
             // Count each processed species, including failures; success is established
             // only by the final readback verification, not by this progress bar.
