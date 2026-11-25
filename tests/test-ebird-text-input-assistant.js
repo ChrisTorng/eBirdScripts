@@ -124,7 +124,7 @@ const requestedAliasMappings = {
     '小啄木': 'gycwoo1',
     '薑母鴨': 'musduc',
     '黑頭文鳥': 'chemun',
-    '小雨燕': 'litswi1',
+    '小雨燕': 'y00960',
     '白腰草鷸': 'grnsan',
     '灰鶺鴒': 'grywag'
 };
@@ -507,7 +507,7 @@ describe('eBird species form safety', () => {
         assert.equal(progressEvents.at(-1).allMatched, false);
         assert.equal(harness.document.getElementById('eutspa').value, '4');
         assert.deepEqual([result.filledCount, result.totalCount], [1, 2]);
-        assert.match(result.errors.join('\n'), /小雨燕（litswi1）/);
+        assert.match(result.errors.join('\n'), /小雨燕（y00960）/);
         assert.equal(completeClicks, 0);
         assert.equal(submitClicks, 0);
     });
@@ -534,8 +534,8 @@ describe('eBird species form safety', () => {
         uncommon.setAttribute('aria-expanded', 'false');
         uncommon.addEventListener('click', () => {
             uncommon.setAttribute('aria-expanded', 'true');
-            addElement('input', 'litswi1');
-            addTaxonName(harness, 'litswi1', '小雨燕');
+            addElement('input', 'y00960');
+            addTaxonName(harness, 'y00960', '小雨燕');
         });
         const complete = addElement('input', 'all-spp-y');
         let completeClicks = 0;
@@ -543,7 +543,7 @@ describe('eBird species form safety', () => {
 
         const result = await api.fillSpecies(record, { elementTimeoutMs: 0 });
 
-        assert.equal(harness.document.getElementById('litswi1').value, '2');
+        assert.equal(harness.document.getElementById('y00960').value, '2');
         assert.deepEqual([result.filledCount, result.totalCount], [2, 2]);
         assert.deepEqual(plain(result.errors), []);
         assert.equal(completeClicks, 1);
@@ -864,19 +864,21 @@ test('numeric breeding option values fill, read back and pass the auto-save gate
 test('taxon readback independently rejects wrong group, missing name and wrong code', () => {
     const { harness, api } = loadAssistant();
     const observation = api.parseObservationLine('小雨燕 2').value;
-    assert.equal(observation.code, 'litswi1');
+    assert.equal(observation.code, 'y00960');
     const count = harness.document.createElement('input');
-    count.id = 'litswi1'; count.value = '2'; harness.appendToBody(count);
-    const name = addTaxonName(harness, 'litswi1', '小雨燕');
-    assert.equal(api.verifyObservationOutcome({ observation, code: 'litswi1', status: 'filled' }).status, 'filled');
+    count.id = 'y00960'; count.value = '2'; harness.appendToBody(count);
+    const name = addTaxonName(harness, 'y00960', '小雨燕');
+    assert.equal(api.verifyObservationOutcome({ observation, code: 'y00960', status: 'filled' }).status, 'filled');
     for (const actual of ['小雨燕(nipalensis 群)', '', '叉尾雨燕']) {
         name.textContent = actual;
-        const outcome = api.verifyObservationOutcome({ observation, code: 'litswi1', status: 'filled' });
+        const outcome = api.verifyObservationOutcome({ observation, code: 'y00960', status: 'filled' });
         assert.equal(outcome.status, 'failed', actual);
         assert.match(outcome.error, /鳥種讀回不符/);
         assert.equal(api.resultFullyVerified({ observations: [observation] }, { items: [outcome], metadata: [{ matched: true }] }), false);
     }
     assert.equal(api.taxonIdentityMatches(observation, 'houswi1', '小雨燕'), false);
+    assert.equal(api.taxonIdentityMatches(observation, 'litswi1', '小雨燕'), true);
+    assert.equal(api.taxonIdentityMatches(observation, 'y00960', '小雨燕(nipalensis 群)'), false);
 });
 
 test('each species yields before filling and final verification yields before auto-save', async () => {
@@ -934,7 +936,7 @@ test('reported 18-species record reveals the real Traditional Chinese rare-speci
         addTaxonName(harness, code, name);
         return input;
     }
-    for (const observation of record.observations.filter(item => item.code !== 'litswi1')) {
+    for (const observation of record.observations.filter(item => item.code !== 'y00960')) {
         const input = field(observation.code, observation.name);
         if (observation.comments) {
             const detail = harness.document.createElement('a');
@@ -954,7 +956,7 @@ test('reported 18-species record reveals the real Traditional Chinese rare-speci
     rare.addEventListener('click', () => {
         rare.checked = true;
         revealCount++;
-        field('litswi1', '小雨燕');
+        field('y00960', '小雨燕');
     });
     const complete = harness.document.createElement('input');
     complete.id = 'all-spp-y'; harness.appendToBody(complete);
@@ -963,7 +965,7 @@ test('reported 18-species record reveals the real Traditional Chinese rare-speci
     assert.equal(api.revealAdditionalSpeciesSections(), 0);
     assert.equal(result.filledCount, 18, JSON.stringify(result.items.filter(item => item.status !== 'filled')));
     assert.equal(oldGroup.value, '');
-    assert.equal(harness.document.getElementById('litswi1').value, '2');
+    assert.equal(harness.document.getElementById('y00960').value, '2');
     assert.equal(complete.checked, true);
     assert.equal(harness.document.getElementById('p-livbul1_comments').value, 'Heard 1');
 });
@@ -984,5 +986,27 @@ test('missing swift shows actual similar group and explains why completeness was
     assert.match(result.items[0].error, /houswi1（小雨燕\(nipalensis 群\)）/);
     assert.match(result.metadata.find(item => item.key === 'completeness').error, /未自動設定/);
     assert.deepEqual(plain(events.at(-1).failedSpecies), ['小雨燕']);
-    assert.equal(api.taxonIdentityMatches(record.observations[0], 'litswi1', '小白腰雨燕'), true);
+    assert.equal(api.taxonIdentityMatches(record.observations[0], 'y00960', '小白腰雨燕'), true);
+});
+
+test('existing pending record migrates old Swift identifiers to the actual Atlas reporting code', async () => {
+    for (const oldCode of ['houswi1', 'litswi1', 'y00960']) {
+        const { harness, api } = loadAssistant();
+        const record = api.parseExistingRecord('小雨燕 2', new Date(2026, 10, 25));
+        Object.assign(record.observations[0], { code: oldCode, codes: [oldCode, 'houswi1'] });
+        const group = harness.document.createElement('input');
+        group.id = 'houswi1'; group.value = ''; harness.appendToBody(group);
+        addTaxonName(harness, 'houswi1', '小雨燕(nipalensis 群)');
+        const species = harness.document.createElement('input');
+        species.id = 'y00960'; species.value = ''; harness.appendToBody(species);
+        addTaxonName(harness, 'y00960', '小雨燕');
+        const complete = harness.document.createElement('input');
+        complete.id = 'all-spp-y'; harness.appendToBody(complete);
+        const result = await api.fillSpecies(record, { elementTimeoutMs: 0 });
+        assert.equal(result.allMatched, true, JSON.stringify(result));
+        assert.equal(result.items[0].code, 'y00960');
+        assert.equal(species.value, '2');
+        assert.equal(group.value, '');
+        assert.equal(complete.checked, true);
+    }
 });

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-11-25_1.12.12
+// @version      2026-11-25_1.12.13
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -133,7 +133,7 @@
         '野鴿': { code: 'rocpig1', codes:['rocpig1','rocpig'], name: '野鴿' },
         '紅嘴': { code: 'blabul1', name: '紅嘴黑鵯' },
         '紅嘴黑鵯': { code: 'blabul1', name: '紅嘴黑鵯' },
-        '小雨燕': { code: 'litswi1', name: '小雨燕' },
+        '小雨燕': { code: 'y00960', codes: ['y00960', 'litswi1'], name: '小雨燕' },
         '紅冠': { code: 'commoo3', name: '紅冠水雞' },
         '紅冠水雞': { code: 'commoo3', name: '紅冠水雞' },
         '小環': { code: 'lirplo', name: '小環頸鴴' },
@@ -2379,7 +2379,7 @@
     "Little Swift (Little)": "litswi2",
     "Little Swift (Bannerman's)": "litswi3",
     "Little Swift (Indian)": "litswi4",
-    "小雨燕": "litswi1",
+    "小雨燕": "y00960",
     "Little/House Swift": "y00960",
     "Horus Swift": "horswi1",
     "Horus Swift (White-rumped)": "horswi2",
@@ -18603,13 +18603,28 @@
     const officialTaxonNames = new Map(Object.entries(fullSpeciesNames).map(([name, code]) => [normalizedBirdName(name).toLowerCase(), code]));
     const officialTaxonCodes = new Set(officialTaxonNames.values());
 
+    // Taiwan Bird Atlas exposes the unqualified Little/House Swift reporting
+    // form as y00960. Migrate old pending records, but never accept houswi1
+    // (the nipalensis group) for an unqualified observation.
+    function isUnqualifiedLittleSwift(observation) {
+        return ['y00960', 'litswi1', 'houswi1', 'houswi'].includes(observation.code)
+            && ['小雨燕', '小白腰雨燕', 'littleswift', 'little/houseswift'].includes(
+                normalizedBirdName(observation.name).toLowerCase());
+    }
+
+    function taxonCodes(observation) {
+        return isUnqualifiedLittleSwift(observation)
+            ? ['y00960', 'litswi1']
+            : (observation.codes || [observation.code]);
+    }
+
     function taxonNameMatches(observation, name) {
         if (!name) return false;
         const expected = [observation.name];
         if (isPigeonObservation(observation)) {
             expected.push('原鴿', '野鴿', '野鴿(馴化)', '野鴿(野化)', 'Rock Pigeon', 'Rock Pigeon (Feral Pigeon)');
         }
-        if (observation.code === 'litswi1' && normalizedBirdName(observation.name) === '小雨燕') expected.push('Little Swift', '小白腰雨燕');
+        if (isUnqualifiedLittleSwift(observation)) return ['小雨燕', '小白腰雨燕', 'littleswift', 'little/houseswift'].includes(normalizedBirdName(name).toLowerCase());
         if (observation.code === 'whiwag8') expected.push('White Wagtail (Chinese)');
         if (observation.code === 'bkcsta1') expected.push('Black-collared Starling');
         if (observation.code === 'brnshr3') expected.push('Brown Shrike (Philippine)');
@@ -18624,14 +18639,14 @@
     }
 
     function taxonIdentityMatches(observation, code, name) {
-        return (observation.codes || [observation.code]).includes(code)
+        return taxonCodes(observation).includes(code)
             && taxonNameMatches(observation, name);
     }
 
     function describeTaxonCandidates(observation) {
         const expected = normalizedBirdName(observation.name).toLowerCase();
         const base = expected.split('(')[0];
-        const codes = observation.codes || [observation.code];
+        const codes = taxonCodes(observation);
         const candidates = new Map();
         for (const code of codes) {
             const field = document.getElementById(code);
@@ -18642,7 +18657,7 @@
             const name = readTaxonName(field.id);
             const normalized = normalizedBirdName(name).toLowerCase();
             if (name && (normalized.startsWith(base) || taxonNameMatches(observation, name)
-                || (observation.code === 'litswi1' && /雨燕|swift/i.test(name)))) {
+                || (isUnqualifiedLittleSwift(observation) && /雨燕|swift/i.test(name)))) {
                 candidates.set(field.id, field.id + '（' + name + '）');
             }
         }
@@ -18650,7 +18665,7 @@
     }
 
     function waitForObservationField(observation, timeoutMs = 4000) {
-        const codes = Array.from(new Set(observation.codes || [observation.code]));
+        const codes = Array.from(new Set(taxonCodes(observation)));
         const started = Date.now();
         return new Promise(function(resolve, reject) {
             function check() {
@@ -19440,7 +19455,7 @@
 
     function findSubmittedSpeciesRow(observation, code) {
         const pigeon = isPigeonObservation(observation);
-        const codes = pigeon ? ['rocpig', 'rocpig1'] : (observation.codes || [observation.code]);
+        const codes = pigeon ? ['rocpig', 'rocpig1'] : taxonCodes(observation);
         const parentCodes = { whiwag8: 'whiwag', brnshr3: 'brnshr', brnshr1: 'brnshr' };
         const names = [observation.name];
         const linkedCodeOf = item => (String(item && (item.href || item.getAttribute('href')) || '').match(/\/species\/([^/?#]+)/) || [])[1];
@@ -19635,6 +19650,12 @@
 
     async function fillSpecies(record, options = {}) {
         assertRecordReady(record);
+        record.observations.forEach(observation => {
+            if (isUnqualifiedLittleSwift(observation)) {
+                observation.code = 'y00960';
+                observation.codes = taxonCodes(observation);
+            }
+        });
         const totalSpecies = record.observations.length;
         let processedSpecies = 0;
         function reportProgress(phase, details = {}) {
@@ -19658,7 +19679,7 @@
             };
         });
         const missingBeforeReveal = record.observations.some(function(observation) {
-            return !(observation.codes || [observation.code]).some(function(code) {
+            return !taxonCodes(observation).some(function(code) {
                 return document.getElementById(code) && taxonIdentityMatches(observation, code, readTaxonName(code));
             });
         });

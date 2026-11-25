@@ -332,6 +332,9 @@ test('saved Little Swift species and nipalensis group are not interchangeable', 
     pre.totalCount = 1;
     pre.items = [{ observation, code: observation.code, status: 'filled' }];
     for (const [code, name, expected] of [
+        ['y00960', '小雨燕', true],
+        ['y00960', 'Little/House Swift', true],
+        ['y00960', '小雨燕(nipalensis 群)', false],
         ['litswi1', '小雨燕', true],
         ['litswi1', 'Little Swift', true],
         ['houswi1', '小雨燕(nipalensis 群)', false],
