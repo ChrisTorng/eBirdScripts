@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-11-13_1.12.10
+// @version      2026-11-25_1.12.11
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -133,7 +133,7 @@
         '野鴿': { code: 'rocpig1', codes:['rocpig1','rocpig'], name: '野鴿' },
         '紅嘴': { code: 'blabul1', name: '紅嘴黑鵯' },
         '紅嘴黑鵯': { code: 'blabul1', name: '紅嘴黑鵯' },
-        '小雨燕': { code: 'houswi1', codes: ['houswi1', 'houswi'], name: '小雨燕' },
+        '小雨燕': { code: 'litswi1', name: '小雨燕' },
         '紅冠': { code: 'commoo3', name: '紅冠水雞' },
         '紅冠水雞': { code: 'commoo3', name: '紅冠水雞' },
         '小環': { code: 'lirplo', name: '小環頸鴴' },
@@ -2379,7 +2379,7 @@
     "Little Swift (Little)": "litswi2",
     "Little Swift (Bannerman's)": "litswi3",
     "Little Swift (Indian)": "litswi4",
-    "小雨燕": "houswi1",
+    "小雨燕": "litswi1",
     "Little/House Swift": "y00960",
     "Horus Swift": "horswi1",
     "Horus Swift (White-rumped)": "horswi2",
@@ -18589,16 +18589,44 @@
         });
     }
 
+    // A taxon code can change meaning after a taxonomy update. Never accept a
+    // code without independently checking the actual name, including qualifiers.
+    function readTaxonName(code) {
+        const container = document.getElementById('name_' + code);
+        const node = container && (container.querySelector('span') || container);
+        return node ? String(node.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    }
+
+    function taxonNameMatches(observation, name) {
+        if (!name) return false;
+        const expected = [observation.name];
+        if (isPigeonObservation(observation)) {
+            expected.push('原鴿', '野鴿', '野鴿(馴化)', '野鴿(野化)', 'Rock Pigeon', 'Rock Pigeon (Feral Pigeon)');
+        }
+        if (observation.code === 'litswi1' && normalizedBirdName(observation.name) === '小雨燕') expected.push('Little Swift');
+        if (observation.code === 'whiwag8') expected.push('White Wagtail (Chinese)');
+        if (observation.code === 'brnshr3') expected.push('Brown Shrike (Philippine)');
+        if (observation.code === 'brnshr1') expected.push('Brown Shrike (Brown)');
+        return expected.some(function(value) {
+            return normalizedBirdName(value).toLowerCase() === normalizedBirdName(name).toLowerCase();
+        });
+    }
+
+    function taxonIdentityMatches(observation, code, name) {
+        return (observation.codes || [observation.code]).includes(code)
+            && taxonNameMatches(observation, name);
+    }
+
     function waitForObservationField(observation, timeoutMs = 4000) {
         const codes = Array.from(new Set(observation.codes || [observation.code]));
         const started = Date.now();
         return new Promise(function(resolve, reject) {
             function check() {
-                const code = codes.find(function(candidate) { return document.getElementById(candidate); });
+                const code = codes.find(function(candidate) { return document.getElementById(candidate) && taxonIdentityMatches(observation, candidate, readTaxonName(candidate)); });
                 if (code) {
                     resolve({ code: code, element: document.getElementById(code) });
                 } else if (Date.now() - started >= timeoutMs) {
-                    reject(new Error('等待 eBird 欄位逾時：' + codes.join('／')));
+                    reject(new Error('找不到名稱及分類識別碼均相符的鳥種：' + codes.map(code => code + '（' + (readTaxonName(code) || '找不到名稱') + '）').join('／')));
                 } else {
                     setTimeout(check, 50);
                 }
@@ -18910,13 +18938,7 @@
         const observation = outcome.observation;
         const code = outcome.code;
         const countField = document.getElementById(code);
-        const nameContainer = document.getElementById('name_' + code);
-        const nameNode = nameContainer
-            ? (nameContainer.querySelector('span') || nameContainer)
-            : null;
-        const actualName = isPigeonObservation(observation) ? '野鴿' : nameNode && nameNode.textContent.trim()
-            ? nameNode.textContent.replace(/\s+/g, ' ').trim()
-            : observation.name;
+        const actualName = readTaxonName(code);
         const breedingSelect = document.getElementById('p-' + code + '_bcode');
         const rawBreedingValue = breedingSelect ? String(breedingSelect.value || '').trim() : '';
         const selectedBreedingText = rawBreedingValue ? selectedOptionText(breedingSelect) : '';
@@ -18937,6 +18959,8 @@
         return {
             text: (countField ? String(countField.value || '').trim() : '—') + ' ' + actualName
                 + (extras.length ? '; ' + extras.join(', ') : ''),
+            actualName: actualName,
+            actualCode: countField ? countField.id : null,
             count: countField ? String(countField.value || '').trim() : null,
             breedingCode: breedingValue || null,
             breedingText: breedingText,
@@ -18961,6 +18985,10 @@
         const actual = readObservationDisplay(outcome);
         const expected = outcome.observation;
         const mismatches = [];
+        if (!taxonIdentityMatches(expected, actual.actualCode, actual.actualName)) {
+            mismatches.push('鳥種讀回不符（預期 ' + expected.name + '／' + expected.code
+                + '，讀回 ' + (actual.actualName || '找不到名稱') + '／' + (actual.actualCode || '找不到識別碼') + '）');
+        }
         if (!actual.hasCountField || actual.count !== String(expected.count)) {
             mismatches.push('數量讀回為「' + (actual.count === null ? '找不到欄位' : actual.count) + '」');
         }
@@ -19388,12 +19416,10 @@
             .filter(function(row) { return !row.closest('#' + panelId); });
         // Unidentified groups such as swallo have a heading but no species link.
         // Read the whole observation, not its smaller name-only child element.
-        const structuredRow = rows.find(function(row) { return codes.includes(row.id); })
-            || rows.find(function(row) {
+        const structuredRow = rows.find(function(row) {
                 const heading = row.querySelector('.Observation-species .Heading-main') || row.querySelector('h3');
-                return heading && names.some(function(name) {
-                    return normalizeName(heading.textContent) === normalizeName(name);
-                });
+                return heading && taxonNameMatches(observation, heading.textContent)
+                    && (!row.id || codes.includes(row.id));
             });
         if (structuredRow) {
             const heading = structuredRow.querySelector('.Observation-species .Heading-main') || structuredRow.querySelector('h3');
@@ -19406,8 +19432,8 @@
             if (rows.length && !item.closest('.Observation')) return false;
             const href = String(item.href || item.getAttribute('href') || '');
             const linkedCode = (href.match(/\/species\/([^/?#]+)/) || [])[1];
-            return (linkedCode && codes.includes(linkedCode))
-                || names.some(function(name) { return normalizeName(item.textContent) === normalizeName(name); });
+            return !rows.length && taxonNameMatches(observation, item.textContent)
+                && (!linkedCode || codes.includes(linkedCode));
         });
         if (anchor) {
             const structuredRow = anchor.closest('.Observation');
@@ -19428,18 +19454,8 @@
             }
             return { row: best, name: pigeon ? '野鴿' : anchor.textContent.replace(/\s+/g, ' ').trim() || observation.name };
         }
-        // Structured lists must match a taxon heading or code, never comments.
-        if (rows.length) return null;
-        const candidates = Array.from(document.querySelectorAll('li,article,section,div'))
-            .filter(function(item) {
-                if (item.closest('#' + panelId) || item.querySelector('#' + panelId)) return false;
-                const value = String(item.innerText || item.textContent || '').replace(/\s+/g, ' ').trim();
-                return names.some(function(name) { return value.includes(name); });
-            })
-            .sort(function(left, right) {
-                return String(left.textContent || '').length - String(right.textContent || '').length;
-            });
-        return candidates.length ? { row: candidates[0], name: pigeon ? '野鴿' : observation.name } : null;
+        // Never infer a taxon from a substring of an arbitrary container.
+        return null;
     }
 
     function verifySubmittedSpecies(record, preResult) {
@@ -19564,10 +19580,9 @@
                 return;
             }
             const outcome = outcomes.find(function(item) {
-                return item.code === code || (item.observation.codes || [item.observation.code]).includes(code);
+                return item.code === code;
             });
             if (outcome && !included.has(outcome)) {
-                outcome.code = code;
                 ordered.push(outcome);
                 included.add(outcome);
             }
@@ -19613,33 +19628,36 @@
             revealAdditionalSpeciesSections();
         }
 
-        const countResults = await Promise.allSettled(outcomes.map(async function(outcome) {
-            const resolved = await waitForObservationField(
-                outcome.observation,
-                options.elementTimeoutMs ?? 4000
-            );
-            setCountValue(resolved.code, outcome.observation.count);
-            return resolved.code;
-        }));
-        countResults.forEach(function(result, index) {
-            const outcome = outcomes[index];
-            if (result.status === 'fulfilled') {
-                outcome.code = result.value;
-                outcome.status = outcome.observation.warning ? 'warning' : 'filled';
-                outcome.error = outcome.observation.warning || '';
+        // Give the foreground browser a paint opportunity between species.
+        // Timers provide a fallback if requestAnimationFrame is throttled.
+        const paint = () => new Promise(resolve => {
+            if (typeof requestAnimationFrame === 'function' && !document.hidden) {
+                const timer = setTimeout(resolve, 100);
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    clearTimeout(timer);
+                    resolve();
+                }));
             } else {
-                outcome.status = 'failed';
-                outcome.error = '找不到數量欄位';
-                errors.push(
-                    outcome.observation.name + '（' + outcome.observation.code + '）：'
-                    + outcome.error
-                );
+                setTimeout(resolve, 0);
             }
         });
-
-        for (const outcome of outcomes) {
-            if (outcome.status !== 'failed') {
+        await paint();
+        const resolvedFields = await Promise.allSettled(outcomes.map(outcome =>
+            waitForObservationField(outcome.observation, options.elementTimeoutMs ?? 4000)));
+        for (let index = 0; index < outcomes.length; index += 1) {
+            const outcome = outcomes[index];
+            const resolved = resolvedFields[index];
+            reportProgress('filling', { species: outcome.observation.name });
+            await paint();
+            if (resolved.status === 'fulfilled') {
                 try {
+                    outcome.code = resolved.value.code;
+                    if (!taxonIdentityMatches(outcome.observation, outcome.code, readTaxonName(outcome.code))) {
+                        throw new Error('填寫前鳥種名稱或分類識別碼不符');
+                    }
+                    setCountValue(outcome.code, outcome.observation.count);
+                    outcome.status = outcome.observation.warning ? 'warning' : 'filled';
+                    outcome.error = outcome.observation.warning || '';
                     const details = await applyObservationDetails(
                         Object.assign({}, outcome.observation, { code: outcome.code })
                     );
@@ -19656,6 +19674,10 @@
                         + error.message
                     );
                 }
+            } else {
+                outcome.status = 'failed';
+                outcome.error = resolved.reason && resolved.reason.message || '找不到相符的鳥種欄位';
+                errors.push(outcome.observation.name + '：' + outcome.error);
             }
             // Count each processed species, including failures; success is established
             // only by the final readback verification, not by this progress bar.
@@ -19663,6 +19685,7 @@
             reportProgress('filling', { species: outcome.observation.name });
         }
         reportProgress('verifying');
+        await paint();
 
         const unresolved = Array.isArray(record.unresolvedObservations)
             ? record.unresolvedObservations
@@ -19689,6 +19712,21 @@
 
         const orderedItems = orderOutcomesByChecklist(outcomes);
         orderedItems.forEach(verifyObservationOutcome);
+        const usedCodes = new Set();
+        for (const outcome of orderedItems) {
+            if (usedCodes.has(outcome.code)) {
+                outcome.status = 'failed';
+                outcome.error = '重複使用同一分類欄位';
+            }
+            usedCodes.add(outcome.code);
+        }
+        if (!record.editExisting) {
+            document.querySelectorAll('.SubmitChecklist-species input.sc').forEach(field => {
+                if (String(field.value || '').trim() && !usedCodes.has(field.id)) {
+                    formErrors.push('出現未預期的鳥種：' + (readTaxonName(field.id) || field.id));
+                }
+            });
+        }
         orderedItems.forEach(function(outcome) {
             if (outcome.status === 'failed' && outcome.error) {
                 const message = outcome.observation.name + '（' + outcome.code + '）：' + outcome.error;
@@ -21462,6 +21500,8 @@
                 const progress = createFillProgress(body);
                 const run = async function() {
                     button.disabled = true;
+                    setCollapsed(false);
+                    setHeaderState('正在填寫鳥種…', false);
                     try {
                         setUnobservedVisibility(false);
                         const result = await fillSpecies(record, { onProgress: progress.update });
@@ -21566,6 +21606,8 @@
         readEffortFormState: readEffortFormState,
         readChecklistVerification: readChecklistVerification,
         verifyObservationOutcome: verifyObservationOutcome,
+        taxonIdentityMatches: taxonIdentityMatches,
+        taxonNameMatches: taxonNameMatches,
         resultFullyVerified: resultFullyVerified,
         findEditSpeciesLink: findEditSpeciesLink,
         tryAutoSubmit: tryAutoSubmit,
