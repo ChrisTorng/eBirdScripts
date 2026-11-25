@@ -19627,7 +19627,7 @@
         });
         const missingBeforeReveal = record.observations.some(function(observation) {
             return !(observation.codes || [observation.code]).some(function(code) {
-                return document.getElementById(code);
+                return document.getElementById(code) && taxonIdentityMatches(observation, code, readTaxonName(code));
             });
         });
         if (missingBeforeReveal) {
@@ -19636,7 +19636,9 @@
 
         // Give the foreground browser a paint opportunity between species.
         // Timers provide a fallback if requestAnimationFrame is throttled.
-        const paint = () => new Promise(resolve => {
+        const paint = options.yieldToPaint || (() => new Promise(resolve => {
+            // DOM-only environments have no rendering pipeline.
+            if (typeof document.visibilityState !== 'string') { resolve(); return; }
             if (typeof requestAnimationFrame === 'function' && !document.hidden) {
                 const timer = setTimeout(resolve, 100);
                 requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -19646,7 +19648,7 @@
             } else {
                 setTimeout(resolve, 0);
             }
-        });
+        }));
         await paint();
         const resolvedFields = await Promise.allSettled(outcomes.map(outcome =>
             waitForObservationField(outcome.observation, options.elementTimeoutMs ?? 4000)));
@@ -19784,6 +19786,7 @@
             allMatched: result.allMatched,
             unresolved: unresolved.length
         });
+        await paint();
         return result;
     }
 
