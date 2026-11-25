@@ -18611,6 +18611,7 @@
         }
         if (observation.code === 'litswi1' && normalizedBirdName(observation.name) === '小雨燕') expected.push('Little Swift');
         if (observation.code === 'whiwag8') expected.push('White Wagtail (Chinese)');
+        if (observation.code === 'bkcsta1') expected.push('Black-collared Starling');
         if (observation.code === 'brnshr3') expected.push('Brown Shrike (Philippine)');
         if (observation.code === 'brnshr1') expected.push('Brown Shrike (Brown)');
         const normalized = normalizedBirdName(name).toLowerCase();
