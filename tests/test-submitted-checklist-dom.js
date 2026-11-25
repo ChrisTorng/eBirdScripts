@@ -347,3 +347,43 @@ test('saved Little Swift species and nipalensis group are not interchangeable', 
         document.getElementById(code).remove();
     }
 });
+
+test('qualified Eastern Yellow Wagtail heading can use its official parent link without accepting a sibling taxon', () => {
+    const { document, api, record, pre } = load(fixture('2026/9/5'));
+    document.querySelectorAll('.Observation').forEach(row => row.remove());
+    const observation = api.parseObservationLine('東方黃 2').value;
+    record.observations = [observation];
+    pre.totalCount = 1;
+    pre.items = [{ observation, code: observation.code, status: 'filled' }];
+    for (const [rowCode, linkCode, name, count, expected] of [
+        ['weywag8', 'eaywag', '東方黃鶺鴒(黃眉)', 2, true],
+        ['eaywag', 'eaywag', '東方黃鶺鴒（黃眉）', 2, true],
+        ['weywag8', 'weywag8', '東方黃鶺鴒(黃眉)', 2, true],
+        ['weywag8', '', '東方黃鶺鴒(黃眉)', 2, true],
+        ['eaywag', 'eaywag', '東方黃鶺鴒', 2, false],
+        ['eaywag2', 'eaywag', '東方黃鶺鴒(白眉)', 2, false],
+        ['eaywag2', 'eaywag', '東方黃鶺鴒(黃眉)', 2, false],
+        ['weywag8', 'eaywag2', '東方黃鶺鴒(黃眉)', 2, false],
+        ['weywag8', 'eaywag', '東方黃鶺鴒(黃眉)', 1, false]
+    ]) {
+        document.body.insertAdjacentHTML('beforeend', '<section class="Observation" id="' + rowCode + '"><div class="Observation-species"><h3><span class="Heading-main">' + (linkCode ? '<a href="/atlastw/species/' + linkCode + '">' + name + '</a>' : name) + '</span></h3></div><div class="Observation-numberObserved">' + count + '</div></section>');
+        const result = api.verifySubmittedChecklist(record, pre);
+        assert.equal(result.allMatched, expected, JSON.stringify({ rowCode, linkCode, name, count, result }));
+        document.getElementById(rowCode).remove();
+    }
+    assert.equal(api.taxonIdentityMatches(observation, 'eaywag', '東方黃鶺鴒(黃眉)'), false, 'parent cannot be used on the editable form');
+});
+
+test('completed-page mismatch includes actual link code and row code for diagnosis', () => {
+    const { document, api, record, pre } = load(fixture('2026/9/5'));
+    document.querySelectorAll('.Observation').forEach(row => row.remove());
+    const observation = api.parseObservationLine('東方黃 2').value;
+    record.observations = [observation];
+    pre.totalCount = 1;
+    pre.items = [{ observation, code: observation.code, status: 'filled' }];
+    document.body.insertAdjacentHTML('beforeend', '<section class="Observation" id="weywag8"><a href="/atlastw/species/eaywag2">東方黃鶺鴒(黃眉)</a><div class="Observation-numberObserved">2</div></section>');
+    const result = api.verifySubmittedChecklist(record, pre);
+    assert.equal(result.allMatched, false);
+    assert.match(result.items[0].error, /連結：eaywag2/);
+    assert.match(result.items[0].error, /列識別碼：weywag8/);
+});
