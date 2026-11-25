@@ -557,6 +557,7 @@ describe('eBird species form safety', () => {
 小雨燕 2`, new Date(2000, 0, 31), testLocationPresets);
         const count = harness.document.createElement('input');
         count.id = 'houswi1';
+        count.value = '';
         harness.appendToBody(count);
         addTaxonName(harness, 'houswi1', '小雨燕(nipalensis 群)');
         const complete = harness.document.createElement('input');
