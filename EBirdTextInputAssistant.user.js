@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-11-25_1.12.11
+// @version      2026-11-25_1.12.12
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -18609,7 +18609,7 @@
         if (isPigeonObservation(observation)) {
             expected.push('原鴿', '野鴿', '野鴿(馴化)', '野鴿(野化)', 'Rock Pigeon', 'Rock Pigeon (Feral Pigeon)');
         }
-        if (observation.code === 'litswi1' && normalizedBirdName(observation.name) === '小雨燕') expected.push('Little Swift');
+        if (observation.code === 'litswi1' && normalizedBirdName(observation.name) === '小雨燕') expected.push('Little Swift', '小白腰雨燕');
         if (observation.code === 'whiwag8') expected.push('White Wagtail (Chinese)');
         if (observation.code === 'bkcsta1') expected.push('Black-collared Starling');
         if (observation.code === 'brnshr3') expected.push('Brown Shrike (Philippine)');
@@ -18628,6 +18628,27 @@
             && taxonNameMatches(observation, name);
     }
 
+    function describeTaxonCandidates(observation) {
+        const expected = normalizedBirdName(observation.name).toLowerCase();
+        const base = expected.split('(')[0];
+        const codes = observation.codes || [observation.code];
+        const candidates = new Map();
+        for (const code of codes) {
+            const field = document.getElementById(code);
+            candidates.set(code, code + '（' + (readTaxonName(code) || (field ? '有欄位，未讀到名稱' : '欄位不存在')) + '）');
+        }
+        for (const field of document.querySelectorAll('.SubmitChecklist-species input.sc, .SubmitChecklist-species input[type="tel"], input.sc')) {
+            if (!field.id || candidates.has(field.id)) continue;
+            const name = readTaxonName(field.id);
+            const normalized = normalizedBirdName(name).toLowerCase();
+            if (name && (normalized.startsWith(base) || taxonNameMatches(observation, name)
+                || (observation.code === 'litswi1' && /雨燕|swift/i.test(name)))) {
+                candidates.set(field.id, field.id + '（' + name + '）');
+            }
+        }
+        return Array.from(candidates.values()).slice(0, 15).join('／');
+    }
+
     function waitForObservationField(observation, timeoutMs = 4000) {
         const codes = Array.from(new Set(observation.codes || [observation.code]));
         const started = Date.now();
@@ -18637,7 +18658,7 @@
                 if (code) {
                     resolve({ code: code, element: document.getElementById(code) });
                 } else if (Date.now() - started >= timeoutMs) {
-                    reject(new Error('找不到名稱及分類識別碼均相符的鳥種：' + codes.map(code => code + '（' + (readTaxonName(code) || '找不到名稱') + '）').join('／')));
+                    reject(new Error('找不到名稱及分類識別碼均相符的鳥種；預期 ' + observation.name + '／' + codes.join('、') + '；頁面候選：' + describeTaxonCandidates(observation)));
                 } else {
                     setTimeout(check, 50);
                 }
@@ -18913,20 +18934,24 @@
     }
 
     function revealAdditionalSpeciesSections() {
-        const controls = Array.from(document.querySelectorAll('button, a, label, summary, [role="button"]'));
-        const sectionPattern = /^(?:show\s+)?(?:rarities|rare species|uncommon|not observed|no observations|不常見|稀有|稀有鳥種|無觀察紀錄|顯示稀有鳥種)$/i;
+        const controls = Array.from(document.querySelectorAll('button, a, label, summary, [role="button"], input[type="checkbox"]'));
+        const sectionPattern = /^(?:show\s+)?(?:rarities|rare|rare species|uncommon|uncommon species|not observed|no observations|不常見(?:鳥種)?|罕見(?:鳥種)?|稀有(?:鳥種)?|無觀察紀錄|顯示(?:罕見|稀有|不常見|少見)(?:鳥種)?)$/i;
+        const seen = new Set();
         let clicked = 0;
         controls.forEach(function(control) {
-            const text = control.textContent.replace(/\s+/g, ' ').trim();
-            if (!sectionPattern.test(text)) {
-                return;
-            }
-            const expanded = control.getAttribute('aria-expanded');
-            const input = control.matches('input') ? control : control.querySelector('input[type="checkbox"]');
-            if (expanded !== 'true' && !(input && input.checked)) {
-                control.click();
-                clicked += 1;
-            }
+            const input = control.matches('input') ? control
+                : control.querySelector('input[type="checkbox"]')
+                    || (control.getAttribute('for') && document.getElementById(control.getAttribute('for')));
+            const labels = [control.textContent, control.getAttribute('aria-label'), control.getAttribute('title')];
+            if (input && input.labels) Array.from(input.labels).forEach(label => labels.push(label.textContent));
+            if (!labels.some(label => sectionPattern.test(String(label || '').replace(/\s+/g, ' ').trim()))) return;
+            const target = input || control;
+            if (seen.has(target)) return;
+            seen.add(target);
+            if (input && input.checked || control.getAttribute('aria-expanded') === 'true'
+                || target.getAttribute('aria-checked') === 'true') return;
+            target.click();
+            clicked += 1;
         });
         return clicked;
     }
@@ -19218,7 +19243,7 @@
             '完整清單',
             actualCompleteness === 'all-spp-y'
                 ? '是完整清單'
-                : actualCompleteness === 'all-spp-n' ? '否（附帶紀錄）' : '找不到',
+                : actualCompleteness === 'all-spp-n' ? '否（附帶紀錄）' : yes || no ? '尚未選擇' : '找不到欄位',
             actualCompleteness === completenessId
         );
         return { actual: actual, checks: checks };
@@ -19657,11 +19682,12 @@
             }
         }));
         await paint();
-        const resolvedFields = await Promise.allSettled(outcomes.map(outcome =>
-            waitForObservationField(outcome.observation, options.elementTimeoutMs ?? 4000)));
+        const resolvedFields = outcomes.map(outcome => Promise.allSettled([
+            waitForObservationField(outcome.observation, options.elementTimeoutMs ?? 4000)
+        ]).then(results => results[0]));
         for (let index = 0; index < outcomes.length; index += 1) {
             const outcome = outcomes[index];
-            const resolved = resolvedFields[index];
+            const resolved = await resolvedFields[index];
             await paint();
             if (resolved.status === 'fulfilled') {
                 try {
@@ -19755,6 +19781,10 @@
                     .filter(function(item) { return item.key === 'completeness'; })
             ) }
             : readChecklistVerification(record, completenessId);
+        const completenessCheck = verification.checks.find(item => item.key === 'completeness');
+        if (completenessCheck && complete && !completenessCheck.matched && hasInputIssues) {
+            completenessCheck.error = '鳥種填寫尚未全部通過，未自動設定完整清單';
+        }
         if (!record.editExisting) renderEffortDetailsOnPage(verification.checks);
 
         errors.push.apply(errors, formErrors);
@@ -19791,7 +19821,8 @@
         reportProgress('done', {
             verified: result.filledCount,
             allMatched: result.allMatched,
-            unresolved: unresolved.length
+            unresolved: unresolved.length,
+            failedSpecies: result.items.filter(item => item.status !== 'filled').map(item => item.observation.name)
         });
         await paint();
         return result;
@@ -21065,7 +21096,8 @@
                     label.textContent = progress.allMatched
                         ? '已完成並驗證：' + position
                         : '已處理 ' + position + '；驗證符合 ' + progress.verified + '/' + total
-                            + ' 種，請檢查下方異常項目。';
+                            + ' 種' + (progress.failedSpecies && progress.failedSpecies.length
+                                ? '；未通過：' + progress.failedSpecies.join('、') : '') + '，請檢查下方異常項目。';
                 } else if (progress.phase === 'verifying') {
                     label.textContent = '已處理 ' + position + '，正在讀回驗證…';
                 } else {
@@ -21093,6 +21125,11 @@
             appendLine(warning, 'tm-ebird-warning');
         });
 
+        const failed = result.items.filter(item => item.status !== 'filled');
+        if (failed.length) {
+            appendLine('未通過鳥種（請先檢查）：', 'tm-ebird-summary-heading');
+            failed.forEach(item => appendLine('✗ ' + item.observation.name + ' — ' + item.error, 'tm-ebird-error'));
+        }
         const metadata = Array.isArray(result.metadata) ? result.metadata : [];
         metadata.forEach(function(item) {
             const advisory = record.editExisting && item.key !== 'completeness' && !item.matched;
