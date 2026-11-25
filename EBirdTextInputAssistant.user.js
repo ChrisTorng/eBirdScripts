@@ -18594,7 +18594,10 @@
     function readTaxonName(code) {
         const container = document.getElementById('name_' + code);
         const node = container && (container.querySelector('span') || container);
-        return node ? String(node.textContent || '').replace(/\s+/g, ' ').trim() : '';
+        const name = node ? String(node.textContent || '').replace(/\s+/g, ' ').trim() : '';
+        const full = container ? String(container.textContent || '').replace(/\s+/g, ' ').trim() : '';
+        // Do not discard a qualifier rendered in a separate sibling span.
+        return name && full.startsWith(name) && /^\s*[（(]/.test(full.slice(name.length)) ? full : name;
     }
 
     const officialTaxonNames = new Map(Object.entries(fullSpeciesNames).map(([name, code]) => [normalizedBirdName(name).toLowerCase(), code]));
@@ -19567,7 +19570,10 @@
             postSubmitPassed: false,
             allMatched: false
         };
-        result.postSubmitPassed = metadata.every(function(item) {
+        if (!record.editExisting && rows.length && rows.length !== record.observations.length) {
+            result.formErrors = result.formErrors.concat('完成頁鳥種總數不符：預期 ' + record.observations.length + '，實際 ' + rows.length);
+        }
+        result.postSubmitPassed = result.formErrors.length === 0 && metadata.every(function(item) {
                 return (record.editExisting && item.key !== 'completeness') || item.matched;
             })
             && items.every(function(item) { return item.status === 'filled'; })
