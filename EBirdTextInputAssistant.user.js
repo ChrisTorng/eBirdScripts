@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-11-25_1.12.14
+// @version      2026-11-27_1.12.15
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -18625,6 +18625,8 @@
             expected.push('原鴿', '野鴿', '野鴿(馴化)', '野鴿(野化)', 'Rock Pigeon', 'Rock Pigeon (Feral Pigeon)');
         }
         if (isUnqualifiedLittleSwift(observation)) return ['小雨燕', '小白腰雨燕', 'littleswift', 'little/houseswift'].includes(normalizedBirdName(name).toLowerCase());
+        // A known localized alternative common name, not a subspecies or slash taxon.
+        if (observation.code === 'swiwhe1') expected.push('斯氏繡眼', '斯氏繡眼(綠繡眼)');
         if (observation.code === 'whiwag8') expected.push('White Wagtail (Chinese)');
         if (observation.code === 'bkcsta1') expected.push('Black-collared Starling');
         if (observation.code === 'brnshr3') expected.push('Brown Shrike (Philippine)');
@@ -18865,9 +18867,12 @@
         if (!select) {
             return '';
         }
-        const selected = Array.from(select.options || []).find(function(option) {
-            return String(option.value) === String(select.value);
-        }) || (select.selectedIndex >= 0 ? select.options[select.selectedIndex] : null);
+        // The actual selected index is authoritative, even if options share a value.
+        const selected = typeof select.selectedIndex === 'number'
+            ? (select.selectedIndex >= 0 ? select.options[select.selectedIndex] : null)
+            : Array.from(select.options || []).find(function(option) {
+                return String(option.value) === String(select.value);
+            });
         return selected ? selected.textContent.replace(/\s+/g, ' ').trim() : '';
     }
 
@@ -18918,7 +18923,10 @@
             return { breedingText: '', comments: '' };
         }
         const detailLink = await waitForElement('add_' + observation.code);
-        detailLink.click();
+        if (detailLink.getAttribute('aria-expanded') !== 'true'
+            && !/^(?:隱藏|hide\b)/i.test(String(detailLink.textContent || '').trim())) {
+            detailLink.click();
+        }
         if (observation.unknownDetails && !observation.breedingCode) {
             const select = await waitForElement('p-' + observation.code + '_bcode');
             const suggestion = suggestBreedingCode(observation.unknownDetails, select.options);
@@ -18938,11 +18946,16 @@
                 throw new Error('找不到 ' + observation.name + ' 的繁殖代碼 ' + observation.breedingCode + '。');
             }
             breedingSelect.value = option.value;
+            if (typeof breedingSelect.selectedIndex === 'number') {
+                breedingSelect.selectedIndex = Array.from(breedingSelect.options).indexOf(option);
+            }
             dispatchValueEvents(breedingSelect);
             breedingText = selectedOptionText(breedingSelect) || option.textContent.trim();
         }
         if (observation.comments) {
-            setValue('p-' + observation.code + '_comments', observation.comments);
+            const commentsId = 'p-' + observation.code + '_comments';
+            await waitForElement(commentsId);
+            setValue(commentsId, observation.comments);
         }
         return { breedingText: breedingText, comments: observation.comments,
             breedingCode: observation.breedingCode, breedingSuggestion: observation.breedingSuggestion, warning: observation.warning };
@@ -18996,7 +19009,7 @@
         // Option values may be internal IDs. Read the visible selected code first,
         // without using the expected code or equating C with CN/CF (or N with NB).
         const breedingValue = breedingCodeFromText(selectedBreedingText)
-            || breedingCodeFromText(rawBreedingValue) || rawBreedingValue;
+            || (!selectedBreedingText ? breedingCodeFromText(rawBreedingValue) || rawBreedingValue : null);
         const breedingText = rawBreedingValue ? selectedBreedingText : '';
         const commentsField = document.getElementById('p-' + code + '_comments');
         const comments = normalizeObservationComments(commentsField && commentsField.value);
@@ -19582,7 +19595,7 @@
             const expectedComments = normalizeObservationComments(observation.comments);
             const breedingMatched = observation.breedingCode
                 ? new RegExp(
-                    '(^|[^A-Za-z])' + escapeRegex(observation.breedingCode) + '(?=[^A-Za-z]|$)',
+                    '(^|[^A-Za-z0-9])' + escapeRegex(observation.breedingCode) + '(?=[^A-Za-z0-9]|$)',
                     'i'
                 ).test(breedingText)
                 : !structured || !breedingText;
