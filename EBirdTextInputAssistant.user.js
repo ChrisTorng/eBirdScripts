@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-11-27_1.12.15
+// @version      2026-11-27_1.12.16
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -13,6 +13,10 @@
 // @match        https://ebird.org/*/edit/checklist*
 // @match        https://ebird.org/checklist/*
 // @match        https://ebird.org/*/checklist/*
+// @match        https://ebird-dashboard.christorng.idv.tw/sync.html*
+// @grant        GM_openInTab
+// @grant        GM_deleteValue
+// @grant        GM_registerMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
 // ==/UserScript==
@@ -21333,6 +21337,103 @@
         location.assign(location.origin + prefix + '/edit/checklist?subID=' + encodeURIComponent(subId));
     }
 
+
+    // The relay uses an authenticated dashboard tab, not cross-origin cookies or a public API token.
+    const dashboardSyncOrigin = 'https://ebird-dashboard.christorng.idv.tw';
+    const dashboardEnabledKey = 'ebirdTextInputAssistant:dashboardSyncEnabled';
+    const dashboardQueuePrefix = 'ebirdTextInputAssistant:dashboardSync:';
+    const readSyncValue = (key, fallback) => typeof GM_getValue === 'function' ? GM_getValue(key, fallback) : fallback;
+    function readDashboardSnapshot() {
+        const id = (location.pathname.match(/\/checklist\/(S\d+)\/?$/) || [])[1];
+        const edit = findEditSpeciesLink();
+        if (!id || !edit) throw Error('目前頁面沒有可確認的本人編輯權限');
+        const url = new URL(edit.getAttribute('href'), location.origin);
+        if (url.origin !== location.origin) throw Error('編輯連結不是 eBird');
+        const targetId = url.searchParams.get('subID') || url.searchParams.get('subId') || (url.pathname.match(/S\d+/)||[])[0];
+        if (targetId && targetId !== id) throw Error('編輯連結指向其他清單');
+        const sectionFor = key => document.getElementById(key)?.closest('section') ||
+            Array.from(document.querySelectorAll('section')).find(s => (s.getAttribute('aria-labelledby')||s.getAttribute('aria-labelledBy'))===key);
+        const primary=sectionFor('primary-details'), effort=sectionFor('other-details-effort');
+        if(!primary||!effort)throw Error('完成頁地點或努力量尚未載入');
+        const loc=Array.from(primary.querySelectorAll('a[href]')).find(a=>/\/(?:hotspot|location)\/L\d+(?:[/?#]|$)/.test(a.getAttribute('href')));
+        const locationId=loc&&(loc.getAttribute('href').match(/\/(L\d+)/)||[])[1];
+        const locationName=(primary.querySelector('[data-locationname]')||loc)?.textContent.trim();
+        const time=primary.querySelector('time[datetime]');
+        const timestamp=time?.getAttribute('datetime')?.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+        if(!locationId||!locationName||!timestamp)throw Error('無法從正式頁確認地點代碼或日期時間');
+        const protocol=effort.querySelector('.Heading-main')?.textContent.trim();
+        if(!protocol)throw Error('無法確認努力量類型');
+        const incidental=/^(Incidental|附帶紀錄)$/i.test(protocol), traveling=/^(Traveling|行進計數)$/i.test(protocol), stationary=/^(Stationary|定點計數)$/i.test(protocol);
+        if(!incidental&&!traveling&&!stationary)throw Error('尚未支援此努力量：'+protocol);
+        const dur=effort.querySelector('time[datetime]')?.getAttribute('datetime')?.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+        const duration=dur?Number(dur[1]||0)*60+Number(dur[2]||0)+Number(dur[3]||0)/60:null;
+        const dist=effort.querySelector('.Icon--track')?.parentElement.querySelector('.Badge-label')?.textContent.trim().match(/^(\d+(?:\.\d+)?)\s*(km|公里|mi|miles?)$/i);
+        const distance=dist?Number(dist[1])*(/^mi/i.test(dist[2])?1.609344:1):null;
+        const completeText=effort.querySelector('[aria-controls="status-info"] .Badge-label')?.textContent.trim();
+        const complete=['Complete','完整紀錄清單','完整清單'].includes(completeText)?1:['Incomplete','非完整紀錄清單','非完整清單','不完整紀錄清單','不完整清單'].includes(completeText)?0:null;
+        if(complete===null||(!incidental&&duration===null)||(traveling&&distance===null))throw Error('完成頁努力量或完整清單狀態不完整');
+        const rows=Array.from(document.querySelectorAll('.Observation')).filter(r=>!r.closest('#'+panelId));
+        if(!rows.length)throw Error('正式鳥種清單尚未載入');
+        const observations=[],seen=new Set();
+        for(const row of rows){
+            const ident=submittedRowIdentity(row), norm=normalizedBirdName(ident.name).toLowerCase();
+            const named=officialTaxonNames.get(norm);
+            // Qualified names must match their exact official code, not a parent link.
+            const code=named||ident.rowCode||ident.linkCode;
+            if(!code||!officialTaxonCodes.has(code)||(!named&&/[()（）]/.test(ident.name)))throw Error('無法確認正式分類群：'+ident.name);
+            const observation={name:ident.name,code,codes:[code]};
+            const accepted=submittedTaxonCodes(observation,ident.name);
+            if((ident.rowCode&&!accepted.has(ident.rowCode))||(ident.linkCode&&!accepted.has(ident.linkCode)))throw Error('分類群名稱與代碼不一致：'+ident.name);
+            const countNode=row.querySelector('.Observation-numberObserved')?.cloneNode(true);
+            if(!countNode)throw Error('缺少數量：'+ident.name);
+            countNode.querySelectorAll('.is-visuallyHidden').forEach(n=>n.remove());
+            const value=countNode.textContent.trim();
+            if(!/^(?:X|\d+)$/.test(value)||seen.has(code))throw Error('數量不明或分類群重複：'+ident.name);
+            seen.add(code);observations.push({code,count:value==='X'?'X':Number(value)});
+        }
+        return {id,location_id:locationId,location:locationName,date:timestamp[1],time:timestamp[2],protocol,complete,duration,distance,observations};
+    }
+    async function dashboardRelay(){
+        const m=location.hash.match(/^#ebird-sync=([a-f0-9]{32})$/);
+        if(!m)return;
+        const key=dashboardQueuePrefix+m[1], item=readSyncValue(key,null);
+        if(!item||item.status!=='pending'||Date.now()-item.created>600000)return;
+        const status=document.getElementById('syncStatus');
+        try{
+            const response=await fetch('/api/sync-checklist',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify([item.snapshot])});
+            const data=await response.json().catch(()=>null);
+            if(!response.ok||!data||!(data.imported===1||data.unchanged===true))throw Error(data?.error||'Dashboard API '+response.status);
+            GM_setValue(key,{status:'success',unchanged:!!data.unchanged,locationWarning:!!data.locationWarning,created:item.created});
+            if(status)status.textContent=data.unchanged?'清單已同步':'清單同步成功';
+        }catch(e){GM_setValue(key,{status:'error',error:e.message,created:item.created});if(status)status.textContent='同步失敗：'+e.message}
+    }
+    function installDashboardSync(panel,header,body,setCollapsed){
+        const line=document.createElement('div');line.style.cssText='font-size:12px;padding:3px 8px;flex:none;overflow-wrap:anywhere';line.setAttribute('role','status');
+        const details=document.createElement('div');details.style.cssText='font-size:12px;overflow-wrap:anywhere';
+        const error=document.createElement('div'),button=document.createElement('button');button.type='button';button.textContent='重試同步';details.append(error,button);details.hidden=true;body.append(details);header.after(line);
+        let running=false;
+        async function run(){
+            if(running)return;
+            if(!readSyncValue(dashboardEnabledKey,false)){line.textContent='個人儀表板：未啟用';const enable=document.createElement('button');enable.textContent='啟用';enable.type='button';enable.onclick=()=>{if(!confirm('將你有編輯權限的 eBird 清單同步至個人儀表板 '+dashboardSyncOrigin+'？'))return;GM_setValue(dashboardEnabledKey,true);run()};line.append(' ',enable);return;}
+            running=true;details.hidden=true;line.textContent='個人儀表板：同步中…';
+            let tab,key;
+            try{
+                const snapshot=readDashboardSnapshot();
+                const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);const nonce=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');key=dashboardQueuePrefix+nonce;
+                GM_setValue(key,{status:'pending',snapshot,created:Date.now()});
+                tab=GM_openInTab(dashboardSyncOrigin+'/sync.html#ebird-sync='+nonce,{active:false,insert:true});
+                const start=Date.now();let result;
+                while(Date.now()-start<90000){await new Promise(r=>setTimeout(r,500));result=readSyncValue(key,null);if(result&&result.status!=='pending')break;}
+                if(!result||result.status!=='success')throw Error(result?.error||'同步未完成；請確認 Dashboard Access 已登入，再重試');
+                line.textContent=result.unchanged?'✓ 儀表板已是最新':'✓ 已同步個人儀表板'+(result.locationWarning?'（地點座標待補）':'');
+                tab?.close?.();
+            }catch(e){line.textContent='儀表板同步失敗';error.textContent=e.message;details.hidden=false;setCollapsed(false)}
+            finally{if(key&&typeof GM_deleteValue==='function')GM_deleteValue(key);running=false}
+        }
+        button.onclick=run;
+        return run;
+    }
+
     function createPanel() {
         if (document.getElementById(panelId)) {
             return document.getElementById(panelId);
@@ -21536,6 +21637,7 @@
             panel.classList.add('tm-ebird-review-panel');
         }
 
+        const dashboardSync = isSubmittedChecklistPage && (canEditExisting || submittedConfirmation) ? installDashboardSync(panel,header,body,setCollapsed) : null;
         if (isSubmittedChecklistPage && editingLanding) {
             const text = document.body ? document.body.textContent : '';
             const countMatch = text.match(/(\d+)\s*紀錄鳥種數/);
@@ -21552,6 +21654,7 @@
             editorTextarea = controls.textarea;
             initialCollapsed = hasExistingSpecies;
             setHeaderState('編輯既有紀錄', false);
+            if(dashboardSync) setTimeout(dashboardSync,800);
             if (hasExistingSpecies) {
                 status.textContent = '⚠ 目標清單已有鳥種紀錄；可繼續填入，但不會自動儲存。';
                 status.className = 'tm-ebird-status tm-ebird-warning';
@@ -21572,6 +21675,7 @@
             if (postResult.allMatched) {
                 setHeaderState(confirmation.record.editExisting ? '✓ 鳥種檢查符合' : '✓ 全部檢查符合', true);
                 initialCollapsed = true;
+                if(dashboardSync)setTimeout(dashboardSync,0);
             } else {
                 setHeaderState('完成頁檢查未通過', false);
                 initialCollapsed = false;
@@ -21592,6 +21696,7 @@
                     if (retried.allMatched) {
                         setHeaderState(confirmation.record.editExisting ? '✓ 鳥種檢查符合' : '✓ 全部檢查符合', true);
                         setCollapsed(true);
+                        if(dashboardSync)setTimeout(dashboardSync,0);
                     } else if (retryCount < 10) {
                         setHeaderState('正在等待完成頁內容…', false);
                         setTimeout(retrySubmittedVerification, 500);
@@ -21736,6 +21841,7 @@
         readSubmittedMetadata: readSubmittedMetadata,
         parseDisplayedDateTime: parseDisplayedDateTime,
         verifySubmittedChecklist: verifySubmittedChecklist,
+        readDashboardSnapshot: readDashboardSnapshot,
         revealAdditionalSpeciesSections: revealAdditionalSpeciesSections,
         setUnobservedVisibility: setUnobservedVisibility,
         recentDateValues: recentDateValues,
@@ -21749,6 +21855,8 @@
     };
     globalThis.__ebirdTextInputAssistant = api;
 
+    if(location.origin===dashboardSyncOrigin){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',dashboardRelay,{once:true});else dashboardRelay();return;}
+    if(typeof GM_registerMenuCommand==='function')GM_registerMenuCommand('個人儀表板同步：'+(readSyncValue(dashboardEnabledKey,false)?'停用':'啟用'),()=>{const next=!readSyncValue(dashboardEnabledKey,false);if(next&&!confirm('啟用同步至 '+dashboardSyncOrigin+'？'))return;GM_setValue(dashboardEnabledKey,next);location.reload()});
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', createPanel, { once: true });
     } else {

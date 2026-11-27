@@ -137,3 +137,6 @@ Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally
 如果遇到任何問題或功能建議，請至 [GitHub 頁面](https://github.com/ChrisTorng/eBirdScripts/) 提交 [issue](https://github.com/ChrisTorng/eBirdScripts/issues)。
 
 支援「灰頭紅尾伯勞」與「褐頭紅尾伯勞」，分別對應紅尾伯勞的灰頭、褐頭亞種。
+
+### 個人儀表板增量同步（選用）
+首次在助手完成頁按啟用，或由 Tampermonkey 選單啟用；只送出至本專案維護者的私人 Dashboard，需要先登入 Cloudflare Access。其他使用者預設停用，請自行部署及修改目的網域。完成頁核對成功後同步；重開具編輯權限的清單會比較並補同步，編輯同 ID 更新。失敗展開錯誤與重試，成功一行顯示。無法確認正式地點、時間、分類群或編輯權限時不寫入。同步經背景 Dashboard relay 頁，沒有 API token 放入腳本；若 Access 逾期請登入後重試。ZIP 仍可用於完整更新。
