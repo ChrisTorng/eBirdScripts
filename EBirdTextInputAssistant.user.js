@@ -19009,7 +19009,7 @@
         // Option values may be internal IDs. Read the visible selected code first,
         // without using the expected code or equating C with CN/CF (or N with NB).
         const breedingValue = breedingCodeFromText(selectedBreedingText)
-            || (!selectedBreedingText ? breedingCodeFromText(rawBreedingValue) || rawBreedingValue : null);
+            || breedingCodeFromText(rawBreedingValue) || rawBreedingValue;
         const breedingText = rawBreedingValue ? selectedBreedingText : '';
         const commentsField = document.getElementById('p-' + code + '_comments');
         const comments = normalizeObservationComments(commentsField && commentsField.value);
