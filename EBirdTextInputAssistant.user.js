@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird Text Input Assistant
 // @namespace    http://tampermonkey.net/
-// @version      2026-11-27_1.12.16
+// @version      2026-11-27_1.12.17
 // @description  Parse Taiwan birding notes, fill eBird forms, verify page values, and optionally submit after successful verification.
 // @author       ChrisTorng
 // @homepage     https://github.com/ChrisTorng/eBirdScripts/
@@ -21379,7 +21379,7 @@
             const ident=submittedRowIdentity(row), norm=normalizedBirdName(ident.name).toLowerCase();
             const named=officialTaxonNames.get(norm);
             // Qualified names must match their exact official code, not a parent link.
-            const code=named||ident.rowCode||ident.linkCode;
+            const code=named;
             if(!code||!officialTaxonCodes.has(code)||(!named&&/[()（）]/.test(ident.name)))throw Error('無法確認正式分類群：'+ident.name);
             const observation={name:ident.name,code,codes:[code]};
             const accepted=submittedTaxonCodes(observation,ident.name);
@@ -21410,7 +21410,7 @@
     function installDashboardSync(panel,header,body,setCollapsed){
         const line=document.createElement('div');line.style.cssText='font-size:12px;padding:3px 8px;flex:none;overflow-wrap:anywhere';line.setAttribute('role','status');
         const details=document.createElement('div');details.style.cssText='font-size:12px;overflow-wrap:anywhere';
-        const error=document.createElement('div'),button=document.createElement('button');button.type='button';button.textContent='重試同步';details.append(error,button);details.hidden=true;body.append(details);header.after(line);
+        const error=document.createElement('div'),button=document.createElement('button');button.type='button';button.textContent='重試同步';details.append(error,button);details.hidden=true;body.append(details);panel.insertBefore(line,body);
         let running=false;
         async function run(){
             if(running)return;
@@ -21637,7 +21637,7 @@
             panel.classList.add('tm-ebird-review-panel');
         }
 
-        const dashboardSync = isSubmittedChecklistPage && (canEditExisting || submittedConfirmation) ? installDashboardSync(panel,header,body,setCollapsed) : null;
+        const dashboardSync = typeof GM_openInTab==='function' && isSubmittedChecklistPage && (canEditExisting || submittedConfirmation) ? installDashboardSync(panel,header,body,setCollapsed) : null;
         if (isSubmittedChecklistPage && editingLanding) {
             const text = document.body ? document.body.textContent : '';
             const countMatch = text.match(/(\d+)\s*紀錄鳥種數/);
@@ -21855,7 +21855,7 @@
     };
     globalThis.__ebirdTextInputAssistant = api;
 
-    if(location.origin===dashboardSyncOrigin){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',dashboardRelay,{once:true});else dashboardRelay();return;}
+    if(typeof location!=='undefined'&&location.origin===dashboardSyncOrigin){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',dashboardRelay,{once:true});else dashboardRelay();return;}
     if(typeof GM_registerMenuCommand==='function')GM_registerMenuCommand('個人儀表板同步：'+(readSyncValue(dashboardEnabledKey,false)?'停用':'啟用'),()=>{const next=!readSyncValue(dashboardEnabledKey,false);if(next&&!confirm('啟用同步至 '+dashboardSyncOrigin+'？'))return;GM_setValue(dashboardEnabledKey,next);location.reload()});
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', createPanel, { once: true });

@@ -387,3 +387,16 @@ test('completed-page mismatch includes actual link code and row code for diagnos
     assert.match(result.items[0].error, /連結：eaywag2/);
     assert.match(result.items[0].error, /列識別碼：weywag8/);
 });
+
+test('dashboard snapshot requires an editable formal checklist, reads actual values and rejects unknown taxa',()=>{
+ const {document,api}=load(fixture('2026/9/5'));
+ assert.throws(()=>api.readDashboardSnapshot(),/編輯權限/);
+ const edit=document.createElement('a');edit.href='/atlastw/edit/checklist?subID=S123456789';edit.textContent='編輯鳥種';document.body.append(edit);
+ const snapshot=api.readDashboardSnapshot();
+ assert.equal(snapshot.id,'S123456789');assert.equal(snapshot.location_id,'L1001');
+ assert.equal(snapshot.time,'07:54');assert.equal(snapshot.duration,25);assert.equal(snapshot.distance,1);
+ assert.equal(snapshot.observations.length,2);
+ assert.equal(snapshot.observations[0].count,5);
+ document.querySelector('#whiwag a').textContent='Unknown Bird (Wrong group)';
+ assert.throws(()=>api.readDashboardSnapshot(),/分類群/);
+});
