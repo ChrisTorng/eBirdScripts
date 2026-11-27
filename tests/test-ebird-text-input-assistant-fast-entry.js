@@ -1083,3 +1083,58 @@ test('white-rumped alias keeps full bird names distinct', () => {
         }
     }
 });
+
+test('Nov 27 white-eye alternative name is accepted only for the correct taxon', () => {
+    const { api } = loadAssistant();
+    const obs = api.parseObservationLine('斯氏 2，2 聽到').value;
+    assert.equal(obs.code, 'swiwhe1');
+    assert.equal(obs.comments, 'Heard 2');
+    assert.equal(api.taxonIdentityMatches(obs, 'swiwhe1', '斯氏繡眼(綠繡眼)'), true);
+    assert.equal(api.taxonIdentityMatches(obs, 'swiwhe1', '斯氏繡眼（綠繡眼）'), true);
+    assert.equal(api.taxonIdentityMatches(obs, 'y00424', '斯氏繡眼/日菲繡眼'), false);
+    assert.equal(api.taxonIdentityMatches(obs, 'swiwhe1', '斯氏繡眼/日菲繡眼'), false);
+    assert.equal(api.taxonIdentityMatches(obs, 'swiwhe1', '斯氏繡眼(其他亞種)'), false);
+});
+
+test('waits for asynchronously created observation comments', async () => {
+    const { harness, api } = loadAssistant();
+    const obs = api.parseObservationLine('白頭翁 3，2 聽到').value;
+    const link = harness.document.createElement('button');
+    link.id = 'add_livbul1';
+    link.addEventListener('click', () => {
+        harness.context.setTimeout(() => {
+            const field = harness.document.createElement('textarea');
+            field.id = 'p-livbul1_comments';
+            harness.appendToBody(field);
+        }, 10);
+    });
+    harness.appendToBody(link);
+    const pending = api.applyObservationDetails(obs);
+    await Promise.resolve();
+    harness.runAllTimeouts();
+    await pending;
+    assert.equal(harness.document.getElementById('p-livbul1_comments').value, 'Heard 2');
+});
+
+test('chooses single singing S, not S7, even when the option values coincide', async () => {
+    const { harness, api } = loadAssistant();
+    const obs = api.parseObservationLine('紅嘴 1，唱歌，1 聽到').value;
+    assert.equal(obs.breedingCode, 'S');
+    const link = harness.document.createElement('button');
+    link.id = 'add_' + obs.code;
+    link.textContent = '隱藏繁殖代碼或細節';
+    link.addEventListener('click', () => { assert.fail('already expanded details must not be closed'); });
+    harness.appendToBody(link);
+    const select = harness.document.createElement('select');
+    select.id = 'p-' + obs.code + '_bcode';
+    select.options = [{ value: 'shared', textContent: 'S7 鳴唱7天以上' }, { value: 'shared', textContent: 'S 唱歌中鳥' }];
+    select.selectedIndex = 0;
+    harness.appendToBody(select);
+    const comments = harness.document.createElement('textarea');
+    comments.id = 'p-' + obs.code + '_comments';
+    harness.appendToBody(comments);
+    const details = await api.applyObservationDetails(obs);
+    assert.equal(select.selectedIndex, 1);
+    assert.equal(details.breedingText, 'S 唱歌中鳥');
+    assert.equal(comments.value, 'Heard 1');
+});
